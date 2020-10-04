@@ -6,6 +6,45 @@ error=""
 warning=""
 TMP_COLLAGE="/tmp/collage"
 
+help(){
+    echo "Usage: ucollage [images]"
+    echo "Controls:"
+    echo "  n       get next batch of images"
+
+    echo "  N       get previous batch of images"
+
+    echo "  h       decrease number of columns by 1"
+
+    echo "  j       decrease number of lines by 1"
+
+    echo "  k       increase number of lines by 1"
+
+    echo "  l       increase number of columns by 1"
+
+    echo "  -       decrease both the numbers of columns and lines by 1"
+
+    echo "  +/=     increase both the numbers of columns and lines by 1"
+
+    echo "  s       input exact number for lines and columns"
+
+    echo "  q       exit"
+
+    echo "  m       enter monocle mode: show only one image"
+
+    echo "  M       exit monocle mode"
+
+    echo "Monocle mode specific controls:"
+
+    echo "  r       rotate image 90 degrees clockwise"
+
+    echo "  R       rotate image 90 degrees counterclockwise"
+
+    echo "  u       rotate image 180 degrees"
+
+    echo "  x       execute command (use %s as placeholder for the image filename)"
+    exit
+}
+
 read_images() {
     images=()
     if [[ "$#" -gt 0 ]]
@@ -406,6 +445,7 @@ read_key() {
 [[ ! -d "$TMP_COLLAGE" ]] && mkdir "$TMP_COLLAGE"
 trap stop_daemon SIGINT
 trap redraw SIGWINCH
+[[ "$1" =~ ^-h$|^--help$ ]] && help
 read_images "$@"
 total="${#images[@]}"
 [[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
