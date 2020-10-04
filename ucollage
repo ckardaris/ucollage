@@ -161,7 +161,7 @@ get_input() {
         move=""
         [[ -n "$right" ]] && move="\e[${#right}D"
         printf "%s%s$move" "$left" "$right"
-        read -N1 -r char
+        read -rN1 char
         read -rsN1 -t 0.0001 k1
         read -rsN1 -t 0.0001 k2
         read -rsN1 -t 0.0001 k3
@@ -187,15 +187,15 @@ get_input() {
                 input="ESCAPE"; 
                 break
                 ;;
-            $'\b') 
-                left="${left:0:-1}"
+            $'\b')
+                [[ -n "$left" ]] && left="${left:0:-1}"
                 continue
                 ;;
             $'\n')
                 input="$left$right";
                 break
                 ;;
-            [0-9]|[A-Z]|[a-z]|' '|'%'|'.') #only accepting digits as input
+            [0-9]|[A-Z]|[a-z]|' '|[\:\;\|\<\>?+\-%._\\*@!])
                 left+="$key"
                 continue
                 ;;
