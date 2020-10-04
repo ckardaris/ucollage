@@ -6,6 +6,22 @@ error=""
 warning=""
 TMP_COLLAGE="/tmp/collage"
 
+read_images() {
+    images=()
+    if [[ "$#" -gt 0 ]]
+    then
+        for file in "$@"
+        do
+            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
+        done
+    else
+        for file in *
+        do
+            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
+        done
+    fi
+}
+
 clear_screen() {
     printf "\e[2J\e[?25l\e[H"
 }
@@ -221,7 +237,7 @@ print_status() {
         status+=" - Photos [$begin - $finish] of $total"
     else
         ((begin = start + 1))
-        status+=" - Photo $begin of $total"
+        status+=" - Photo $begin of $total - ${images[$start]}"
     fi
     printf "%s" "$status"
 }
@@ -390,7 +406,7 @@ read_key() {
 [[ ! -d "$TMP_COLLAGE" ]] && mkdir "$TMP_COLLAGE"
 trap stop_daemon SIGINT
 trap redraw SIGWINCH
-images=("$@")
+read_images "$@"
 total="${#images[@]}"
 [[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
 show="$total"
