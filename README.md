@@ -68,7 +68,7 @@ ucollage [images]
 
 `x` execute command (use `%s` as placeholder for the image filename)
 
-## Default values
+### Default values
 
 You can set default values for the number of lines and columns the program
 starts with. You just have to export the relevant variables in your `.bashrc`
