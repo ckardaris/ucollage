@@ -1,0 +1,403 @@
+#!/usr/bin/env bash
+#Defaults
+fit_vertical=3
+fit_horizontal=4
+error=""
+warning=""
+TMP_COLLAGE="/tmp/collage"
+
+clear_screen() {
+    printf "\e[2J\e[?25l\e[H"
+}
+
+show_cursor() {
+    printf "\e[?25h"
+}
+
+start_daemon() {
+    fifo=$(mktemp --dry-run /tmp/collage_fifo-XXXXXXXXX)
+    mkfifo "$fifo"
+    ueberzug layer --parse bash --silent < "$fifo" &
+    exec {colfd}> "$fifo"
+}
+
+stop_daemon() {
+    exec {colfd}>&-
+    rm "$fifo"
+    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$TMP_COLLAGE" && show_cursor && exit
+}
+
+restart_daemon() {
+    stop_daemon --no-exit
+    start_daemon
+}
+
+calculate_dimensions() {
+    read -r lines columns < <(stty size)
+    (( photo_columns = columns / fit_horizontal ))
+    (( photo_lines = (lines - 3) / fit_vertical ))
+    (( batch = fit_horizontal * fit_vertical ))
+    (( show = total - start ))
+    [[ "$show" -gt "$batch" ]] && show="$batch"
+}
+
+show_batch() {
+    cnt=0
+    [[ "$show" -le 0 ]] && return
+    for (( i = 0; i < fit_vertical; i++ ))
+    do
+        for (( j = 0; j < fit_horizontal; j++, cnt++ ))
+        do
+            (( index = start + i * fit_horizontal + j))
+            (( posx = j * photo_columns))
+            (( posy = 3 + i * photo_lines))
+            if [[ "$cnt" -ge "$show" ]]
+            then
+                assoc=( [action]=remove \
+                        [identifier]="${fifo}${i}${j}" )
+            else
+                assoc=( [action]=add \
+                        [identifier]="${fifo}${i}${j}" \
+                        [path]="${images[$index]}" \
+                        [width]="$photo_columns" \
+                        [height]="$photo_lines" \
+                        [x]="$posx" \
+                        [y]="$posy" \
+                        [scaler]=fit_contain )
+            fi
+            declare -p assoc > "$fifo"
+        done
+    done
+}
+
+compute_batch() {
+    case $1 in
+        next)
+            if [[ "$show" == "$batch" ]] 
+            then
+                rm -f "$ROT_FILE"
+                (( start += batch))
+                (( show = total - start ))
+                [[ "$show" -gt "$batch" ]] && show="$batch"
+            else
+                warning="End of files"
+            fi
+            ;;
+        prev)
+            [[ "$start" -le 0 ]] && warning="Start of files" && return
+            rm -f "$ROT_FILE"
+            (( start -= batch))
+            # The below is useful in case of resizing
+            # If I am in the second of batches of 10 and the 
+            # new window fits 20 then I don't want negative numbers
+            [[ "$start" -lt 0 ]] && start=0 
+            show="$batch"
+            ;;
+    esac
+}
+
+get_input() {
+    printf "%s\e7" "$1"
+    left=""
+    right=""
+    while true
+    do
+        printf "\e8\e[K"
+        move=""
+        [[ -n "$right" ]] && move="\e[${#right}D"
+        printf "%s%s$move" "$left" "$right"
+        read -N1 -r char
+        read -rsN1 -t 0.0001 k1
+        read -rsN1 -t 0.0001 k2
+        read -rsN1 -t 0.0001 k3
+        key="${char}${k1}${k2}${k3}"
+        case "$key" in
+            $'\e[D') #left arrow press
+                if [[ -n "$left" ]]
+                then
+                    right="${left: -1}$right"; 
+                    left="${left:0:-1}"
+                fi
+                continue
+                ;;
+            $'\e[C') #right arrow press
+                if [[ -n "$right" ]]
+                then
+                    left="$left${right:0:1}"
+                    right="${right:1}"; 
+                fi
+                continue
+                ;;
+            $'\e') 
+                input="ESCAPE"; 
+                break
+                ;;
+            $'\b') 
+                left="${left:0:-1}"
+                continue
+                ;;
+            $'\n')
+                input="$left$right";
+                break
+                ;;
+            [0-9]|[A-Z]|[a-z]|' '|'%'|'.') #only accepting digits as input
+                left+="$key"
+                continue
+                ;;
+            *)
+                continue
+                ;;
+        esac
+    done
+}
+
+isInteger() {
+    (( $1 )) &>/dev/null
+}
+
+give_dimensions() {
+    show_cursor
+    new_fit_vertical="$fit_vertical"
+    new_fit_horizontal="$fit_horizontal"
+    read -r lines columns < <(stty size)
+    (( max_lines = lines -3 ))
+
+    get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: "
+    [[ "$input" == "ESCAPE" ]] && clear_screen && return 
+    ! isInteger "$input" && set_error lines "$input" && return
+    [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
+    
+    get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: "
+    [[ "$input" == "ESCAPE" ]] && clear_screen && return
+    ! isInteger "$input" && set_error columns "$input" && return
+    [[ -n "$input" && ! "$input" -eq "$photo_columns" ]] && (( new_fit_horizontal = input ))
+    clear_screen
+}
+
+set_error() {
+    error="(Error) Invalid value for $1: $2"
+}
+
+redraw() {
+    restart_daemon
+    calculate_dimensions
+    if [[ "$show" -eq 1 && -f "$TMP_COLLAGE/$start.rot" ]]
+    then
+        assoc=( [action]=add \
+                [identifier]="${fifo}00" \
+                [path]="$ROT_FILE" \
+                [width]="$photo_columns" \
+                [height]="$photo_lines" \
+                [x]="$posx" \
+                [y]="$posy" \
+                [scaler]=fit_contain )
+        declare -p assoc > "$fifo"
+    else
+        show_batch
+    fi
+    clear_screen
+}
+
+maybe_redraw() {
+    read -r lines columns < <(stty size)
+    if (( new_fit_vertical != fit_vertical || new_fit_horizontal != fit_horizontal ))
+    then
+        (( new_fit_vertical > lines - 3 || new_fit_vertical < 1 )) \
+            && set_error lines "$new_fit_vertical" && return
+        (( new_fit_horizontal > columns || new_fit_horizontal < 1 )) \
+            && set_error columns "$new_fit_horizontal" && return
+        fit_vertical="$new_fit_vertical"
+        fit_horizontal="$new_fit_horizontal"
+        redraw
+    fi
+}
+
+print_status() {
+    status="[$fit_vertical x $fit_horizontal]"
+    if [[ "$show" -gt 1 ]]
+    then
+        ((begin = start + 1))
+        ((finish = begin + show - 1))
+        status+=" - Photos [$begin - $finish] of $total"
+    else
+        ((begin = start + 1))
+        status+=" - Photo $begin of $total"
+    fi
+    printf "%s" "$status"
+}
+
+rotate() {
+    [[ "$show" -gt 1 ]] \
+        && warning="Rotate option available for single images. Press [m] to enter monocle mode" \
+        && return
+    ! command -v convert &> /dev/null && error="\e[31mImagemagick not installed: required for rotation of images\e[m" && return
+    ROT_FILE="$TMP_COLLAGE/$start.rot"
+    [[ ! -f "$ROT_FILE" ]] && cp "${images[$start]}" "$ROT_FILE"
+    convert -rotate "$1" "$ROT_FILE" "$ROT_FILE"
+    assoc=( [action]=add \
+            [identifier]="${fifo}00" \
+            [path]="$ROT_FILE" \
+            [width]="$photo_columns" \
+            [height]="$photo_lines" \
+            [x]="$posx" \
+            [y]="$posy" \
+            [scaler]=fit_contain )
+    declare -p assoc > "$fifo"
+}
+
+execute() {
+    show_cursor
+    [[ "$show" -gt 1 ]] \
+        && warning="Execute option available for single images. Press [m] to enter monocle mode" \
+        && return
+    get_input "Command (add %s for the current file): "
+    [[ "$input" == "ESCAPE" ]] && clear_screen && return 
+    cmd="${input//%s/${images[$start]}}"
+    error=$(eval "$cmd" 2>&1 >/dev/null)
+    error="\e[31m$error\e[m"
+    clear_screen
+}
+
+read_key() {
+    while true
+    do
+        calculate_dimensions
+        clear_screen
+        if [[ -n "$error" ]]
+        then
+            printf "\e[31m%s\e[m" "$error"
+        elif [[ -n "$warning" ]]
+        then 
+            printf "\e[33m%s\e[m" "$warning"
+        else
+            print_status
+        fi
+        read -rsN1 -t 0.001 key
+        case $key in
+            q)
+                stop_daemon
+                break
+                ;;
+            n)
+                error=""
+                warning=""
+                compute_batch next
+                show_batch
+                ;;
+            N) 
+                error=""
+                warning=""
+                compute_batch prev
+                show_batch
+                ;;
+            s)
+                error=""
+                warning=""
+                clear_screen
+                give_dimensions
+                maybe_redraw
+                ;;
+            +|=)
+                error=""
+                warning=""
+                (( new_fit_vertical = fit_vertical + 1 ))
+                (( new_fit_horizontal = fit_horizontal + 1 ))
+                maybe_redraw
+                ;;
+            -)
+                error=""
+                warning=""
+                (( new_fit_vertical = fit_vertical - 1 ))
+                (( new_fit_horizontal = fit_horizontal -1 ))
+                maybe_redraw
+                ;;
+            m)
+                if [[ "$show" -gt 1 ]]
+                then
+                    error=""
+                    warning=""
+                    monocle_vertical="$fit_vertical"
+                    monocle_horizontal="$fit_horizontal"
+                    new_fit_vertical=1
+                    new_fit_horizontal=1
+                    maybe_redraw
+                fi
+                ;;
+            M)
+                if [[ "$show" -gt 1 ]]
+                then 
+                    warning="[M] is only available in monocle mode"
+                else
+                    new_fit_vertical="$monocle_vertical"
+                    new_fit_horizontal="$monocle_horizontal"
+                    maybe_redraw
+                fi
+                ;;
+            k)
+                error=""
+                warning=""
+                (( new_fit_vertical = fit_vertical + 1 ))
+                (( new_fit_horizontal = fit_horizontal ))
+                maybe_redraw
+                ;;
+            j)
+                error=""
+                warning=""
+                (( new_fit_vertical = fit_vertical - 1 ))
+                (( new_fit_horizontal = fit_horizontal ))
+                maybe_redraw
+                ;;
+            l)
+                error=""
+                warning=""
+                (( new_fit_vertical = fit_vertical ))
+                (( new_fit_horizontal = fit_horizontal + 1 ))
+                maybe_redraw
+                ;;
+            h)
+                error=""
+                warning=""
+                (( new_fit_vertical = fit_vertical ))
+                (( new_fit_horizontal = fit_horizontal - 1 ))
+                maybe_redraw
+                ;;
+            r)
+                error=""
+                warning=""
+                rotate 90
+                ;;
+            R)
+                error=""
+                warning=""
+                rotate -90
+                ;;
+            u)  
+                error=""
+                warning=""
+                rotate 180
+                ;;
+            x)
+                error=""
+                warning=""
+                clear_screen
+                execute
+                ;;
+        esac
+    done
+}
+
+! command -v ueberzug &> /dev/null && echo "Ueberzug not installed: ucollage dependency" && exit 1
+[[ ! -d "$TMP_COLLAGE" ]] && mkdir "$TMP_COLLAGE"
+trap stop_daemon SIGINT
+trap redraw SIGWINCH
+images=("$@")
+total="${#images[@]}"
+[[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
+show="$total"
+start=0
+declare -A assoc
+start_daemon
+calculate_dimensions
+show_batch
+clear_screen
+read_key
