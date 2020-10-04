@@ -128,7 +128,7 @@ show_batch() {
 compute_batch() {
     case $1 in
         next)
-            if [[ "$show" == "$batch" ]] 
+            if (( start + batch < total ))
             then
                 rm -f "$ROT_FILE"
                 (( start += batch))
