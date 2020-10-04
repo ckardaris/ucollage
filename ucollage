@@ -285,7 +285,7 @@ rotate() {
     [[ "$show" -gt 1 ]] \
         && warning="Rotate option available for single images. Press [m] to enter monocle mode" \
         && return
-    ! command -v convert &> /dev/null && error="\e[31mImagemagick not installed: required for rotation of images\e[m" && return
+    ! command -v convert &> /dev/null && error="Imagemagick not installed: required for rotation of images" && return
     ROT_FILE="$TMP_COLLAGE/$start.rot"
     [[ ! -f "$ROT_FILE" ]] && cp "${images[$start]}" "$ROT_FILE"
     convert -rotate "$1" "$ROT_FILE" "$ROT_FILE"
@@ -309,7 +309,6 @@ execute() {
     [[ "$input" == "ESCAPE" ]] && clear_screen && return 
     cmd="${input//%s/${images[$start]}}"
     error=$(eval "$cmd" 2>&1 >/dev/null)
-    error="\e[31m$error\e[m"
     clear_screen
 }
 
