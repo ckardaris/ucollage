@@ -1,6 +1,8 @@
 # ucollage
 An image viewer for the terminal based on Überzug
 
+![](resources/usage.gif)
+
 ## Dependencies
 - `Überzug` 
 
