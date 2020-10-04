@@ -67,3 +67,14 @@ ucollage [images]
 `u` rotate image 180 degrees
 
 `x` execute command (use `%s` as placeholder for the image filename)
+
+## Default values
+
+You can set default values for the number of lines and columns the program
+starts with. You just have to export the relevant variables in your `.bashrc`
+
+``` bash
+# If you want a 2x2 grid
+export UCOLLAGE_LINES=2
+export UCOLLAGE_COLUMNS=2
+```

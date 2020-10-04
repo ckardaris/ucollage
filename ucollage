@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #Defaults
-fit_vertical=3
-fit_horizontal=4
+fit_vertical=${UCOLLAGE_LINES:-3}
+fit_horizontal=${UCOLLAGE_COLUMNS:-4}
 error=""
 warning=""
 TMP_COLLAGE="/tmp/collage"
