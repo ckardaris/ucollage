@@ -60,7 +60,9 @@ help(){
 
     echo "  u       rotate image 180 degrees"
 
-    echo "  x       execute command (use %s as placeholder for the image filename)"
+    echo "  x       execute command (placeholders are available for common substitutions)"
+    echo "          %s - original image filename"
+    echo "          %r - rotated image filename"
     exit
 }
 
@@ -149,7 +151,7 @@ compute_batch() {
         next)
             if (( start + batch < total ))
             then
-                rm -f "$ROT_FILE"
+                rm -f "$rotated_file"
                 (( start += batch))
                 (( show = total - start ))
                 [[ "$show" -gt "$batch" ]] && show="$batch"
@@ -159,7 +161,7 @@ compute_batch() {
             ;;
         prev)
             [[ "$start" -le 0 ]] && warning="Start of files" && return
-            rm -f "$ROT_FILE"
+            rm -f "$rotated_file"
             (( start -= batch))
             # The below is useful in case of resizing
             # If I am in the second of batches of 10 and the 
@@ -214,7 +216,7 @@ get_input() {
                 input="$left$right";
                 break
                 ;;
-            [0-9]|[A-Z]|[a-z]|' '|[\:\;\|\<\>?+\-%._\\*@!])
+            [0-9]|[A-Z]|[a-z]|' '|[\/\:\;\|\<\>?+\-%._\\*@!$])
                 left+="$key"
                 continue
                 ;;
@@ -255,11 +257,11 @@ set_error() {
 redraw() {
     restart_daemon
     calculate_dimensions
-    if [[ "$show" -eq 1 && -f "${tmp_dir}/${start}.rot" ]]
+    if [[ "$show" -eq 1 && -f "$rotated_file" ]]
     then
         assoc=( [action]=add \
                 [identifier]="${fifo}00" \
-                [path]="$ROT_FILE" \
+                [path]="$rotated_file" \
                 [width]="$photo_columns" \
                 [height]="$photo_lines" \
                 [x]="$posx" \
@@ -304,13 +306,14 @@ rotate() {
     [[ "$show" -gt 1 ]] \
         && warning="Rotate option available for single images. Press [m] to enter monocle mode" \
         && return
-    ! command -v convert &> /dev/null && error="Imagemagick not installed: required for rotation of images" && return
-    ROT_FILE="${tmp_dir}/${start}.rot"
-    [[ ! -f "$ROT_FILE" ]] && cp "${images[$start]}" "$ROT_FILE"
-    convert -rotate "$1" "$ROT_FILE" "$ROT_FILE"
+    ! command -v convert &> /dev/null && error="imagemagick not installed: required for rotation of images" && return
+    ! command -v basename &> /dev/null && error="basename not installed: required for rotation of images" && return
+    rotated_file="${tmp_dir}/rotated-$(basename ${images[$start]})"
+    [[ ! -f "$rotated_file" ]] && cp "${images[$start]}" "$rotated_file"
+    convert -rotate "$1" "$rotated_file" "$rotated_file"
     assoc=( [action]=add \
             [identifier]="${fifo}00" \
-            [path]="$ROT_FILE" \
+            [path]="$rotated_file" \
             [width]="$photo_columns" \
             [height]="$photo_lines" \
             [x]="$posx" \
@@ -326,7 +329,8 @@ execute() {
         && return
     get_input "Command (add %s for the current file): "
     [[ "$input" == "ESCAPE" ]] && clear_screen && return 
-    cmd="${input//%s/${images[$start]}}"
+    cmd=${input//%s/${images[$start]}}
+    cmd=${cmd//%r/${rotated_file}}
     error=$(eval "$cmd" 2>&1 >/dev/null)
     clear_screen
 }

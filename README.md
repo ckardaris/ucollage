@@ -10,7 +10,10 @@ An image viewer for the terminal based on Überzug
 - `bash`
 
 ### Optional
+For image rotation:
+
 - `imagemagick`
+- `basename`
 
 ## Installation
 `ucollage` is a bash script, so you only have to download the file and make it executable.
@@ -66,7 +69,9 @@ ucollage [images]
 
 `u` rotate image 180 degrees
 
-`x` execute command (use `%s` as placeholder for the image filename)
+`x` execute command (placeholders are available for common substitutions)<br>
+- `%s` original image filename
+- `%r` rotated image filename
 
 ### Default values
 
