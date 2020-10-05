@@ -215,7 +215,7 @@ get_input() {
                 fi
                 continue
                 ;;
-            $'\e[H')
+            $'\e[H'|$'\e[1~')
                 right="${left}${right}"
                 left=""
                 continue
