@@ -215,6 +215,16 @@ get_input() {
                 fi
                 continue
                 ;;
+            $'\e[H')
+                right="${left}${right}"
+                left=""
+                continue
+                ;;
+            $'\e[F')
+                left="${left}${right}"
+                right=""
+                continue
+                ;;
             $'\e[3~')
                 [[ -n "$right" ]] && right="${right:1}"
                 continue
