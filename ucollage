@@ -175,9 +175,9 @@ compute_batch() {
             rm -f "$rotated_file"
             (( start -= batch))
             # The below is useful in case of resizing
-            # If I am in the second of batches of 10 and the 
+            # If I am in the second of batches of 10 and the
             # new window fits 20 then I don't want negative numbers
-            [[ "$start" -lt 0 ]] && start=0 
+            [[ "$start" -lt 0 ]] && start=0
             show="$batch"
             ;;
     esac
@@ -204,7 +204,7 @@ get_input() {
             $'\e[D') #left arrow press
                 if [[ -n "$left" ]]
                 then
-                    right="${left: -1}$right"; 
+                    right="${left: -1}$right";
                     left="${left:0:-1}"
                 fi
                 continue
@@ -213,7 +213,7 @@ get_input() {
                 if [[ -n "$right" ]]
                 then
                     left="$left${right:0:1}"
-                    right="${right:1}"; 
+                    right="${right:1}";
                 fi
                 continue
                 ;;
@@ -231,8 +231,8 @@ get_input() {
                 [[ -n "$right" ]] && right="${right:1}"
                 continue
                 ;;
-            $'\e') 
-                input="ESCAPE"; 
+            $'\e')
+                input="ESCAPE";
                 break
                 ;;
             $'\b'|$'\x7F')
@@ -268,7 +268,7 @@ give_dimensions() {
     [[ "$input" == "ESCAPE" ]] && return
     [[ -n "$input" ]] && ! is_natural "$input" && set_error lines "$input" && return
     [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
-    
+
     printf "\n"
     get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: "
     [[ "$input" == "ESCAPE" ]] && return
@@ -373,7 +373,7 @@ eval_cmd() {
 execute() {
     ! in_monocle "Execute" && return
     get_input "Command (add %s for the current file): "
-    [[ "$input" == "ESCAPE" ]] && clear_screen && return 
+    [[ "$input" == "ESCAPE" ]] && clear_screen && return
     cmd=${input//%s/${images[$start]}}
     cmd=${cmd//%r/${rotated_file}}
     eval_cmd "Execute: \"${cmd}\"" "$cmd"
@@ -402,7 +402,7 @@ read_key() {
         then
             printf "\e[31m%s\e[m" "$error"
         elif [[ -n "$warning" ]]
-        then 
+        then
             printf "\e[33m%s\e[m" "$warning"
         else
             print_status
@@ -418,7 +418,7 @@ read_key() {
                 compute_batch next
                 show_batch
                 ;;
-            N) 
+            N)
                 clear_messages
                 compute_batch prev
                 show_batch
@@ -455,7 +455,7 @@ read_key() {
             M)
                 clear_messages
                 if [[ "$show" -gt 1 ]]
-                then 
+                then
                     warning="[M] is only available in monocle mode"
                 else
                     new_fit_vertical="$monocle_vertical"
@@ -495,7 +495,7 @@ read_key() {
                 clear_messages
                 rotate -90
                 ;;
-            u)  
+            u)
                 clear_messages
                 rotate 180
                 ;;
