@@ -220,12 +220,12 @@ get_input() {
                 left=""
                 continue
                 ;;
-            $'\e[F')
+            $'\e[F'|$'\e[4~')
                 left="${left}${right}"
                 right=""
                 continue
                 ;;
-            $'\e[3~')
+            $'\e[3~'|$'\e[P')
                 [[ -n "$right" ]] && right="${right:1}"
                 continue
                 ;;
