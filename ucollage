@@ -1,10 +1,29 @@
 #!/usr/bin/env bash
-#Defaults
-fit_vertical=${UCOLLAGE_LINES:-3}
-fit_horizontal=${UCOLLAGE_COLUMNS:-4}
-error=""
-warning=""
-TMP_COLLAGE="/tmp/collage"
+config_error() {
+    echo "Configuration error [${1}]: \"${2}\" ${3}"
+}
+
+parse_config() {
+    errors=0
+
+    [[ -n "$UCOLLAGE_LINES" ]] && ! is_natural "$UCOLLAGE_LINES" \
+        && config_error "UCOLLAGE_LINES" "$UCOLLAGE_LINES" "is not a natural number" \
+        && unset UCOLLAGE_LINES && errors=1
+    [[ -n "$UCOLLAGE_COLUMNS" ]] && ! is_natural "$UCOLLAGE_COLUMNS" \
+        && config_error "UCOLLAGE_COLUMNS" "$UCOLLAGE_COLUMNS" "is not a natural number" \
+        && unset UCOLLAGE_COLUMNS && errors=1
+
+    [[ "$errors" -eq 1 ]] && read -rsN1
+    unset errors
+}
+
+set_defaults() {
+    fit_vertical=${UCOLLAGE_LINES:-3}
+    fit_horizontal=${UCOLLAGE_COLUMNS:-4}
+    tmp_dir=${UCOLLAGE_TMP_DIR:-"/tmp/ucollage"}
+    error=""
+    warning=""
+}
 
 help(){
     echo "Usage: ucollage [images]"
@@ -70,7 +89,7 @@ show_cursor() {
 }
 
 start_daemon() {
-    fifo=$(mktemp --dry-run /tmp/collage_fifo-XXXXXXXXX)
+    fifo=$(mktemp --dry-run "${tmp_dir}/fifo-XXXXXXXXX")
     mkfifo "$fifo"
     ueberzug layer --parse bash --silent < "$fifo" &
     exec {colfd}> "$fifo"
@@ -79,7 +98,7 @@ start_daemon() {
 stop_daemon() {
     exec {colfd}>&-
     rm "$fifo"
-    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$TMP_COLLAGE" && show_cursor && exit
+    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && exit
 }
 
 restart_daemon() {
@@ -206,8 +225,8 @@ get_input() {
     done
 }
 
-isInteger() {
-    (( $1 )) &>/dev/null
+is_natural() {
+    [[ "$1" =~ ^[1-9][0-9]*$|^0+[1-9]+$ ]]
 }
 
 give_dimensions() {
@@ -219,12 +238,12 @@ give_dimensions() {
 
     get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: "
     [[ "$input" == "ESCAPE" ]] && clear_screen && return 
-    ! isInteger "$input" && set_error lines "$input" && return
+    ! is_natural "$input" && set_error lines "$input" && return
     [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
     
     get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: "
     [[ "$input" == "ESCAPE" ]] && clear_screen && return
-    ! isInteger "$input" && set_error columns "$input" && return
+    ! is_natural "$input" && set_error columns "$input" && return
     [[ -n "$input" && ! "$input" -eq "$photo_columns" ]] && (( new_fit_horizontal = input ))
     clear_screen
 }
@@ -236,7 +255,7 @@ set_error() {
 redraw() {
     restart_daemon
     calculate_dimensions
-    if [[ "$show" -eq 1 && -f "$TMP_COLLAGE/$start.rot" ]]
+    if [[ "$show" -eq 1 && -f "${tmp_dir}/${start}.rot" ]]
     then
         assoc=( [action]=add \
                 [identifier]="${fifo}00" \
@@ -286,7 +305,7 @@ rotate() {
         && warning="Rotate option available for single images. Press [m] to enter monocle mode" \
         && return
     ! command -v convert &> /dev/null && error="Imagemagick not installed: required for rotation of images" && return
-    ROT_FILE="$TMP_COLLAGE/$start.rot"
+    ROT_FILE="${tmp_dir}/${start}.rot"
     [[ ! -f "$ROT_FILE" ]] && cp "${images[$start]}" "$ROT_FILE"
     convert -rotate "$1" "$ROT_FILE" "$ROT_FILE"
     assoc=( [action]=add \
@@ -441,7 +460,9 @@ read_key() {
 }
 
 ! command -v ueberzug &> /dev/null && echo "Ueberzug not installed: ucollage dependency" && exit 1
-[[ ! -d "$TMP_COLLAGE" ]] && mkdir "$TMP_COLLAGE"
+parse_config
+set_defaults
+[[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 trap stop_daemon SIGINT
 trap redraw SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help

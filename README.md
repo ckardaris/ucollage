@@ -70,11 +70,11 @@ ucollage [images]
 
 ### Default values
 
-You can set default values for the number of lines and columns the program
-starts with. You just have to export the relevant variables in your `.bashrc`
+You can set default values for some of the variables. You just have to export the relevant variables in your `.bashrc`
 
 ``` bash
-# If you want a 2x2 grid
-export UCOLLAGE_LINES=2
-export UCOLLAGE_COLUMNS=2
+# Examples
+export UCOLLAGE_LINES=2                    # default 3
+export UCOLLAGE_COLUMNS=2                  # default 4
+export UCOLLAGE_TMP_DIR="/tmp/directory"   # default "/tmp/ucollage"
 ```
