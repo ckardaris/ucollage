@@ -81,7 +81,7 @@ read_images() {
     fi
     for file in "${filelist[@]}"
     do
-        file "$file" | grep -qE 'image data,|bitmap,' && images+=("$file")
+        [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]] && images+=("$file")
     done
 }
 
