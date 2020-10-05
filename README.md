@@ -73,6 +73,8 @@ ucollage [images]
 - `%s` original image filename
 - `%r` rotated image filename
 
+`c` rename image
+
 ### Default values
 
 You can set default values for some of the variables. You just have to export the relevant variables in your `.bashrc`

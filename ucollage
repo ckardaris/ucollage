@@ -67,6 +67,7 @@ help(){
     echo "  x       execute command (placeholders are available for common substitutions)"
     echo "          %s - original image filename"
     echo "          %r - rotated image filename"
+    echo "  c       rename image"
     exit
 }
 
@@ -183,6 +184,7 @@ compute_batch() {
 }
 
 get_input() {
+    show_cursor
     printf "%s\e7" "$1"
     left=""
     right=""
@@ -257,7 +259,6 @@ is_natural() {
 }
 
 give_dimensions() {
-    show_cursor
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
     read -r lines columns < <(stty size)
@@ -328,10 +329,13 @@ print_status() {
     printf "%s" "$status"
 }
 
+in_monocle() {
+    [[ $show -gt 1 ]] && warning="${1} option available for single images. Press [m] to enter monocle mode" && return 1
+    return 0
+}
+
 rotate() {
-    [[ "$show" -gt 1 ]] \
-        && warning="Rotate option available for single images. Press [m] to enter monocle mode" \
-        && return
+    ! in_monocle "Rotate" && return
     ! command -v convert &> /dev/null && error="imagemagick not installed: required for rotation of images" && return
     ! command -v basename &> /dev/null && error="basename not installed: required for rotation of images" && return
     rotated_file="${tmp_dir}/rotated-$(basename "${images[$start]}")"
@@ -348,29 +352,41 @@ rotate() {
     declare -p assoc > "$fifo"
 }
 
+eval_cmd() {
+    if [[ "$exec_prompt" -eq 1 ]]
+    then
+        clear_screen
+        printf "%s? (press n/N/Esc to abort)" "$1"
+        read -rsN1 ans
+        if [[ ! "$ans" =~ ^(n|N)$ ]] && [[ ! "$ans" == $'\e' ]]
+        then
+            error=$(eval "$2" 2>&1 >/dev/null)
+            [[ -z "$error" ]] && success="Successful execution" && return 0
+        fi
+    else
+        error=$(eval "$cmd" 2>&1 >/dev/null)
+        [[ -z "$error" ]] && success="Successful execution" && return 0
+    fi
+    return 1
+}
+
 execute() {
-    show_cursor
-    [[ "$show" -gt 1 ]] \
-        && warning="Execute option available for single images. Press [m] to enter monocle mode" \
-        && return
+    ! in_monocle "Execute" && return
     get_input "Command (add %s for the current file): "
     [[ "$input" == "ESCAPE" ]] && clear_screen && return 
     cmd=${input//%s/${images[$start]}}
     cmd=${cmd//%r/${rotated_file}}
-    if [[ "$exec_prompt" -eq 1 ]]
-    then
-        clear_screen
-        printf "Execute: \"%s\"? (press n/N to abort)" "$cmd"
-        read -rsN1 ans
-        if [[ ! "$ans" =~ ^(n|N)$ ]]
-        then
-            error=$(eval "$cmd" 2>&1 >/dev/null)
-            [[ -z "$error" ]] && success="Successful execution"
-        fi
-    else
-        error=$(eval "$cmd" 2>&1 >/dev/null)
-        [[ -z "$error" ]] && success="Successful execution"
-    fi
+    eval_cmd "Execute: \"${cmd}\"" "$cmd"
+    clear_screen
+}
+
+rename() {
+    ! in_monocle "Rename" && return
+    printf "Old name: %s\n" "${images[$start]}"
+    get_input "New name: "
+    [[ "$input" == "ESCAPE" ]] && clear_screen && return
+    cmd="mv ${images[$start]} $input"
+    eval_cmd "Rename to: \"${input}\"" "$cmd" && images[$start]="$input"
     clear_screen
 }
 
@@ -487,6 +503,15 @@ read_key() {
                 clear_messages
                 clear_screen
                 execute
+                ;;
+            c)
+                clear_messages
+                clear_screen
+                rename
+                ;;
+            $'\e'|$'\n')
+                clear_messages
+                clear_screen
                 ;;
         esac
     done
