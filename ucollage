@@ -196,7 +196,8 @@ get_input() {
         read -rsN1 -t 0.0001 k1
         read -rsN1 -t 0.0001 k2
         read -rsN1 -t 0.0001 k3
-        key="${char}${k1}${k2}${k3}"
+        read -rsN1 -t 0.0001 k4
+        key="${char}${k1}${k2}${k3}${k4}"
         case "$key" in
             $'\e[D') #left arrow press
                 if [[ -n "$left" ]]
@@ -212,6 +213,10 @@ get_input() {
                     left="$left${right:0:1}"
                     right="${right:1}"; 
                 fi
+                continue
+                ;;
+            $'\e[3~')
+                [[ -n "$right" ]] && right="${right:1}"
                 continue
                 ;;
             $'\e') 
