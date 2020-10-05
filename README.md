@@ -78,8 +78,16 @@ ucollage [images]
 You can set default values for some of the variables. You just have to export the relevant variables in your `.bashrc`
 
 ``` bash
-# Examples
-export UCOLLAGE_LINES=2                    # default 3
-export UCOLLAGE_COLUMNS=2                  # default 4
-export UCOLLAGE_TMP_DIR="/tmp/directory"   # default "/tmp/ucollage"
+# number of lines when the scripts starts
+export UCOLLAGE_LINES=2                    # valid: integer  default: 3
+
+# number of columns when the scripts starts
+export UCOLLAGE_COLUMNS=2                  # valid: integer  default: 4
+
+# temporary directory to store script relevant files
+export UCOLLAGE_TMP_DIR="/tmp/directory"   # valid: string   default: "/tmp/ucollage"
+
+# whether or not to ask for confirmation when executing commands
+# in monocle mode
+export UCOLLAGE_EXEC_PROMPT=1              # valid: [0, 1]   default: 0
 ```

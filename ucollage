@@ -12,6 +12,9 @@ parse_config() {
     [[ -n "$UCOLLAGE_COLUMNS" ]] && ! is_natural "$UCOLLAGE_COLUMNS" \
         && config_error "UCOLLAGE_COLUMNS" "$UCOLLAGE_COLUMNS" "is not a natural number" \
         && unset UCOLLAGE_COLUMNS && errors=1
+    [[ -n "$UCOLLAGE_EXEC_PROMPT" ]] && [[ ! "$UCOLLAGE_EXEC_PROMPT" =~ ^(0|1)$ ]] \
+        && config_error "UCOLLAGE_EXEC_PROMPT" "$UCOLLAGE_EXEC_PROMPT" " - valid values: 0, 1" \
+        && unset UCOLLAGE_EXEC_PROMPT && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
     unset errors
@@ -21,6 +24,7 @@ set_defaults() {
     fit_vertical=${UCOLLAGE_LINES:-3}
     fit_horizontal=${UCOLLAGE_COLUMNS:-4}
     tmp_dir=${UCOLLAGE_TMP_DIR:-"/tmp/ucollage"}
+    exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
     error=""
     warning=""
 }
@@ -331,7 +335,15 @@ execute() {
     [[ "$input" == "ESCAPE" ]] && clear_screen && return 
     cmd=${input//%s/${images[$start]}}
     cmd=${cmd//%r/${rotated_file}}
-    error=$(eval "$cmd" 2>&1 >/dev/null)
+    if [[ "$exec_prompt" -eq 1 ]]
+    then
+        clear_screen
+        printf "Execute: \"%s\"? (press n/N to abort)" "$cmd"
+        read -rsN1 ans
+        [[ ! "$ans" =~ ^(n|N)$ ]] && error=$(eval "$cmd" 2>&1 >/dev/null)
+    else
+        error=$(eval "$cmd" 2>&1 >/dev/null)
+    fi
     clear_screen
 }
 
