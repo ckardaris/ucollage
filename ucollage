@@ -233,7 +233,7 @@ get_input() {
                 input="ESCAPE"; 
                 break
                 ;;
-            $'\b')
+            $'\b'|$'\x7F')
                 [[ -n "$left" ]] && left="${left:0:-1}"
                 continue
                 ;;
