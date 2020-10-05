@@ -90,6 +90,12 @@ clear_screen() {
     printf "\e[2J\e[?25l\e[H"
 }
 
+clear_messages() {
+    success=""
+    error=""
+    warning=""
+}
+
 show_cursor() {
     printf "\e[?25h"
 }
@@ -186,7 +192,7 @@ get_input() {
         move=""
         [[ -n "$right" ]] && move="\e[${#right}D"
         printf "%s%s$move" "$left" "$right"
-        read -rN1 char
+        read -rsN1 char
         read -rsN1 -t 0.0001 k1
         read -rsN1 -t 0.0001 k2
         read -rsN1 -t 0.0001 k3
@@ -243,13 +249,14 @@ give_dimensions() {
     (( max_lines = lines -3 ))
 
     get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: "
-    [[ "$input" == "ESCAPE" ]] && clear_screen && return 
-    ! is_natural "$input" && set_error lines "$input" && return
+    [[ "$input" == "ESCAPE" ]] && return
+    [[ -n "$input" ]] && ! is_natural "$input" && set_error lines "$input" && return
     [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
     
+    printf "\n"
     get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: "
-    [[ "$input" == "ESCAPE" ]] && clear_screen && return
-    ! is_natural "$input" && set_error columns "$input" && return
+    [[ "$input" == "ESCAPE" ]] && return
+    [[ -n "$input" ]] && ! is_natural "$input" && set_error columns "$input" && return
     [[ -n "$input" && ! "$input" -eq "$photo_columns" ]] && (( new_fit_horizontal = input ))
     clear_screen
 }
@@ -312,7 +319,7 @@ rotate() {
         && return
     ! command -v convert &> /dev/null && error="imagemagick not installed: required for rotation of images" && return
     ! command -v basename &> /dev/null && error="basename not installed: required for rotation of images" && return
-    rotated_file="${tmp_dir}/rotated-$(basename ${images[$start]})"
+    rotated_file="${tmp_dir}/rotated-$(basename "${images[$start]}")"
     [[ ! -f "$rotated_file" ]] && cp "${images[$start]}" "$rotated_file"
     convert -rotate "$1" "$rotated_file" "$rotated_file"
     assoc=( [action]=add \
@@ -340,9 +347,14 @@ execute() {
         clear_screen
         printf "Execute: \"%s\"? (press n/N to abort)" "$cmd"
         read -rsN1 ans
-        [[ ! "$ans" =~ ^(n|N)$ ]] && error=$(eval "$cmd" 2>&1 >/dev/null)
+        if [[ ! "$ans" =~ ^(n|N)$ ]]
+        then
+            error=$(eval "$cmd" 2>&1 >/dev/null)
+            [[ -z "$error" ]] && success="Successful execution"
+        fi
     else
         error=$(eval "$cmd" 2>&1 >/dev/null)
+        [[ -z "$error" ]] && success="Successful execution"
     fi
     clear_screen
 }
@@ -352,7 +364,10 @@ read_key() {
     do
         calculate_dimensions
         clear_screen
-        if [[ -n "$error" ]]
+        if [[ -n "$success" ]]
+        then
+            printf "\e[32m%s\e[m" "$success"
+        elif [[ -n "$error" ]]
         then
             printf "\e[31m%s\e[m" "$error"
         elif [[ -n "$warning" ]]
@@ -368,43 +383,37 @@ read_key() {
                 break
                 ;;
             n)
-                error=""
-                warning=""
+                clear_messages
                 compute_batch next
                 show_batch
                 ;;
             N) 
-                error=""
-                warning=""
+                clear_messages
                 compute_batch prev
                 show_batch
                 ;;
             s)
-                error=""
-                warning=""
+                clear_messages
                 clear_screen
                 give_dimensions
                 maybe_redraw
                 ;;
             +|=)
-                error=""
-                warning=""
+                clear_messages
                 (( new_fit_vertical = fit_vertical + 1 ))
                 (( new_fit_horizontal = fit_horizontal + 1 ))
                 maybe_redraw
                 ;;
             -)
-                error=""
-                warning=""
+                clear_messages
                 (( new_fit_vertical = fit_vertical - 1 ))
                 (( new_fit_horizontal = fit_horizontal -1 ))
                 maybe_redraw
                 ;;
             m)
+                clear_messages
                 if [[ "$show" -gt 1 ]]
                 then
-                    error=""
-                    warning=""
                     monocle_vertical="$fit_vertical"
                     monocle_horizontal="$fit_horizontal"
                     new_fit_vertical=1
@@ -413,6 +422,7 @@ read_key() {
                 fi
                 ;;
             M)
+                clear_messages
                 if [[ "$show" -gt 1 ]]
                 then 
                     warning="[M] is only available in monocle mode"
@@ -423,51 +433,43 @@ read_key() {
                 fi
                 ;;
             k)
-                error=""
-                warning=""
+                clear_messages
                 (( new_fit_vertical = fit_vertical + 1 ))
                 (( new_fit_horizontal = fit_horizontal ))
                 maybe_redraw
                 ;;
             j)
-                error=""
-                warning=""
+                clear_messages
                 (( new_fit_vertical = fit_vertical - 1 ))
                 (( new_fit_horizontal = fit_horizontal ))
                 maybe_redraw
                 ;;
             l)
-                error=""
-                warning=""
+                clear_messages
                 (( new_fit_vertical = fit_vertical ))
                 (( new_fit_horizontal = fit_horizontal + 1 ))
                 maybe_redraw
                 ;;
             h)
-                error=""
-                warning=""
+                clear_messages
                 (( new_fit_vertical = fit_vertical ))
                 (( new_fit_horizontal = fit_horizontal - 1 ))
                 maybe_redraw
                 ;;
             r)
-                error=""
-                warning=""
+                clear_messages
                 rotate 90
                 ;;
             R)
-                error=""
-                warning=""
+                clear_messages
                 rotate -90
                 ;;
             u)  
-                error=""
-                warning=""
+                clear_messages
                 rotate 180
                 ;;
             x)
-                error=""
-                warning=""
+                clear_messages
                 clear_screen
                 execute
                 ;;
