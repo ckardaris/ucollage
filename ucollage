@@ -75,16 +75,14 @@ read_images() {
     images=()
     if [[ "$#" -gt 0 ]]
     then
-        for file in "$@"
-        do
-            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
-        done
+        filelist=("$@")
     else
-        for file in *
-        do
-            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
-        done
+        filelist=(*)
     fi
+    for file in "${filelist[@]}"
+    do
+        file "$file" | grep -qE 'image data,|bitmap,' && images+=("$file")
+    done
 }
 
 clear_screen() {
