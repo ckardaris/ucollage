@@ -18,6 +18,9 @@ parse_config() {
     [[ -n "$UCOLLAGE_SHOW_NAMES" ]] && [[ ! "$UCOLLAGE_SHOW_NAMES" =~ ^(0|1)$ ]] \
         && config_error "UCOLLAGE_SHOW_NAMES" "$UCOLLAGE_SHOW_NAMES" " - valid values: 0, 1" \
         && unset UCOLLAGE_SHOW_NAMES && errors=1
+    [[ -n "$UCOLLAGE_EXPAND_DIRS" ]] && [[ ! "$UCOLLAGE_EXPAND_DIRS" =~ ^(0|1)$ ]] \
+        && config_error "UCOLLAGE_EXPAND_DIRS" "$UCOLLAGE_EXPAND_DIRS" " - valid values: 0, 1" \
+        && unset UCOLLAGE_EXPAND_DIRS && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
     unset errors
@@ -29,6 +32,7 @@ set_defaults() {
     tmp_dir=${UCOLLAGE_TMP_DIR:-"/tmp/ucollage"}
     exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
     show_names=${UCOLLAGE_SHOW_NAMES:-1}
+    expand_dirs=${UCOLLAGE_EXPAND_DIRS:-0}
     error=""
     warning=""
 }
@@ -84,10 +88,13 @@ pre_read_images() {
     else
         filelist=(*)
     fi
-    for item in "${filelist[@]}"
-    do
-        [[ -d "$item" ]] && filelist+=("$item"/*)
-    done
+    if [[ "$expand_dirs" -eq 1 ]]
+    then
+        for item in "${filelist[@]}"
+        do
+            [[ -d "$item" ]] && filelist+=("$item"/*)
+        done
+    fi
     argc="${#filelist[@]}"
     images=()
     read_iter=0

@@ -38,7 +38,7 @@ Using no arguments implies
 ```bash
 ucollage *
 ```
-so it goes one level into all the directories of the current directory.
+Set `UCOLLAGE_EXPAND_DIRS` variable to determine how this should be handled
 
 ### Controls
 
@@ -102,4 +102,7 @@ export UCOLLAGE_EXEC_PROMPT=1              # valid: {0, 1}   default: 0
 
 # whether or not show the names of all images in the wide view
 export UCOLLAGE_SHOW_NAMES=1               # valid: {0, 1}   default: 1
+
+# whether or not directories should be expanded when given as arguments
+export UCOLLAGE_EXPAND_DIRS=0              # valid: {0, 1}   default: 0
 ```
