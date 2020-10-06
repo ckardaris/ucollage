@@ -57,15 +57,19 @@ help(){
     echo "  [N]l        increase number of columns by N"
     echo "  [N]c/C      rename image with (local/global) index N"
     echo "  [N]g/G      go to image with (local/global) index N"
-    echo "  [N]x/X      execute command for image with (local/global) index N *"
+    echo "  [N]x/X      execute command for image with (local/global) index N"
     echo "              placeholders are available for command execution"
     echo "                  %s - original image filename"
-    echo "                  %r - rotated image filename"
     echo
     echo "Monocle mode controls:"
     echo "  r           rotate image 90 degrees clockwise"
     echo "  R           rotate image 90 degrees counterclockwise"
     echo "  u           rotate image 180 degrees"
+    echo "  c/C         rename image"
+    echo "  x/X         execute command"
+    echo "              placeholders are available for command execution"
+    echo "                  %s - original image filename"
+    echo "                  %r - rotated image filename"
     exit
 }
 

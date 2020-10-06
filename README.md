@@ -67,16 +67,21 @@ Key      | Action                                                    | No-Prefix
 
 \* placeholders are available for common substitutions<br>
 - `%s` original image filename
-- `%r` rotated image filename
 
 
 #### Monocle mode controls
 
-Key  | Action
------|-------
-`r`  | rotate image 90 degrees clockwise
-`R`  | rotate image 90 degrees counterclockwise
-`u`  | rotate image 180 degrees
+Key   | Action
+------|-------
+`r`   | rotate image 90 degrees clockwise
+`R`   | rotate image 90 degrees counterclockwise
+`u`   | rotate image 180 degrees
+`c/C` | rename image
+`x/X` | execute command for image   * 
+
+\* placeholders are available for common substitutions<br>
+- `%s` original image filename
+- `%r` rotated image filename
 
 ### Default values
 
