@@ -31,9 +31,14 @@ $ sudo pacman -S ueberzug
 ```
 
 ## Usage
+```bash
+ucollage [images] [directories]
 ```
-ucollage [images]
+Using no arguments implies
+```bash
+ucollage *
 ```
+so it goes one level into all the directories of the current directory.
 
 ### Controls
 

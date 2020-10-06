@@ -84,6 +84,10 @@ pre_read_images() {
     else
         filelist=(*)
     fi
+    for item in "${filelist[@]}"
+    do
+        [[ -d "$item" ]] && filelist+=("$item"/*)
+    done
     argc="${#filelist[@]}"
     images=()
     read_iter=0
