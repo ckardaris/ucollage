@@ -654,7 +654,7 @@ read_key() {
                 update_status
                 ;;
         esac
-        [[ read_iter -gt "$argv" ]] && read_images "$batch"
+        [[ read_iter -lt "$argc" ]] && read_images "$batch" && update_status
     done
 }
 
