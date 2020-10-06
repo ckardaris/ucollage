@@ -520,12 +520,14 @@ read_key() {
                 compute_batch next
                 show_batch
                 update_status
+                update_names
                 ;;
             N)
                 empty_messages
                 compute_batch prev
                 show_batch
                 update_status
+                update_names
                 ;;
             s)
                 empty_messages
