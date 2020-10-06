@@ -73,6 +73,8 @@ help(){
 
 read_images() {
     images=()
+    extensions=(bmp gif ico jpg jpeg png tif tiff webp)
+    joined_extension="$(local IFS="|"; shift; echo "${extensions[*]}")"
     if [[ "$#" -gt 0 ]]
     then
         filelist=("$@")
@@ -81,7 +83,16 @@ read_images() {
     fi
     for file in "${filelist[@]}"
     do
-        [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]] && images+=("$file")
+        if [[ "${file,,}" =~ .${joined_extension,,}$ ]]
+        then
+            images+=("$file")
+        else
+            if [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]]
+            then
+                images+=("$file")
+                joined_extension+="|${file##*.}"
+            fi
+        fi
     done
 }
 
