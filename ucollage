@@ -77,23 +77,34 @@ help(){
     exit
 }
 
-read_images() {
-    images=()
+pre_read_images() {
     if [[ "$#" -gt 0 ]]
     then
-        for file in "$@"
-        do
-            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
-        done
+        filelist=("$@")
     else
-        for file in *
-        do
-            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
-        done
+        filelist=(*)
     fi
+    argc="${#filelist[@]}"
+    images=()
+    read_iter=0
+}
+
+read_images() {
+    read_target="$1"
+    readc=0
+    while (( readc < read_target && read_iter < argc ))
+    do
+        file=${filelist[$read_iter]}
+        if [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]]
+        then
+            images+=("$file") && (( readc += 1 ))
+        else
+            [[ -z "$start" ]] && printf "." # only print if ui is not started
+        fi
+        (( read_iter += 1 ))
+    done
+    printf "\n"
     total="${#images[@]}"
-    [[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
-    start=0
 }
 
 clear_screen() {
@@ -130,7 +141,7 @@ start_daemon() {
 stop_daemon() {
     exec {colfd}>&-
     rm "$fifo"
-    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && exit
+    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && stty echo && exit
 }
 
 restart_daemon() {
@@ -216,10 +227,19 @@ show_batch() {
 compute_batch() {
     case $1 in
         next)
+            # There exists an edge case here when $show is less that
+            # $batch, but we are not in the last batch of images
+            # This can happen when we are loading the images in the background
+            # and the user has changes the batch size with the 's' option
+            # right after starting up.
+            # So I change the initial
+            #   (( start += batch))
+            # to
+            #   (( start += show))
             if (( start + batch < total ))
             then
                 rm -f "$rotated_file"
-                (( start += batch))
+                (( start += show ))
                 (( show = total - start ))
                 [[ "$show" -gt "$batch" ]] && show="$batch"
             else
@@ -445,10 +465,12 @@ eval_cmd() {
         if [[ ! "$ans" =~ ^(n|N)$ ]] && [[ ! "$ans" == $'\e' ]]
         then
             error=$(eval "$2" 2>&1 >/dev/null)
+            error=$(echo "$error" | head -3)
             [[ -z "$error" ]] && success="$3" && return
         fi
     else
         error=$(eval "$cmd" 2>&1 >/dev/null)
+        error=$(echo "$error" | head -3)
         [[ -z "$error" ]] && success="$3" && return
     fi
     return 1
@@ -520,21 +542,23 @@ read_key() {
                 compute_batch next
                 show_batch
                 update_status
-                update_names
+                [[ -z "$warning" ]] && update_names
                 ;;
             N)
                 empty_messages
                 compute_batch prev
                 show_batch
                 update_status
-                update_names
+                [[ -z "$warning" ]] && update_names
                 ;;
             s)
+                stty echo
                 empty_messages
                 clear_status
                 give_dimensions
                 maybe_redraw
                 update_status
+                stty -echo
                 ;;
             +|=)
                 empty_messages
@@ -609,28 +633,35 @@ read_key() {
                 update_status
                 ;;
             x)
+                stty echo
                 empty_messages
                 clear_status
                 execute
                 update_status
+                stty -echo
                 ;;
             c)
+                stty echo
                 empty_messages
                 clear_status
                 rename
                 update_status
+                stty -echo
                 ;;
             g)
+                stty echo
                 empty_messages
                 clear_status
                 goto_image
                 update_status
+                stty -echo
                 ;;
             $'\e'|$'\n')
                 empty_messages
                 update_status
                 ;;
         esac
+        [[ read_iter -lt "$argc" ]] && read_images "$batch" && update_status
     done
 }
 
@@ -650,7 +681,13 @@ set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 trap stop_daemon SIGINT
 trap "redraw; update_status" SIGWINCH
+stty -echo
 [[ "$1" =~ ^-h$|^--help$ ]] && help
-read_images "$@"
+(( first_batch = fit_vertical * fit_horizontal ))
+pre_read_images "$@"
+unset start #make sure that start is not set, makes check in read_images
+read_images "$first_batch"
+[[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit 1
+start=0
 declare -A assoc
 init
