@@ -95,8 +95,12 @@ read_images() {
     while (( readc < read_target && read_iter < argc ))
     do
         file=${filelist[$read_iter]}
-        [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]] && images+=("$file") && (( readc += 1 )) \
-            || printf "."
+        if [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]]
+        then
+            images+=("$file") && (( readc += 1 ))
+        else
+            [[ -z "$start" ]] && printf "." # only print if ui is not started
+        fi
         (( read_iter += 1 ))
     done
     printf "\n"
@@ -679,6 +683,7 @@ stty -echo
 [[ "$1" =~ ^-h$|^--help$ ]] && help
 (( first_batch = fit_vertical * fit_horizontal ))
 pre_read_images "$@"
+unset start #make sure that start is not set, makes check in read_images
 read_images "$first_batch"
 [[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit 1
 start=0
