@@ -136,7 +136,7 @@ start_daemon() {
 stop_daemon() {
     exec {colfd}>&-
     rm "$fifo"
-    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && exit
+    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && stty echo && exit
 }
 
 restart_daemon() {
@@ -545,11 +545,13 @@ read_key() {
                 update_names
                 ;;
             s)
+                stty echo
                 empty_messages
                 clear_status
                 give_dimensions
                 maybe_redraw
                 update_status
+                stty -echo
                 ;;
             +|=)
                 empty_messages
@@ -624,22 +626,28 @@ read_key() {
                 update_status
                 ;;
             x)
+                stty echo
                 empty_messages
                 clear_status
                 execute
                 update_status
+                stty -echo
                 ;;
             c)
+                stty echo
                 empty_messages
                 clear_status
                 rename
                 update_status
+                stty -echo
                 ;;
             g)
+                stty echo
                 empty_messages
                 clear_status
                 goto_image
                 update_status
+                stty -echo
                 ;;
             $'\e'|$'\n')
                 empty_messages
@@ -666,6 +674,7 @@ set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 trap stop_daemon SIGINT
 trap "redraw; update_status" SIGWINCH
+stty -echo
 [[ "$1" =~ ^-h$|^--help$ ]] && help
 (( first_batch = fit_vertical * fit_horizontal ))
 pre_read_images "$@"
