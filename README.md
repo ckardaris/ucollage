@@ -61,6 +61,8 @@ ucollage [images]
 
 `M` exit monocle mode
 
+`g` go to image
+
 #### Monocle mode specific controls
 
 `r` rotate image 90 degrees clockwise
@@ -91,5 +93,8 @@ export UCOLLAGE_TMP_DIR="/tmp/directory"   # valid: string   default: "/tmp/ucol
 
 # whether or not to ask for confirmation when executing commands
 # in monocle mode
-export UCOLLAGE_EXEC_PROMPT=1              # valid: [0, 1]   default: 0
+export UCOLLAGE_EXEC_PROMPT=1              # valid: {0, 1}   default: 0
+
+# whether or not show the names of all images in the wide view
+export UCOLLAGE_SHOW_NAMES=1               # valid: {0, 1}   default: 1
 ```

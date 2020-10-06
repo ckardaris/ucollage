@@ -15,6 +15,9 @@ parse_config() {
     [[ -n "$UCOLLAGE_EXEC_PROMPT" ]] && [[ ! "$UCOLLAGE_EXEC_PROMPT" =~ ^(0|1)$ ]] \
         && config_error "UCOLLAGE_EXEC_PROMPT" "$UCOLLAGE_EXEC_PROMPT" " - valid values: 0, 1" \
         && unset UCOLLAGE_EXEC_PROMPT && errors=1
+    [[ -n "$UCOLLAGE_SHOW_NAMES" ]] && [[ ! "$UCOLLAGE_SHOW_NAMES" =~ ^(0|1)$ ]] \
+        && config_error "UCOLLAGE_SHOW_NAMES" "$UCOLLAGE_SHOW_NAMES" " - valid values: 0, 1" \
+        && unset UCOLLAGE_SHOW_NAMES && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
     unset errors
@@ -25,6 +28,7 @@ set_defaults() {
     fit_horizontal=${UCOLLAGE_COLUMNS:-4}
     tmp_dir=${UCOLLAGE_TMP_DIR:-"/tmp/ucollage"}
     exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
+    show_names=${UCOLLAGE_SHOW_NAMES:-1}
     error=""
     warning=""
 }
@@ -55,6 +59,8 @@ help(){
     echo "  m       enter monocle mode: show only one image"
 
     echo "  M       exit monocle mode"
+
+    echo "  g       go to image number"
 
     echo "Monocle mode specific controls:"
 
@@ -94,13 +100,26 @@ read_images() {
             fi
         fi
     done
+    total="${#images[@]}"
+    [[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
+    start=0
 }
 
 clear_screen() {
     printf "\e[2J\e[?25l\e[H"
 }
 
-clear_messages() {
+clear_status() {
+    # clear only first three lines of screen
+    printf "\e[?25l\e[H\e[2B\e[2K\e[1J\e[H"
+}
+
+clear_names() {
+    # clear from 4th line and down 
+    printf "\e[?25l\e[H\e[3B\e[2K\e[0J\e[H"
+}
+
+empty_messages() {
     success=""
     error=""
     warning=""
@@ -137,11 +156,38 @@ calculate_dimensions() {
     [[ "$show" -gt "$batch" ]] && show="$batch"
 }
 
+pad_sides() {
+    length="${#current_name}"
+    (( pads = photo_columns - length ))
+    (( leftpad = pads / 2 ))
+    (( rightpad = pads - leftpad ))
+    for (( p = 0; p < leftpad; p++))
+    do
+        current_name=" $current_name"
+    done
+    for (( p = 0; p < rightpad; p++))
+    do
+        current_name+=" "
+    done
+}
+
 show_batch() {
     cnt=0
-    [[ "$show" -le 0 ]] && return
+    [[ "$show" -lt 1 ]] && return 1
+    if [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]]
+    then
+        # Substracting 3 lines is a hack. The names can be printed in
+        # two lines, but ueberzug is not exact in its drawing on the 
+        # terminal lines for different window sizes. 
+        # So I give it some more room for error.
+        (( draw_lines = photo_lines - 3 ))
+        line_names=()
+    else
+        draw_lines="$photo_lines"
+    fi
     for (( i = 0; i < fit_vertical; i++ ))
     do
+        [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]] && names=""
         for (( j = 0; j < fit_horizontal; j++, cnt++ ))
         do
             (( index = start + i * fit_horizontal + j))
@@ -152,17 +198,27 @@ show_batch() {
                 assoc=( [action]=remove \
                         [identifier]="${fifo}${i}${j}" )
             else
+                if [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]]
+                then
+                    (( current_number = i * fit_horizontal + j + 1 ))
+                    current_name="${current_number}: $(basename "${images[$index]}")"
+                    (( max_length = photo_columns - 2 ))
+                    current_name=${current_name:0:$max_length}
+                    pad_sides
+                    names+="$current_name"
+                fi
                 assoc=( [action]=add \
                         [identifier]="${fifo}${i}${j}" \
                         [path]="${images[$index]}" \
                         [width]="$photo_columns" \
-                        [height]="$photo_lines" \
+                        [height]="$draw_lines" \
                         [x]="$posx" \
                         [y]="$posy" \
                         [scaler]=fit_contain )
             fi
             declare -p assoc > "$fifo"
         done
+        [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]] && line_names+=("$names")
     done
 }
 
@@ -267,6 +323,10 @@ is_natural() {
     [[ "$1" =~ ^[1-9][0-9]*$|^0+[1-9]+$ ]]
 }
 
+set_error() {
+    error="(Error) Invalid value for $1: $2"
+}
+
 give_dimensions() {
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
@@ -276,18 +336,37 @@ give_dimensions() {
     get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: "
     [[ "$input" == "ESCAPE" ]] && return
     [[ -n "$input" ]] && ! is_natural "$input" && set_error lines "$input" && return
-    [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
+    [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && new_fit_vertical="$input"
 
     printf "\n"
     get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: "
     [[ "$input" == "ESCAPE" ]] && return
     [[ -n "$input" ]] && ! is_natural "$input" && set_error columns "$input" && return
-    [[ -n "$input" && ! "$input" -eq "$photo_columns" ]] && (( new_fit_horizontal = input ))
-    clear_screen
+    [[ -n "$input" && ! "$input" -eq "$photo_columns" ]] && new_fit_horizontal="$input"
 }
 
-set_error() {
-    error="(Error) Invalid value for $1: $2"
+print_names() {
+    read -r lines columns < <(stty size)
+    separator=""
+    for (( s = 0; s < columns; s++ ))
+    do
+        separator+="─"
+    done
+    l=${#line_names[@]}
+    for (( i = 0; i < l; i++))
+    do
+        (( current_line = 2 + (i + 1) * photo_lines ))
+        printf "\e[%s;1f" "$current_line"
+        printf "\e[2K%s" "${line_names[$i]}"
+        (( current_line += 1 ))
+        printf "\e[%s;1f" "$current_line"
+        printf "%s" "$separator"
+    done
+}
+
+update_names() {
+    clear_names
+    [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]] && print_names
 }
 
 redraw() {
@@ -307,7 +386,7 @@ redraw() {
     else
         show_batch
     fi
-    clear_screen
+    update_names
 }
 
 maybe_redraw() {
@@ -318,28 +397,33 @@ maybe_redraw() {
             && set_error lines "$new_fit_vertical" && return
         (( new_fit_horizontal > columns || new_fit_horizontal < 1 )) \
             && set_error columns "$new_fit_horizontal" && return
+        if [[ "$new_fit_vertical" -eq 1 && "$new_fit_horizontal" -eq 1 ]]
+        then
+            wide_vertical="$fit_vertical"
+            wide_horizontal="$fit_horizontal"
+        fi
         fit_vertical="$new_fit_vertical"
         fit_horizontal="$new_fit_horizontal"
         redraw
     fi
 }
 
-print_status() {
-    status="[$fit_vertical x $fit_horizontal]"
+print_info() {
+    info="[$fit_vertical x $fit_horizontal]"
     if [[ "$show" -gt 1 ]]
     then
         ((begin = start + 1))
         ((finish = begin + show - 1))
-        status+=" - Photos [$begin - $finish] of $total"
+        info+=" - Photos [$begin - $finish] of $total"
     else
         ((begin = start + 1))
-        status+=" - Photo $begin of $total - ${images[$start]}"
+        info+=" - Photo $begin of $total - ${images[$start]}"
     fi
-    printf "%s" "$status"
+    printf "%s" "$info"
 }
 
 in_monocle() {
-    [[ $show -gt 1 ]] && warning="${1} option available for single images. Press [m] to enter monocle mode" && return 1
+    [[ "$batch" -gt 1 ]] && warning="${1} option available for single images. Press [m] to enter monocle mode" && return 1
     return 0
 }
 
@@ -364,17 +448,17 @@ rotate() {
 eval_cmd() {
     if [[ "$exec_prompt" -eq 1 ]]
     then
-        clear_screen
+        clear_status
         printf "%s? (press n/N/Esc to abort)" "$1"
         read -rsN1 ans
         if [[ ! "$ans" =~ ^(n|N)$ ]] && [[ ! "$ans" == $'\e' ]]
         then
             error=$(eval "$2" 2>&1 >/dev/null)
-            [[ -z "$error" ]] && success="Successful execution" && return 0
+            [[ -z "$error" ]] && success="$3" && return
         fi
     else
         error=$(eval "$cmd" 2>&1 >/dev/null)
-        [[ -z "$error" ]] && success="Successful execution" && return 0
+        [[ -z "$error" ]] && success="$3" && return
     fi
     return 1
 }
@@ -382,148 +466,191 @@ eval_cmd() {
 execute() {
     ! in_monocle "Execute" && return
     get_input "Command (add %s for the current file): "
-    [[ "$input" == "ESCAPE" ]] && clear_screen && return
+    [[ "$input" == "ESCAPE" ]] && return
     cmd=${input//%s/${images[$start]}}
     cmd=${cmd//%r/${rotated_file}}
-    eval_cmd "Execute: \"${cmd}\"" "$cmd"
-    clear_screen
+    eval_cmd "Execute: \"${cmd}\"" "$cmd" "Succesful execution"
 }
 
 rename() {
     ! in_monocle "Rename" && return
     printf "Old name: %s\n" "${images[$start]}"
     get_input "New name: "
-    [[ "$input" == "ESCAPE" ]] && clear_screen && return
+    [[ "$input" == "ESCAPE" ]] && return
     cmd="mv ${images[$start]} $input"
-    eval_cmd "Rename to: \"${input}\"" "$cmd" && images[$start]="$input"
-    clear_screen
+    eval_cmd "Rename to: \"${input}\"" "$cmd" "Succesfully renamed" && images[$start]="$input"
+}
+
+goto_image() {
+    [[ "$show" -eq 1 ]] && return
+    if [[ -n "$1" ]]
+    then
+        input="$1"
+    else
+        get_input "Go to: "
+    fi
+    [[ "$input" == "ESCAPE" ]] && return
+    ! is_natural "$input" && set_error image "$input" && return
+    [[ "$input" -gt "$show" ]] && set_error image "${input}: valid in range [1, $show]" && return
+    (( start += input - 1 ))
+    wide_vertical="$fit_vertical"
+    wide_horizontal="$fit_horizontal"
+    fit_vertical=1
+    fit_horizontal=1
+    redraw
+}
+
+update_status() {
+    clear_status
+    if [[ -n "$success" ]]
+    then
+        printf "\e[32m%s\e[m" "$success"
+    elif [[ -n "$error" ]]
+    then
+        printf "\e[31m%s\e[m" "$error"
+    elif [[ -n "$warning" ]]
+    then
+        printf "\e[33m%s\e[m" "$warning"
+    else
+        print_info
+    fi
 }
 
 read_key() {
     while true
     do
-        calculate_dimensions
-        clear_screen
-        if [[ -n "$success" ]]
-        then
-            printf "\e[32m%s\e[m" "$success"
-        elif [[ -n "$error" ]]
-        then
-            printf "\e[31m%s\e[m" "$error"
-        elif [[ -n "$warning" ]]
-        then
-            printf "\e[33m%s\e[m" "$warning"
-        else
-            print_status
-        fi
         read -rsN1 -t 0.001 key
         case $key in
             q)
                 stop_daemon
-                break
                 ;;
             n)
-                clear_messages
+                empty_messages
                 compute_batch next
                 show_batch
+                update_status
+                update_names
                 ;;
             N)
-                clear_messages
+                empty_messages
                 compute_batch prev
                 show_batch
+                update_status
+                update_names
                 ;;
             s)
-                clear_messages
-                clear_screen
+                empty_messages
+                clear_status
                 give_dimensions
                 maybe_redraw
+                update_status
                 ;;
             +|=)
-                clear_messages
+                empty_messages
                 (( new_fit_vertical = fit_vertical + 1 ))
                 (( new_fit_horizontal = fit_horizontal + 1 ))
                 maybe_redraw
+                update_status
                 ;;
             -)
-                clear_messages
+                empty_messages
                 (( new_fit_vertical = fit_vertical - 1 ))
                 (( new_fit_horizontal = fit_horizontal -1 ))
                 maybe_redraw
+                update_status
                 ;;
             m)
-                clear_messages
-                if [[ "$show" -gt 1 ]]
-                then
-                    monocle_vertical="$fit_vertical"
-                    monocle_horizontal="$fit_horizontal"
-                    new_fit_vertical=1
-                    new_fit_horizontal=1
-                    maybe_redraw
-                fi
+                empty_messages
+                goto_image 1
+                update_status
                 ;;
             M)
-                clear_messages
-                if [[ "$show" -gt 1 ]]
+                empty_messages
+                if [[ "$show" -eq 1 ]]
                 then
-                    warning="[M] is only available in monocle mode"
-                else
-                    new_fit_vertical="$monocle_vertical"
-                    new_fit_horizontal="$monocle_horizontal"
-                    maybe_redraw
+                    fit_vertical="$wide_vertical"
+                    fit_horizontal="$wide_horizontal"
+                    redraw
                 fi
+                update_status
                 ;;
             k)
-                clear_messages
+                empty_messages
                 (( new_fit_vertical = fit_vertical + 1 ))
                 (( new_fit_horizontal = fit_horizontal ))
                 maybe_redraw
+                update_status
                 ;;
             j)
-                clear_messages
+                empty_messages
                 (( new_fit_vertical = fit_vertical - 1 ))
                 (( new_fit_horizontal = fit_horizontal ))
                 maybe_redraw
+                update_status
                 ;;
             l)
-                clear_messages
+                empty_messages
                 (( new_fit_vertical = fit_vertical ))
                 (( new_fit_horizontal = fit_horizontal + 1 ))
                 maybe_redraw
+                update_status
                 ;;
             h)
-                clear_messages
+                empty_messages
                 (( new_fit_vertical = fit_vertical ))
                 (( new_fit_horizontal = fit_horizontal - 1 ))
                 maybe_redraw
+                update_status
                 ;;
             r)
-                clear_messages
+                empty_messages
                 rotate 90
+                update_status
                 ;;
             R)
-                clear_messages
+                empty_messages
                 rotate -90
+                update_status
                 ;;
             u)
-                clear_messages
+                empty_messages
                 rotate 180
+                update_status
                 ;;
             x)
-                clear_messages
-                clear_screen
+                empty_messages
+                clear_status
                 execute
+                update_status
                 ;;
             c)
-                clear_messages
-                clear_screen
+                empty_messages
+                clear_status
                 rename
+                update_status
+                ;;
+            g)
+                empty_messages
+                clear_status
+                goto_image
+                update_status
                 ;;
             $'\e'|$'\n')
-                clear_messages
-                clear_screen
+                empty_messages
+                update_status
                 ;;
         esac
     done
+}
+
+init() {
+    start_daemon
+    calculate_dimensions
+    show_batch
+    clear_screen
+    update_status
+    update_names
+    read_key
 }
 
 ! command -v ueberzug &> /dev/null && echo "Ueberzug not installed: ucollage dependency" && exit 1
@@ -531,16 +658,8 @@ parse_config
 set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 trap stop_daemon SIGINT
-trap redraw SIGWINCH
+trap "redraw; update_status" SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help
 read_images "$@"
-total="${#images[@]}"
-[[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
-show="$total"
-start=0
 declare -A assoc
-start_daemon
-calculate_dimensions
-show_batch
-clear_screen
-read_key
+init
