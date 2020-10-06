@@ -42,45 +42,41 @@ Set `UCOLLAGE_EXPAND_DIRS` variable to determine how this should be handled
 
 ### Controls
 
-`n` get next batch of images
+Key          | Action
+-------------|-------
+`m/M`        | enter monocle mode: show only one image (equivalent to `1g`/`1G`)
+`Backspace`  | exit monocle mode
+`n`          | get next batch of images
+`N`          | get previous batch of images
+`s`          | input exact number for lines and columns
+`q`          | exit
 
-`N` get previous batch of images
+#### Controls with vim-like prefix counters
 
-`h` decrease number of columns by 1
+Key      | Action                                                    | No-Prefix Default
+---------|-----------------------------------------------------------|------------------
+`[N]-`   | decrease both the numbers of columns and lines by N       | 1
+`[N]+/=` | increase both the numbers of columns and lines by N       | 1
+`[N]h`   | decrease number of columns by N                           | 1
+`[N]j`   | decrease number of lines by N                             | 1
+`[N]k`   | increase number of lines by N                             | 1
+`[N]l`   | increase number of columns by N                           | 1
+`[N]c/C` | rename image with (local/global) index N                  | info message
+`[N]g/G` | go to image with (local/global) index N                   | ask for input
+`[N]x/X` | execute command for image with (local/global) index N   * | info message
 
-`j` decrease number of lines by 1
-
-`k` increase number of lines by 1
-
-`l` increase number of columns by 1
-
-`-` decrease both the numbers of columns and lines by 1
-
-`+/=` increase both the numbers of columns and lines by 1
-
-`s` input exact number for lines and columns
-
-`q` exit
-
-`m` enter monocle mode: show only one image
-
-`M` exit monocle mode
-
-`g` go to image
-
-#### Monocle mode specific controls
-
-`r` rotate image 90 degrees clockwise
-
-`R` rotate image 90 degrees counterclockwise
-
-`u` rotate image 180 degrees
-
-`x` execute command (placeholders are available for common substitutions)<br>
+\* placeholders are available for common substitutions<br>
 - `%s` original image filename
 - `%r` rotated image filename
 
-`c` rename image
+
+#### Monocle mode controls
+
+Key  | Action
+-----|-------
+`r`  | rotate image 90 degrees clockwise
+`R`  | rotate image 90 degrees counterclockwise
+`u`  | rotate image 180 degrees
 
 ### Default values
 
