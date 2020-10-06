@@ -465,10 +465,12 @@ eval_cmd() {
         if [[ ! "$ans" =~ ^(n|N)$ ]] && [[ ! "$ans" == $'\e' ]]
         then
             error=$(eval "$2" 2>&1 >/dev/null)
+            error=$(echo "$error" | head -3)
             [[ -z "$error" ]] && success="$3" && return
         fi
     else
         error=$(eval "$cmd" 2>&1 >/dev/null)
+        error=$(echo "$error" | head -3)
         [[ -z "$error" ]] && success="$3" && return
     fi
     return 1
