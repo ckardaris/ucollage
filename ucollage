@@ -535,14 +535,14 @@ read_key() {
                 compute_batch next
                 show_batch
                 update_status
-                update_names
+                [[ -z "$warning" ]] && update_names
                 ;;
             N)
                 empty_messages
                 compute_batch prev
                 show_batch
                 update_status
-                update_names
+                [[ -z "$warning" ]] && update_names
                 ;;
             s)
                 stty echo
