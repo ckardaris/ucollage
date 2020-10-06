@@ -77,23 +77,29 @@ help(){
     exit
 }
 
-read_images() {
-    images=()
+pre_read_images() {
     if [[ "$#" -gt 0 ]]
     then
-        for file in "$@"
-        do
-            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
-        done
+        filelist=("$@")
     else
-        for file in *
-        do
-            [[ "$file" =~ .jpg$|.png$ ]] && images+=("$file")
-        done
+        filelist=(*)
     fi
+    argc="${#filelist[@]}"
+    images=()
+    read_iter=0
+}
+
+read_images() {
+    read_target="$1"
+    readc=0
+    while (( readc < read_target && read_iter < argc ))
+    do
+        file=${filelist[$read_iter]}
+        [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]] && images+=("$file") && (( readc += 1 )) \
+        || printf "."
+        (( read_iter += 1 ))
+    done
     total="${#images[@]}"
-    [[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
-    start=0
 }
 
 clear_screen() {
@@ -216,10 +222,19 @@ show_batch() {
 compute_batch() {
     case $1 in
         next)
+            # There exists an edge case here when $show is less that
+            # $batch, but we are not in the last batch of images
+            # This can happen when we are loading the images in the background
+            # and the user has changes the batch size with the 's' option
+            # right after starting up.
+            # So I change the initial
+            #   (( start += batch))
+            # to
+            #   (( start += show))
             if (( start + batch < total ))
             then
                 rm -f "$rotated_file"
-                (( start += batch))
+                (( start += show ))
                 (( show = total - start ))
                 [[ "$show" -gt "$batch" ]] && show="$batch"
             else
@@ -631,6 +646,7 @@ read_key() {
                 update_status
                 ;;
         esac
+        [[ read_iter -gt "$argv" ]] && read_images "$batch"
     done
 }
 
@@ -651,6 +667,10 @@ set_defaults
 trap stop_daemon SIGINT
 trap "redraw; update_status" SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help
-read_images "$@"
+(( first_batch = fit_vertical * fit_horizontal ))
+pre_read_images "$@"
+read_images "$first_batch"
+[[ "$total" -eq 0 ]] && echo "No images to show" && exit 1
+start=0
 declare -A assoc
 init
