@@ -18,7 +18,7 @@ parse_config() {
     [[ -n "$UCOLLAGE_SHOW_NAMES" ]] && [[ ! "$UCOLLAGE_SHOW_NAMES" =~ ^(0|1)$ ]] \
         && config_error "UCOLLAGE_SHOW_NAMES" "$UCOLLAGE_SHOW_NAMES" " - valid values: 0, 1" \
         && unset UCOLLAGE_SHOW_NAMES && errors=1
-    [[ -n "$UCOLLAGE_EXPAND_DIRS" ]] && [[ ! "$UCOLLAGE_EXPAND_DIRS" =~ ^(0|1)$ ]] \
+    [[ -n "$UCOLLAGE_EXPAND_DIRS" ]] && [[ ! "$UCOLLAGE_EXPAND_DIRS" =~ ^(0|1|ask)$ ]] \
         && config_error "UCOLLAGE_EXPAND_DIRS" "$UCOLLAGE_EXPAND_DIRS" " - valid values: 0, 1" \
         && unset UCOLLAGE_EXPAND_DIRS && errors=1
 
@@ -32,9 +32,11 @@ set_defaults() {
     tmp_dir=${UCOLLAGE_TMP_DIR:-"/tmp/ucollage"}
     exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
     show_names=${UCOLLAGE_SHOW_NAMES:-1}
-    expand_dirs=${UCOLLAGE_EXPAND_DIRS:-0}
+    expand_dirs=${UCOLLAGE_EXPAND_DIRS:-"ask"}
     error=""
     warning=""
+    success=""
+    prefix=""
 }
 
 help(){
@@ -85,6 +87,14 @@ pre_read_images() {
         for item in "${filelist[@]}"
         do
             [[ -d "$item" ]] && filelist+=("$item"/*)
+        done
+    elif [[ "$expand_dirs" == "ask" ]]
+    then
+        for item in "${filelist[@]}"
+        do
+            [[ -d "$item" ]] && read -p "Expand $item? (n, Esc: no, N: no to all)" -rsN1 char && echo
+            [[ "$char" == "N" ]] && break
+            [[ ! "$char" =~ ^(n|$'\e')$ ]] && filelist+=("$item"/*)
         done
     fi
     argc="${#filelist[@]}"
@@ -147,7 +157,7 @@ start_daemon() {
 
 stop_daemon() {
     exec {colfd}>&-
-    rm "$fifo"
+    rm -f "$fifo"
     [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && stty echo && exit
 }
 
@@ -803,9 +813,9 @@ set_defaults
 trap stop_daemon SIGINT
 trap "redraw; update_status" SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help
-stty -echo
 (( first_batch = fit_vertical * fit_horizontal ))
 pre_read_images "$@"
+stty -echo
 unset start #make sure that start is not set, makes check in read_images
 read_images "$first_batch"
 [[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit 1
