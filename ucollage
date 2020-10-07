@@ -556,13 +556,13 @@ valid_index() {
 }
 
 get_image_index() {
-    if [[ -n "$prefix" ]]
-    then
-        image_index="$prefix"
-    elif [[ -n "$hardcode_index" ]]
+    if [[ -n "$hardcode_index" ]]
     then
         (( image_index = hardcode_index ))
         unset hardcode_index
+    elif [[ -n "$prefix" ]]
+    then
+        image_index="$prefix"
     elif [[ "$batch" -eq 1 ]]
     then
         image_index=1
