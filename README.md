@@ -8,7 +8,7 @@ An image viewer for the terminal based on Überzug
 
    Überzug is a command line util which allows to draw images on terminals by using child windows.
 
-- `bash`
+- `bash >= 4`
 - `file`
 - `basename`
 
@@ -110,7 +110,7 @@ UCOLLAGE_SHOW_NAMES   | {0, 1}  | 1 | whether or not show the names of all image
 UCOLLAGE_EXPAND_DIRS  | {0, 1, ask} | ask | whether or not directories should be expanded when given as arguments
 UCOLLAGE_SORT_BY      | {name, time, size, extension} | name | sort image files by name, time, size or extension
 UCOLLAGE_SORT_REVERSE | {0, 1}  | 0 | whether or not image files should be sorted in reverse order
-UCOLLAGE_SCALER       | {crop, distort, fit\_contain, contain, forced_cover, cover} | cover | image scaler to use with ueberzug
+UCOLLAGE_SCALER       | {crop, distort, fit\_contain, contain, forced_cover, cover} | contain | image scaler to use with ueberzug
 
 #### Image scalers explained (taken from [ueberzug](https://github.com/seebye/ueberzug#add))
 | Name          | Description                                                                      |

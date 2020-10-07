@@ -46,7 +46,7 @@ set_defaults() {
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-"ask"}
     sort_by=${UCOLLAGE_SORT_BY:-name}
     sort_reverse=${UCOLLAGE_SORT_REVERSE:0}
-    scaler=${UCOLLAGE_SCALER:-"cover"}
+    scaler=${UCOLLAGE_SCALER:-"contain"}
     error=""
     warning=""
     success=""
