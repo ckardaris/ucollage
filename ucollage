@@ -128,7 +128,7 @@ clear_status() {
 }
 
 clear_names() {
-    # clear from 4th line and down 
+    # clear from 4th line and down
     printf "\e[?25l\e[H\e[3B\e[2K\e[0J\e[H"
 }
 
@@ -190,8 +190,8 @@ show_batch() {
     if [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]]
     then
         # Substracting 3 lines is a hack. The names can be printed in
-        # two lines, but ueberzug is not exact in its drawing on the 
-        # terminal lines for different window sizes. 
+        # two lines, but ueberzug is not exact in its drawing on the
+        # terminal lines for different window sizes.
         # So I give it some more room for error.
         (( draw_lines = photo_lines - 3 ))
         line_names=()
@@ -211,7 +211,7 @@ show_batch() {
                 assoc=( [action]=remove \
                         [identifier]="${fifo}${i}${j}" )
             else
-                if [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]]
+                if [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]] && [[ -n "${images[$index]}" ]]
                 then
                     (( current_number = i * fit_horizontal + j + 1 ))
                     current_name="${current_number}: $(basename "${images[$index]}")"
