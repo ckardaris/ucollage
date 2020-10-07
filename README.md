@@ -6,7 +6,8 @@ An image viewer for the terminal based on Überzug
 ## Dependencies
 - `Überzug` 
 
-    Überzug is a command line util which allows to draw images on terminals by using child windows.
+   Überzug is a command line util which allows to draw images on terminals by using child windows.
+
 - `bash`
 
 ### Optional
@@ -42,12 +43,17 @@ Set `UCOLLAGE_EXPAND_DIRS` variable to determine how this should be handled
 
 ### Controls
 
+#### NOTE
+`ucollage` is still growing and the controls may change from time to time. Be sure to first check
+the README or the help page if something is not working as expected in regard to that matter.
+
+#### General
 Key          | Action
 -------------|-------
 `m/M`        | enter monocle mode: show only one image (equivalent to `1g`/`1G`)
 `Backspace`  | exit monocle mode
-`n`          | get next batch of images
-`N`          | get previous batch of images
+`n/N`        | get next/last batch of images
+`p/P`        | get previous/first batch of images
 `s`          | input exact number for lines and columns
 `q`          | exit
 

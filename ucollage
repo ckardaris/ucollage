@@ -45,8 +45,8 @@ help(){
     echo "Controls:"
     echo "  m/M         enter monocle mode: show only one image (equivalent to 1g/1G)"
     echo "  Backspace   exit monocle mode"
-    echo "  n           get next batch of images"
-    echo "  N           get previous batch of images"
+    echo "  n/N         get next/last batch of images"
+    echo "  p/P         get previous/first batch of images"
     echo "  s           input exact number for lines and columns"
     echo "  q           exit"
     echo
@@ -210,11 +210,8 @@ show_batch() {
             (( index = start + i * fit_horizontal + j))
             (( posx = j * photo_columns))
             (( posy = 3 + i * photo_lines))
-            if [[ "$cnt" -ge "$show" ]]
+            if [[ "$cnt" -lt "$show" ]]
             then
-                assoc=( [action]=remove \
-                        [identifier]="${fifo}${i}${j}" )
-            else
                 assoc=( [action]=add \
                         [identifier]="${fifo}${i}${j}" \
                         [path]="${images[$index]}" \
@@ -227,6 +224,7 @@ show_batch() {
             declare -p assoc > "$fifo"
         done
     done
+    return 0
 }
 
 compute_batch() {
@@ -237,31 +235,31 @@ compute_batch() {
             # This can happen when we are loading the images in the background
             # and the user has changes the batch size with the 's' option
             # right after starting up.
-            # So I change the initial
-            #   (( start += batch))
-            # to
-            #   (( start += show))
             if (( start + show < total ))
             then
-                rm -f "$rotated_file"
-                (( start += show ))
-                (( show = total - start ))
-                [[ "$show" -gt "$batch" ]] && show="$batch"
+                (( new_start = start + show ))
             else
                 warning="End of files"
             fi
             ;;
+        last)
+            (( new_start = total - ((total - 1) % batch + 1) ))
+            [[ "$new_start" -le "$start" ]] && warning="End of files"
+            ;;
         prev)
-            [[ "$start" -le 0 ]] && warning="Start of files" && return
-            rm -f "$rotated_file"
-            (( start -= batch))
+            [[ "$start" -eq 0 ]] && warning="Start of files"
+            (( new_start = start - batch))
             # The below is useful in case of resizing
             # If I am in the second of batches of 10 and the
             # new window fits 20 then I don't want negative numbers
-            [[ "$start" -lt 0 ]] && start=0
-            show="$batch"
+            [[ "$new_start" -lt 0 ]] && new_start=0
+            ;;
+        first)
+            [[ "$start" -eq 0 ]] && warning="Start of files"
+            new_start=0
             ;;
     esac
+    [[ -z "$warning" ]] && rm -f "$rotated_file" && return 0 || return 1
 }
 
 get_input() {
@@ -333,6 +331,7 @@ get_input() {
                 ;;
         esac
     done
+    [[ "$input" == "ESCAPE" || -z "$input" ]] && return 1 || return 0
 }
 
 is_natural() {
@@ -349,16 +348,14 @@ give_dimensions() {
     read -r lines columns < <(stty size)
     (( max_lines = lines -3 ))
 
-    get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: "
-    [[ "$input" == "ESCAPE" ]] && return
-    [[ -n "$input" ]] && ! is_natural "$input" && set_error lines "$input" && return
-    [[ -n "$input" && ! "$input" -eq "$fit_vertical" ]] && new_fit_vertical="$input"
+    ! get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: " && return
+    ! is_natural "$input" && set_error lines "$input" && return
+    [[ ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
 
     printf "\n"
-    get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: "
-    [[ "$input" == "ESCAPE" ]] && return
-    [[ -n "$input" ]] && ! is_natural "$input" && set_error columns "$input" && return
-    [[ -n "$input" && ! "$input" -eq "$photo_columns" ]] && new_fit_horizontal="$input"
+    ! get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: " && return
+    ! is_natural "$input" && set_error columns "$input" && return
+    [[ ! "$input" -eq "$photo_columns" ]] && (( new_fit_horizontal = input ))
 }
 
 print_names() {
@@ -413,38 +410,40 @@ update_names() {
 redraw() {
     restart_daemon
     calculate_dimensions
-    if [[ "$show" -eq 1 && -f "$rotated_file" ]]
-    then
-        assoc=( [action]=add \
-                [identifier]="${fifo}00" \
-                [path]="$rotated_file" \
-                [width]="$photo_columns" \
-                [height]="$photo_lines" \
-                [x]="$posx" \
-                [y]="$posy" \
-                [scaler]=fit_contain )
-        declare -p assoc > "$fifo"
-    else
-        show_batch
-    fi
+    show_batch
     update_names
 }
 
 maybe_redraw() {
     read -r lines columns < <(stty size)
-    if (( new_fit_vertical != fit_vertical || new_fit_horizontal != fit_horizontal ))
+    if (( new_fit_vertical != fit_vertical || new_fit_horizontal != fit_horizontal || new_start != start ))
     then
         (( new_fit_vertical > lines - 3 || new_fit_vertical < 1 )) \
             && set_error lines "$new_fit_vertical" && return
         (( new_fit_horizontal > columns || new_fit_horizontal < 1 )) \
             && set_error columns "$new_fit_horizontal" && return
-        if [[ "$new_fit_vertical" -eq 1 && "$new_fit_horizontal" -eq 1 ]]
+        if [[ "$new_fit_vertical" -eq 1 && "$new_fit_horizontal" -eq 1 && "$batch" -gt 1 ]]
         then
             wide_vertical="$fit_vertical"
             wide_horizontal="$fit_horizontal"
+            wide_start="$start"
+        fi
+        (( wide_batch = wide_vertical * wide_horizontal ))
+        if [[ "$wide_batch" -gt 0 ]]
+        then
+            while (( new_start > wide_start + wide_batch ))
+            do
+                (( wide_start = wide_start + wide_batch ))
+            done
+            while (( new_start < wide_start ))
+            do
+                (( wide_start = wide_start - wide_batch ))
+            done
         fi
         fit_vertical="$new_fit_vertical"
         fit_horizontal="$new_fit_horizontal"
+        start="$new_start"
+        [[ -f "$rotated_file" ]] && rm -f "$rotated_file"
         redraw
     fi
 }
@@ -466,16 +465,16 @@ print_info() {
 
 in_monocle() {
     [[ "$batch" -eq 1 ]] && return 0
-    [[ -n "$1" ]] && warning="${1} option available for single images. Press [m] to enter monocle mode"
+    [[ -n "$1" ]] && warning="${1} option available for single images. Press [m] or N[g] to enter monocle mode"
     return 1
 }
 
 rotate() {
-    ! in_monocle "Rotate" && return
-    ! command -v convert &> /dev/null && error="imagemagick not installed: required for rotation of images" && return
+    ! in_monocle "Rotate" && return 1
+    ! command -v convert &> /dev/null && error="imagemagick not installed: required for rotation of images" && return 1
     rotated_file="${tmp_dir}/rotated-$(basename "${images[$start]}")"
     [[ ! -f "$rotated_file" ]] && cp "${images[$start]}" "$rotated_file"
-    convert -rotate "$1" "$rotated_file" "$rotated_file"
+    convert -rotate "$degrees" "$rotated_file" "$rotated_file"
     assoc=( [action]=add \
             [identifier]="${fifo}00" \
             [path]="$rotated_file" \
@@ -485,6 +484,7 @@ rotate() {
             [y]="$posy" \
             [scaler]=fit_contain )
     declare -p assoc > "$fifo"
+    return 0
 }
 
 eval_cmd() {
@@ -510,65 +510,48 @@ eval_cmd() {
 valid_index() {
     if [[ "$scope" == "global" ]]
     then
-        [[ "$image_index" -gt 0 ]] && [[ "$image_index" -le "$total" ]] && return 0
-        set_error "index" "${image_index}: valid in range [1, $total]" && return 1
+        [[ "$image_index" -ge 0 ]] && [[ "$image_index" -lt "$total" ]] && return 0
+        (( humanized_index = image_index + 1 ))
+        set_error "global index" "${humanized_index}: valid in range [1, $total]" && return 1
     else
-        [[ "$image_index" -gt 0 ]] && [[ "$image_index" -le "$show" ]] && return 0
-        set_error "index" "${image_index}: valid in range [1, $show]" && return 1
+        [[ "$image_index" -ge 0 ]] && [[ "$image_index" -lt "$show" ]] && return 0
+        (( humanized_index = image_index + 1 ))
+        set_error "local index" "${humanized_index}: valid in range [1, $show]" && return 1
     fi
 }
 
-set_image_index() {
-    if in_monocle
+user_image_index() {
+    if [[ -n "$prefix" ]]
     then
-        [[ -n "$prefix" ]] && warning="Prefix not supported in monocle mode" && return 1
-        image_index="$start"
-        return 0
+        image_index="$prefix"
     else
-        if [[ -n "$prefix" ]]
-        then
-            image_index="$prefix"
-        else
-            get_input "Give $scope index to $1: "
-            [[ "$input" == "ESCAPE" ]] && return 1
-            image_index="$input"
-        fi
-        if valid_index
-        then
-            (( image_index -= 1 ))
-            return 0
-        else
-            return 1
-        fi
+        ! get_input "Give $scope index to $1: " && return 1
+        image_index="$input"
+        clear_status
     fi
+    (( image_index -= 1 ))
+    ! valid_index && return 1
+    [[ "$scope" == "local" ]] && (( image_index = start + image_index))
+    return 0
 }
 
 global_jump() {
-    (( readjusted_index = image_index + 1 ))
-    # we readjust because image_index has range [0, total - 1]
-    # but goto_image takes arguments in range [1, total]
-    (( image_index < start || image_index >= start + show)) && goto_image readjusted_index && return 0
+    (( image_index < start || image_index >= start + show)) && goto_image "$image_index" && return 0
     return 1
 }
 
 execute() {
-    ! set_image_index "execute" && return 1
-    [[ "$scope" == "local" ]] && (( image_index = start + image_index))
-    clear_status
-    get_input "Command (add %s for the current file): "
-    [[ "$input" == "ESCAPE" ]] && return 1
+    ! user_image_index "execute" && return 1
+    ! get_input "Command (add %s for the current file): " && return 1
     cmd=${input//%s/${images[$image_index]}}
     cmd=${cmd//%r/${rotated_file}}
     eval_cmd "Execute: \"${cmd}\"" "$cmd" "Succesful execution" && global_jump
 }
 
 rename() {
-    ! set_image_index "rename" && return 1
-    [[ "$scope" == "local" ]] && (( image_index = start + image_index))
-    clear_status
+    ! user_image_index "rename" && return 1
     printf "Old name: %s\n" "${images[$image_index]}"
-    get_input "New name: "
-    [[ "$input" == "ESCAPE" ]] && return 1
+    ! get_input "New name: " && return 1
     cmd="mv ${images[$image_index]} $input"
     eval_cmd "Rename to: \"${input}\"" "$cmd" "Succesfully renamed" \
         && images[$image_index]="$input" && global_jump || update_names
@@ -578,25 +561,15 @@ goto_image() {
     if [[ -n "$1" ]]
     then
         image_index="$1"
-        if valid_index
-        then
-            (( image_index -= 1 ))
-        else
-            return
-        fi
+        ! valid_index && return 1
+        [[ "$scope" == "local" ]] && (( image_index = start + image_index))
     else
-        ! set_image_index "go to" && return
+        ! user_image_index "go to" && return
     fi
-    if [[ "$scope" == "global" ]]
-    then
-        (( new_start = image_index ))
-    else
-        (( new_start = start + image_index))
-    fi
-    [[ "$show" -gt 1 ]] && wide_vertical="$fit_vertical" && wide_horizontal="$fit_horizontal"
-    fit_vertical=1
-    fit_horizontal=1
-    [[ ! "$new_start" == "$start" || "$batch" -gt 1 ]] && start="$new_start" && redraw
+    new_start="$image_index"
+    new_fit_vertical=1
+    new_fit_horizontal=1
+    maybe_redraw
 }
 
 update_status() {
@@ -623,27 +596,34 @@ read_key() {
             q)
                 stop_daemon
                 ;;
-            n)
+            n|N|p|P)
                 empty_messages
-                compute_batch next
-                show_batch
+                case $key in
+                    n)
+                        keyword=next
+                        ;;
+                    N)
+                        keyword=last
+                        ;;
+                    p)
+                        keyword=prev
+                        ;;
+                    P)
+                        keyword=first
+                        ;;
+                esac
+                new_fit_vertical="$fit_vertical"
+                new_fit_horizontal="$fit_horizontal"
+                compute_batch "$keyword" && maybe_redraw
                 empty_prefix
                 update_status
-                [[ -z "$warning" ]] && update_names
-                ;;
-            N)
-                empty_messages
-                compute_batch prev
-                show_batch
-                empty_prefix
-                update_status
-                [[ -z "$warning" ]] && update_names
                 ;;
             s)
                 stty echo
                 empty_messages
                 clear_status
                 give_dimensions
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
@@ -659,6 +639,7 @@ read_key() {
                     (( new_fit_vertical = fit_vertical + prefix ))
                     (( new_fit_horizontal = fit_horizontal + prefix ))
                 fi
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
@@ -673,6 +654,7 @@ read_key() {
                     (( new_fit_vertical = fit_vertical - prefix ))
                     (( new_fit_horizontal = fit_horizontal - prefix ))
                 fi
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
@@ -680,7 +662,7 @@ read_key() {
             m|M)
                 [[ "$key" == "m" ]] && scope="local" || scope="global"
                 empty_messages
-                goto_image 1
+                goto_image 0
                 empty_prefix
                 update_status
                 ;;
@@ -690,6 +672,7 @@ read_key() {
                 then
                     fit_vertical="$wide_vertical"
                     fit_horizontal="$wide_horizontal"
+                    start="$wide_start"
                     redraw
                 fi
                 empty_prefix
@@ -704,6 +687,7 @@ read_key() {
                     (( new_fit_vertical = fit_vertical + prefix ))
                 fi
                 (( new_fit_horizontal = fit_horizontal ))
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
@@ -717,6 +701,7 @@ read_key() {
                     (( new_fit_vertical = fit_vertical - prefix ))
                 fi
                 (( new_fit_horizontal = fit_horizontal ))
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
@@ -730,6 +715,7 @@ read_key() {
                     (( new_fit_horizontal = fit_horizontal + prefix ))
                 fi
                 (( new_fit_vertical = fit_vertical ))
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
@@ -743,27 +729,26 @@ read_key() {
                     (( new_fit_horizontal = fit_horizontal - prefix ))
                 fi
                 (( new_fit_vertical = fit_vertical ))
+                new_start="$start"
                 maybe_redraw
                 empty_prefix
                 update_status
                 ;;
-            r)
+            r|R|u)
                 empty_messages
-                rotate 90
+                case $key in
+                    r)
+                        degrees=90
+                        ;;
+                    R)
+                        degrees="-90"
+                        ;;
+                    u)
+                        degrees=180
+                        ;;
+                esac
+                ! rotate && update_status
                 empty_prefix
-                update_status
-                ;;
-            R)
-                empty_messages
-                rotate -90
-                empty_prefix
-                update_status
-                ;;
-            u)
-                empty_messages
-                rotate 180
-                empty_prefix
-                update_status
                 ;;
             x|X)
                 [[ "$key" == "x" ]] && scope="local" || scope="global"
