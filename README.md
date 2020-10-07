@@ -113,4 +113,10 @@ export UCOLLAGE_SHOW_NAMES=1               # valid: {0, 1}          default: 1
 
 # whether or not directories should be expanded when given as arguments
 export UCOLLAGE_EXPAND_DIRS=ask            # valid: {0, 1, ask}     default: ask
+
+# sort image files by name, time, size or extension
+export UCOLLAGE_SORT_BY=name               # valid: {name, time, size, extension}     default: name
+
+# whether or not image files should be sorted in reverse order
+export UCOLLAGE_SORT_REVERSE=0             # valid: {0, 1}     default: 0
 ```
