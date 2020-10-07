@@ -29,8 +29,8 @@ parse_config() {
         && unset UCOLLAGE_SORT_REVERSE && errors=1
     [[ -n "$UCOLLAGE_SCALER" ]] \
         && [[ ! "$UCOLLAGE_SCALER" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]] \
-        && config_error "UCOLLAGE_SCALER" "$UCOLLAGE_SCALER" " - valid values: crop, distort,
-            fit_contain, contain, forced_cover, cover" \
+        && config_error "UCOLLAGE_SCALER" "$UCOLLAGE_SCALER" \
+        " - valid values: crop, distort, fit_contain, contain, forced_cover, cover" \
         && unset UCOLLAGE_SCALER && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
