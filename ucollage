@@ -75,6 +75,14 @@ help(){
     exit
 }
 
+check_depedency() {
+    for dependency in ueberzug file basename; do
+        if ! command -v "$dependency" &>/dev/null; then
+            echo "Required dependency not installed: $dependency" && exit 1
+        fi
+    done
+}
+
 pre_read_images() {
     if [[ "$#" -gt 0 ]]
     then
@@ -130,7 +138,7 @@ clear_status() {
 }
 
 clear_names() {
-    # clear from 4th line and down 
+    # clear from 4th line and down
     printf "\e[?25l\e[H\e[3B\e[2K\e[0J\e[H"
 }
 
@@ -196,8 +204,8 @@ show_batch() {
     if [[ "$show_names" -eq 1 ]] && [[ "$show" -gt 1 ]]
     then
         # Substracting 3 lines is a hack. The names can be printed in
-        # two lines, but ueberzug is not exact in its drawing on the 
-        # terminal lines for different window sizes. 
+        # two lines, but ueberzug is not exact in its drawing on the
+        # terminal lines for different window sizes.
         # So I give it some more room for error.
         (( draw_lines = photo_lines - 3 ))
     else
@@ -812,9 +820,7 @@ init() {
     read_key
 }
 
-! command -v ueberzug &> /dev/null && echo "Required dependency not installed: ueberzug" && exit 1
-! command -v file &> /dev/null && echo "Required dependency not installed: file" && exit 1
-! command -v basename &> /dev/null && echo "Required dependency not installed: basename" && exit 1
+check_depedency
 parse_config
 set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
