@@ -522,10 +522,17 @@ valid_index() {
     fi
 }
 
-user_image_index() {
+get_image_index() {
     if [[ -n "$prefix" ]]
     then
         image_index="$prefix"
+    elif [[ -n "$hardcode_index" ]]
+    then
+        (( image_index = hardcode_index ))
+        unset hardcode_index
+    elif [[ "$batch" -eq 1 ]]
+    then
+        image_index=1
     else
         ! get_input "Give $scope index to $1: " && return 1
         image_index="$input"
@@ -543,15 +550,19 @@ global_jump() {
 }
 
 execute() {
-    ! user_image_index "execute" && return 1
-    ! get_input "Command (add %s for the current file): " && return 1
+    ! get_image_index "execute" && return 1
+    echo
+    printf "%%s: %s\n" "${images[$image_index]}"
+    [[ -f "$rotated_file" ]] && printf "%%r: %s" "$rotated_file"
+    printf "\e[H"
+    ! get_input "Command: " && return 1
     cmd=${input//%s/${images[$image_index]}}
     cmd=${cmd//%r/${rotated_file}}
     eval_cmd "Execute: \"${cmd}\"" "$cmd" "Succesful execution" && global_jump
 }
 
 rename() {
-    ! user_image_index "rename" && return 1
+    ! get_image_index "rename" && return 1
     printf "Old name: %s\n" "${images[$image_index]}"
     ! get_input "New name: " && return 1
     cmd="mv ${images[$image_index]} $input"
@@ -560,14 +571,7 @@ rename() {
 }
 
 goto_image() {
-    if [[ -n "$1" ]]
-    then
-        image_index="$1"
-        ! valid_index && return 1
-        [[ "$scope" == "local" ]] && (( image_index = start + image_index))
-    else
-        ! user_image_index "go to" && return
-    fi
+    ! get_image_index "go to" && return
     new_start="$image_index"
     new_fit_vertical=1
     new_fit_horizontal=1
@@ -664,7 +668,8 @@ read_key() {
             m|M)
                 [[ "$key" == "m" ]] && scope="local" || scope="global"
                 empty_messages
-                goto_image 0
+                hardcode_index=1
+                goto_image
                 empty_prefix
                 update_status
                 ;;
