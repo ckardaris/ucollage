@@ -493,16 +493,16 @@ eval_cmd() {
         clear_status
         printf "%s? (press n/N/Esc to abort)" "$1"
         read -rsN1 ans
-        if [[ ! "$ans" =~ ^(n|N)$ ]] && [[ ! "$ans" == $'\e' ]]
+        if [[ ! "$ans" =~ ^(n|N|$'\e')$ ]]
         then
             error=$(eval "$2" 2>&1 >/dev/null)
             error=$(echo "$error" | head -3)
-            [[ -z "$error" ]] && success="$3" && return
+            [[ -z "$error" ]] && success="$3" && return 0
         fi
     else
         error=$(eval "$cmd" 2>&1 >/dev/null)
         error=$(echo "$error" | head -3)
-        [[ -z "$error" ]] && success="$3" && return
+        [[ -z "$error" ]] && success="$3" && return 0
     fi
     return 1
 }
@@ -533,8 +533,22 @@ set_image_index() {
             [[ "$input" == "ESCAPE" ]] && return 1
             image_index="$input"
         fi
-        valid_index && (( image_index -= 1 )) && return 0 || return 1
+        if valid_index
+        then
+            (( image_index -= 1 ))
+            return 0
+        else
+            return 1
+        fi
     fi
+}
+
+global_jump() {
+    (( readjusted_index = image_index + 1 ))
+    # we readjust because image_index has range [0, total - 1]
+    # but goto_image takes arguments in range [1, total]
+    (( image_index < start || image_index >= start + show)) && goto_image readjusted_index && return 0
+    return 1
 }
 
 execute() {
@@ -545,7 +559,7 @@ execute() {
     [[ "$input" == "ESCAPE" ]] && return 1
     cmd=${input//%s/${images[$image_index]}}
     cmd=${cmd//%r/${rotated_file}}
-    eval_cmd "Execute: \"${cmd}\"" "$cmd" "Succesful execution"
+    eval_cmd "Execute: \"${cmd}\"" "$cmd" "Succesful execution" && global_jump
 }
 
 rename() {
@@ -556,13 +570,14 @@ rename() {
     get_input "New name: "
     [[ "$input" == "ESCAPE" ]] && return 1
     cmd="mv ${images[$image_index]} $input"
-    eval_cmd "Rename to: \"${input}\"" "$cmd" "Succesfully renamed" && images[$image_index]="$input"
+    eval_cmd "Rename to: \"${input}\"" "$cmd" "Succesfully renamed" \
+        && images[$image_index]="$input" && global_jump || update_names
 }
 
 goto_image() {
-    if [[ "$1" == "--first" ]]
+    if [[ -n "$1" ]]
     then
-        image_index=1
+        image_index="$1"
         if valid_index
         then
             (( image_index -= 1 ))
@@ -665,7 +680,7 @@ read_key() {
             m|M)
                 [[ "$key" == "m" ]] && scope="local" || scope="global"
                 empty_messages
-                goto_image --first
+                goto_image 1
                 empty_prefix
                 update_status
                 ;;
