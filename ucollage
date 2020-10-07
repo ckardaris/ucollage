@@ -397,7 +397,7 @@ modify_names() {
                 names+="$current_name"
             fi
         done
-        line_names+=("$names")
+        [[ -n "$names" ]] && line_names+=("$names")
     done
     return 0
 }
