@@ -21,6 +21,12 @@ parse_config() {
     [[ -n "$UCOLLAGE_EXPAND_DIRS" ]] && [[ ! "$UCOLLAGE_EXPAND_DIRS" =~ ^(0|1|ask)$ ]] \
         && config_error "UCOLLAGE_EXPAND_DIRS" "$UCOLLAGE_EXPAND_DIRS" " - valid values: 0, 1" \
         && unset UCOLLAGE_EXPAND_DIRS && errors=1
+    [[ -n "$UCOLLAGE_SORT_BY" ]] && [[ ! "$UCOLLAGE_SORT_BY" =~ ^(name|time|size|extension)$ ]] \
+        && config_error "UCOLLAGE_SORT_BY" "$UCOLLAGE_SORT_BY" " - valid values: name, time, size, extension" \
+        && unset UCOLLAGE_SORT_BY && errors=1
+    [[ -n "$UCOLLAGE_SORT_REVERSE" ]] && [[ ! "$UCOLLAGE_SORT_REVERSE" =~ ^(0|1)$ ]] \
+        && config_error "UCOLLAGE_SORT_REVERSE" "$UCOLLAGE_SORT_REVERSE" " - valid values: 0, 1" \
+        && unset UCOLLAGE_SORT_REVERSE && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
     unset errors
@@ -33,6 +39,8 @@ set_defaults() {
     exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
     show_names=${UCOLLAGE_SHOW_NAMES:-1}
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-"ask"}
+    sort_by=${UCOLLAGE_SORT_BY:-name}
+    sort_reverse=${UCOLLAGE_SORT_REVERSE:0}
     error=""
     warning=""
     success=""
@@ -86,11 +94,26 @@ check_dependencies() {
 }
 
 pre_read_images() {
+    list_file_cmd="ls -d"
+    [[ "$sort_reverse" -eq 1 ]] && list_file_cmd+=" -r"
+    if [[ "$sort_by" == "name" ]]
+    then
+        list_file_cmd+=""
+    elif [[ "$sort_by" == "time" ]]
+    then
+        list_file_cmd+=" -t"
+    elif [[ "$sort_by" == "size" ]]
+    then
+        list_file_cmd+=" -S"
+    elif [[ "$sort_by" == "extension" ]]
+    then
+        list_file_cmd+=" -X"
+    fi
     if [[ "$#" -gt 0 ]]
     then
-        filelist=("$@")
+        mapfile -t filelist < <(eval "$list_file_cmd $*")
     else
-        filelist=(*)
+        mapfile -t filelist < <(eval "$list_file_cmd *")
     fi
     if [[ "$expand_dirs" -eq 1 ]]
     then
