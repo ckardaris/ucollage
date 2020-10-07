@@ -474,7 +474,9 @@ rotate() {
     ! command -v convert &> /dev/null && error="imagemagick not installed: required for rotation of images" && return 1
     rotated_file="${tmp_dir}/rotated-$(basename "${images[$start]}")"
     [[ ! -f "$rotated_file" ]] && cp "${images[$start]}" "$rotated_file"
-    convert -rotate "$degrees" "$rotated_file" "$rotated_file"
+    error=$(convert -rotate "$degrees" "$rotated_file" "$rotated_file" 2>&1 >/dev/null)
+    error=$(echo "$error" | head -3)
+    [[ -n "$error" ]] && return 1
     assoc=( [action]=add \
             [identifier]="${fifo}00" \
             [path]="$rotated_file" \
