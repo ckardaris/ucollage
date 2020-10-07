@@ -102,11 +102,22 @@ export UCOLLAGE_SORT_BY=time
 
 Variable | Valid | Default | Description
 ---|:---:|:---:|---
-UCOLLAGE\_LINES | Integer | 3 | number of lines when the scripts starts
-UCOLLAGE\_COLUMNS | Integer | 4 | number of columns when the scripts starts
-UCOLLAGE\_TMP\_DIR |  String | /tmp/ucollage | temporary directory to store script relevant files
-UCOLLAGE\_EXEC\_PROMPT | {0, 1} | 0 | whether or not to ask for confirmation when executing commands # in monocle mode
-UCOLLAGE\_SHOW\_NAMES | {0, 1} | 1 | whether or not show the names of all images in the wide view
-UCOLLAGE\_EXPAND\_DIRS | {0, 1, ask} | ask | whether or not directories should be expanded when given as arguments
-UCOLLAGE\_SORT\_BY | {name, time, size, extension} | name | sort image files by name, time, size or extension
-UCOLLAGE\_SORT\_REVERSE | {0, 1} | 0 | whether or not image files should be sorted in reverse order
+UCOLLAGE_LINES        | Integer | 3 | number of lines when the scripts starts
+UCOLLAGE_COLUMNS      | Integer | 4 | number of columns when the scripts starts
+UCOLLAGE_TMP_DIR      |  String | /tmp/ucollage | temporary directory to store script relevant files
+UCOLLAGE_EXEC_PROMPT  | {0, 1}  | 0 | whether or not to ask for confirmation when executing commands # in monocle mode
+UCOLLAGE_SHOW_NAMES   | {0, 1}  | 1 | whether or not show the names of all images in the wide view
+UCOLLAGE_EXPAND_DIRS  | {0, 1, ask} | ask | whether or not directories should be expanded when given as arguments
+UCOLLAGE_SORT_BY      | {name, time, size, extension} | name | sort image files by name, time, size or extension
+UCOLLAGE_SORT_REVERSE | {0, 1}  | 0 | whether or not image files should be sorted in reverse order
+UCOLLAGE_SCALER       | {crop, distort, fit\_contain, contain, forced_cover, cover} | cover | image scaler to use with ueberzug
+
+#### Image scalers explained (taken from [ueberzug](https://github.com/seebye/ueberzug#add))
+| Name          | Description                                                                      |
+|---------------|----------------------------------------------------------------------------------|
+| crop          | Crops out an area of the size of the placement size.                             |
+| distort       | Distorts the image to the placement size.                                        |
+| fit_contain   | Resizes the image that either the width matches the maximum width or the height matches the maximum height while keeping the image ratio. |
+| contain       | Resizes the image to a size <= the placement size while keeping the image ratio. |
+| forced_cover  | Resizes the image to cover the entire area which should be filled while keeping the image ratio. If the image is smaller than the desired size it will be stretched to reach the desired size. If the ratio of the area differs from the image ratio the edges will be cut off. |
+| cover         | The same as forced_cover but images won't be stretched if they are smaller than the area which should be filled. |

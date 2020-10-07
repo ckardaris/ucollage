@@ -19,7 +19,7 @@ parse_config() {
         && config_error "UCOLLAGE_SHOW_NAMES" "$UCOLLAGE_SHOW_NAMES" " - valid values: 0, 1" \
         && unset UCOLLAGE_SHOW_NAMES && errors=1
     [[ -n "$UCOLLAGE_EXPAND_DIRS" ]] && [[ ! "$UCOLLAGE_EXPAND_DIRS" =~ ^(0|1|ask)$ ]] \
-        && config_error "UCOLLAGE_EXPAND_DIRS" "$UCOLLAGE_EXPAND_DIRS" " - valid values: 0, 1" \
+        && config_error "UCOLLAGE_EXPAND_DIRS" "$UCOLLAGE_EXPAND_DIRS" " - valid values: 0, 1, ask" \
         && unset UCOLLAGE_EXPAND_DIRS && errors=1
     [[ -n "$UCOLLAGE_SORT_BY" ]] && [[ ! "$UCOLLAGE_SORT_BY" =~ ^(name|time|size|extension)$ ]] \
         && config_error "UCOLLAGE_SORT_BY" "$UCOLLAGE_SORT_BY" " - valid values: name, time, size, extension" \
@@ -27,6 +27,11 @@ parse_config() {
     [[ -n "$UCOLLAGE_SORT_REVERSE" ]] && [[ ! "$UCOLLAGE_SORT_REVERSE" =~ ^(0|1)$ ]] \
         && config_error "UCOLLAGE_SORT_REVERSE" "$UCOLLAGE_SORT_REVERSE" " - valid values: 0, 1" \
         && unset UCOLLAGE_SORT_REVERSE && errors=1
+    [[ -n "$UCOLLAGE_SCALER" ]] \
+        && [[ ! "$UCOLLAGE_SCALER" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]] \
+        && config_error "UCOLLAGE_SCALER" "$UCOLLAGE_SCALER" " - valid values: crop, distort,
+            fit_contain, contain, forced_cover, cover" \
+        && unset UCOLLAGE_SCALER && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
     unset errors
@@ -41,6 +46,7 @@ set_defaults() {
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-"ask"}
     sort_by=${UCOLLAGE_SORT_BY:-name}
     sort_reverse=${UCOLLAGE_SORT_REVERSE:0}
+    scaler=${UCOLLAGE_SCALER:-"cover"}
     error=""
     warning=""
     success=""
@@ -252,7 +258,7 @@ show_batch() {
                         [height]="$draw_lines" \
                         [x]="$posx" \
                         [y]="$posy" \
-                        [scaler]=fit_contain )
+                        [scaler]="$scaler" )
             fi
             declare -p assoc > "$fifo"
         done
@@ -517,7 +523,7 @@ rotate() {
             [height]="$photo_lines" \
             [x]="$posx" \
             [y]="$posy" \
-            [scaler]=fit_contain )
+            [scaler]="$scaler" )
     declare -p assoc > "$fifo"
     return 0
 }
