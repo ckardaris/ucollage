@@ -100,7 +100,6 @@ check_dependencies() {
 }
 
 pre_read_images() {
-    list_file_cmd="ls -d"
     [[ "$sort_reverse" -eq 1 ]] && list_file_cmd+=" -r"
     if [[ "$sort_by" == "name" ]]
     then
@@ -117,9 +116,9 @@ pre_read_images() {
     fi
     if [[ "$#" -gt 0 ]]
     then
-        mapfile -t filelist < <(eval "$list_file_cmd $*")
+        mapfile -t filelist < <(ls -d "$@")
     else
-        mapfile -t filelist < <(eval "$list_file_cmd *")
+        mapfile -t filelist < <(ls -d *)
     fi
     if [[ "$expand_dirs" -eq 1 ]]
     then
