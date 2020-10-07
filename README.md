@@ -6,14 +6,16 @@ An image viewer for the terminal based on Überzug
 ## Dependencies
 - `Überzug` 
 
-    Überzug is a command line util which allows to draw images on terminals by using child windows.
+   Überzug is a command line util which allows to draw images on terminals by using child windows.
+
 - `bash`
+- `file`
+- `basename`
 
 ### Optional
 For image rotation:
 
 - `imagemagick`
-- `basename`
 
 ## Installation
 `ucollage` is a bash script, so you only have to download the file and make it executable.
@@ -42,45 +44,51 @@ Set `UCOLLAGE_EXPAND_DIRS` variable to determine how this should be handled
 
 ### Controls
 
-`n` get next batch of images
+#### NOTE
+`ucollage` is still growing and the controls may change from time to time. Be sure to first check
+the README or the help page if something is not working as expected in regard to that matter.
 
-`N` get previous batch of images
+#### General
+Key          | Action
+-------------|-------
+`m/M`        | enter monocle mode: show only one image (equivalent to `1g`/`1G`)
+`Backspace`  | exit monocle mode
+`n/N`        | get next/last batch of images
+`p/P`        | get previous/first batch of images
+`s`          | input exact number for lines and columns
+`q`          | exit
 
-`h` decrease number of columns by 1
+#### Controls with vim-like prefix counters
 
-`j` decrease number of lines by 1
+Key      | Action                                                    | No-Prefix Default
+---------|-----------------------------------------------------------|------------------
+`[N]-`   | decrease both the numbers of columns and lines by N       | 1
+`[N]+/=` | increase both the numbers of columns and lines by N       | 1
+`[N]h`   | decrease number of columns by N                           | 1
+`[N]j`   | decrease number of lines by N                             | 1
+`[N]k`   | increase number of lines by N                             | 1
+`[N]l`   | increase number of columns by N                           | 1
+`[N]c/C` | rename image with (local/global) index N                  | info message
+`[N]g/G` | go to image with (local/global) index N                   | ask for input
+`[N]x/X` | execute command for image with (local/global) index N   * | info message
 
-`k` increase number of lines by 1
+\* placeholders are available for common substitutions<br>
+- `%s` original image filename
 
-`l` increase number of columns by 1
 
-`-` decrease both the numbers of columns and lines by 1
+#### Monocle mode controls
 
-`+/=` increase both the numbers of columns and lines by 1
+Key   | Action
+------|-------
+`r`   | rotate image 90 degrees clockwise
+`R`   | rotate image 90 degrees counterclockwise
+`u`   | rotate image 180 degrees
+`c/C` | rename image
+`x/X` | execute command for image   * 
 
-`s` input exact number for lines and columns
-
-`q` exit
-
-`m` enter monocle mode: show only one image
-
-`M` exit monocle mode
-
-`g` go to image
-
-#### Monocle mode specific controls
-
-`r` rotate image 90 degrees clockwise
-
-`R` rotate image 90 degrees counterclockwise
-
-`u` rotate image 180 degrees
-
-`x` execute command (placeholders are available for common substitutions)<br>
+\* placeholders are available for common substitutions<br>
 - `%s` original image filename
 - `%r` rotated image filename
-
-`c` rename image
 
 ### Default values
 
@@ -88,21 +96,21 @@ You can set default values for some of the variables. You just have to export th
 
 ``` bash
 # number of lines when the scripts starts
-export UCOLLAGE_LINES=2                    # valid: integer  default: 3
+export UCOLLAGE_LINES=2                    # valid: integer         default: 3
 
 # number of columns when the scripts starts
-export UCOLLAGE_COLUMNS=2                  # valid: integer  default: 4
+export UCOLLAGE_COLUMNS=2                  # valid: integer         default: 4
 
 # temporary directory to store script relevant files
-export UCOLLAGE_TMP_DIR="/tmp/directory"   # valid: string   default: "/tmp/ucollage"
+export UCOLLAGE_TMP_DIR="/tmp/directory"   # valid: string          default: "/tmp/ucollage"
 
 # whether or not to ask for confirmation when executing commands
 # in monocle mode
-export UCOLLAGE_EXEC_PROMPT=1              # valid: {0, 1}   default: 0
+export UCOLLAGE_EXEC_PROMPT=1              # valid: {0, 1}          default: 0
 
 # whether or not show the names of all images in the wide view
-export UCOLLAGE_SHOW_NAMES=1               # valid: {0, 1}   default: 1
+export UCOLLAGE_SHOW_NAMES=1               # valid: {0, 1}          default: 1
 
 # whether or not directories should be expanded when given as arguments
-export UCOLLAGE_EXPAND_DIRS=0              # valid: {0, 1}   default: 0
+export UCOLLAGE_EXPAND_DIRS=ask            # valid: {0, 1, ask}     default: ask
 ```
