@@ -436,6 +436,7 @@ print_info() {
     then
         ((begin = start + 1))
         ((finish = begin + show - 1))
+        [[ "$finish" -gt "$total" ]] && finish="$total"
         info+=" - Photos [$begin - $finish] of $total"
     else
         ((begin = start + 1))
