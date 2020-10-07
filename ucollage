@@ -75,9 +75,11 @@ help(){
     exit
 }
 
-check_depedency() {
-    for dependency in ueberzug file basename; do
-        if ! command -v "$dependency" &>/dev/null; then
+check_dependencies() {
+    for dependency in ueberzug file basename
+    do
+        if ! command -v "$dependency" &>/dev/null
+        then
             echo "Required dependency not installed: $dependency" && exit 1
         fi
     done
@@ -820,7 +822,7 @@ init() {
     read_key
 }
 
-check_depedency
+check_dependencies
 parse_config
 set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
