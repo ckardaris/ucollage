@@ -100,26 +100,23 @@ check_dependencies() {
 }
 
 pre_read_images() {
-    list_file_cmd="ls -d"
-    [[ "$sort_reverse" -eq 1 ]] && list_file_cmd+=" -r"
-    if [[ "$sort_by" == "name" ]]
+    ls_args="-d"
+    [[ "$sort_reverse" -eq 1 ]] && ls_args+=" -r"
+    if [[ "$sort_by" == "time" ]]
     then
-        list_file_cmd+=""
-    elif [[ "$sort_by" == "time" ]]
-    then
-        list_file_cmd+=" -t"
+        ls_args+=" -t"
     elif [[ "$sort_by" == "size" ]]
     then
-        list_file_cmd+=" -S"
+        ls_args+=" -S"
     elif [[ "$sort_by" == "extension" ]]
     then
-        list_file_cmd+=" -X"
+        ls_args+=" -X"
     fi
     if [[ "$#" -gt 0 ]]
     then
-        mapfile -t filelist < <(eval "$list_file_cmd $*")
+        mapfile -t filelist < <(ls $ls_args "$@")
     else
-        mapfile -t filelist < <(eval "$list_file_cmd *")
+        mapfile -t filelist < <(ls $ls_args *)
     fi
     if [[ "$expand_dirs" -eq 1 ]]
     then
