@@ -51,6 +51,7 @@ set_defaults() {
     fit_horizontal=${UCOLLAGE_COLUMNS:-4}
     tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
     cache_dir=${UCOLLAGE_CACHE_DIR:-~/.local/share/ucollage}
+    trash_dir=${UCOLLAGE_TRASH_DIR:-~/.local/share/Trash/ucollage}
     exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
     show_names=${UCOLLAGE_SHOW_NAMES:-1}
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-ask}
@@ -86,6 +87,7 @@ help(){
     echo "  [N]k        increase number of lines by N"
     echo "  [N]l        increase number of columns by N"
     echo "  [N]c/C      rename image with (local/global) index N"
+    echo "  [N]d/D      move image with (local/global) index N to Trash"
     echo "  [N]g/G      go to image with (local/global) index N"
     echo "  [N]x/X      execute command for image with (local/global) index N"
     echo "              placeholders are available for command execution"
@@ -96,6 +98,7 @@ help(){
     echo "  R           rotate image 90 degrees counterclockwise"
     echo "  u           rotate image 180 degrees"
     echo "  c/C         rename image"
+    echo "  d/D         move image to Trash"
     echo "  x/X         execute command"
     echo "              placeholders are available for command execution"
     echo "                  %s - original image filename"
@@ -632,8 +635,8 @@ get_image_index() {
     return 0
 }
 
-global_jump() {
-    (( image_index < start || image_index >= start + show)) && goto_image "$image_index" && return 0
+is_index_global() {
+    (( image_index < start || image_index >= start + show)) && return 0
     return 1
 }
 
@@ -655,7 +658,7 @@ rename() {
     ! get_input "New name: " && return 1
     cmd="mv \"${image_names[$image_index]}\" \"$input\""
     eval_cmd "Rename to: ${input}" "$cmd" "Succesfully renamed" \
-        && image_names[$image_index]="$input" && global_jump || update_names
+        && image_names[$image_index]="$input" && is_index_global && goto_image "$image_index" || update_names
 }
 
 goto_image() {
@@ -664,6 +667,19 @@ goto_image() {
     new_fit_vertical=1
     new_fit_horizontal=1
     maybe_redraw
+}
+
+delete_image() {
+    ! get_image_index "delete" && return
+    cmd="mv \"${image_names[$image_index]}\" \"$trash_dir\""
+    if eval_cmd "Delete: ${image_names[$image_index]}" "$cmd" "Succesfully deleted"
+    then
+        unset image_names[$image_index]
+        unset images[$image_index]
+        image_names=("${image_names[@]}")
+        images=("${images[@]}")
+        ! is_index_global && redraw
+    fi
 }
 
 update_status() {
@@ -698,12 +714,7 @@ populate_arrays() {
 read_key() {
     while true
     do
-        if [[ "$done_reading" -eq 1 ]]
-        then
-            read -rsN1 key
-        else
-            read -rsN1 -t 0.5 key
-        fi
+        read -rsN1 -t 0.1 key
         case $key in
             q)
                 stop_daemon --exit
@@ -893,6 +904,16 @@ read_key() {
                 update_status
                 stty -echo
                 ;;
+            d|D)
+                [[ "$key" == "d" ]] && scope="local" || scope="global"
+                stty echo
+                empty_messages
+                clear_status
+                delete_image
+                empty_prefix
+                update_status
+                stty -echo
+                ;;
             [0-9])
                 empty_messages
                 prefix+="$key"
@@ -927,6 +948,7 @@ parse_config
 set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 [[ ! -d "$cache_dir" ]] && mkdir -p "$cache_dir"
+[[ ! -d "$trash_dir" ]] && mkdir -p "$trash_dir"
 trap "stop_daemon --exit" EXIT #handles stty echo better than SIGINT
 trap "redraw; update_status" SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help && exit_clear=0 && exit

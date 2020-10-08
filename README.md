@@ -80,9 +80,10 @@ Key      | Action                                                    | No-Prefix
 `[N]j`   | decrease number of lines by N                             | 1
 `[N]k`   | increase number of lines by N                             | 1
 `[N]l`   | increase number of columns by N                           | 1
-`[N]c/C` | rename image with (local/global) index N                  | info message
+`[N]c/C` | rename image with (local/global) index N                  | ask for input
+`[N]d/D` | move image with (local/global) index N to Trash           | ask for input
 `[N]g/G` | go to image with (local/global) index N                   | ask for input
-`[N]x/X` | execute command for image with (local/global) index N   * | info message
+`[N]x/X` | execute command for image with (local/global) index N   * | ask for input
 
 \* placeholders are available for common substitutions<br>
 - `%s` original image filename
@@ -96,6 +97,7 @@ Key   | Action
 `R`   | rotate image 90 degrees counterclockwise
 `u`   | rotate image 180 degrees
 `c/C` | rename image
+`d/D` | move image to Trash
 `x/X` | execute command for image   * 
 
 \* placeholders are available for common substitutions<br>
@@ -118,6 +120,7 @@ UCOLLAGE_LINES            | Integer | 3 | number of lines when the scripts start
 UCOLLAGE_COLUMNS          | Integer | 4 | number of columns when the scripts starts
 UCOLLAGE_TMP_DIR  *       | String  | /tmp/ucollage | temporary directory to store script relevant files
 UCOLLAGE_CACHE_DIR  *     | String  | ~/.local/share/ucollage | cache directory to store script relevant files
+UCOLLAGE_TRASH_DIR  *     | String  | ~/.local/share/Trash/ucollage | cache directory to move "deleted" files
 UCOLLAGE_EXEC_PROMPT      | {0, 1}  | 0 | whether or not to ask for confirmation when executing commands # in monocle mode
 UCOLLAGE_SHOW_NAMES       | {0, 1}  | 1 | whether or not show the names of all images in the wide view
 UCOLLAGE_EXPAND_DIRS      | {0, 1, ask} | ask | whether or not directories should be expanded when given as arguments
