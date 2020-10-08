@@ -32,6 +32,15 @@ parse_config() {
         && config_error "UCOLLAGE_SCALER" "$UCOLLAGE_SCALER" \
         " - valid values: crop, distort, fit_contain, contain, forced_cover, cover" \
         && unset UCOLLAGE_SCALER && errors=1
+    [[ -n "$UCOLLAGE_VIDEO_THUMBNAILS" ]] && [[ ! "$UCOLLAGE_VIDEO_THUMBNAILS" =~ ^(0|1)$ ]] \
+        && config_error "UCOLLAGE_VIDEO_THUMBNAILS" "$UCOLLAGE_VIDEO_THUMBNAILS" " - valid values: 0, 1" \
+        && unset UCOLLAGE_VIDEO_THUMBNAILS && errors=1
+    [[ -n "$UCOLLAGE_CACHE_THUMBNAILS" ]] && [[ ! "$UCOLLAGE_CACHE_THUMBNAILS" =~ ^(0|1)$ ]] \
+        && config_error "UCOLLAGE_CACHE_THUMBNAILS" "$UCOLLAGE_CACHE_THUMBNAILS" " - valid values: 0, 1" \
+        && unset UCOLLAGE_CACHE_THUMBNAILS && errors=1
+    [[ -n "$UCOLLAGE_THUMBNAIL_WIDTH" ]] && ! is_natural "$UCOLLAGE_THUMBNAIL_WIDTH" \
+        && config_error "UCOLLAGE_THUMBNAIL_WIDTH" "$UCOLLAGE_THUMBNAIL_WIDTH" "is not a natural number" \
+        && unset UCOLLAGE_THUMBNAIL_WIDTH && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
     unset errors
@@ -40,17 +49,22 @@ parse_config() {
 set_defaults() {
     fit_vertical=${UCOLLAGE_LINES:-3}
     fit_horizontal=${UCOLLAGE_COLUMNS:-4}
-    tmp_dir=${UCOLLAGE_TMP_DIR:-"/tmp/ucollage"}
+    tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
+    cache_dir=${UCOLLAGE_CACHE_DIR:-~/.local/share/ucollage}
     exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
     show_names=${UCOLLAGE_SHOW_NAMES:-1}
-    expand_dirs=${UCOLLAGE_EXPAND_DIRS:-"ask"}
+    expand_dirs=${UCOLLAGE_EXPAND_DIRS:-ask}
     sort_by=${UCOLLAGE_SORT_BY:-name}
-    sort_reverse=${UCOLLAGE_SORT_REVERSE:0}
-    scaler=${UCOLLAGE_SCALER:-"contain"}
+    sort_reverse=${UCOLLAGE_SORT_REVERSE:-0}
+    scaler=${UCOLLAGE_SCALER:-contain}
+    video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
+    cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
+    thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
     error=""
     warning=""
     success=""
     prefix=""
+    exit_clear=1
 }
 
 help(){
@@ -86,7 +100,6 @@ help(){
     echo "              placeholders are available for command execution"
     echo "                  %s - original image filename"
     echo "                  %r - rotated image filename"
-    exit
 }
 
 check_dependencies() {
@@ -94,7 +107,7 @@ check_dependencies() {
     do
         if ! command -v "$dependency" &>/dev/null
         then
-            echo "Required dependency not installed: $dependency" && exit 1
+            echo "Required dependency not installed: $dependency" && exit_clear=0 && exit
         fi
     done
 }
@@ -134,26 +147,59 @@ pre_read_images() {
         done
     fi
     argc="${#filelist[@]}"
+    image_names=()
     images=()
     read_iter=0
 }
 
+find_thumbnail() {
+    real_path=$(realpath "$file")
+    cache_name=${real_path//\ /_}
+    cache_name=${cache_name//\(/_}
+    cache_name=${cache_name//\)/_}
+    cache_name=${cache_name//\//_}
+    cache_name="${cache_dir}/${cache_name}.thumbnail"
+    [[ -f "$cache_name" ]] && thumbnail_file="$cache_name" && return 0
+    return 1
+}
+
+create_thumbnail() {
+    thumbnail_file=$(mktemp --dry-run "${tmp_dir}/thumbnail-XXXXXXXX.jpg")
+    eval "$(ffprobe -i "$file" -show_entries format=duration -v quiet -of flat="s=_")"
+    format_duration=${format_duration/.*/}
+    (( time_point = format_duration / 2 ))
+    ffmpeg -ss "$time_point" -i "$file" -loglevel quiet -frames:v 1 -filter:v scale="$thumbnail_width":-1 -y "$thumbnail_file"
+    montage -label "thumbnail" "$thumbnail_file" -geometry +0+0 -background Gold "$thumbnail_file"
+}
+
 read_images() {
-    read_target="$1"
     readc=0
-    while (( readc < read_target && read_iter < argc ))
+    while [[ "$1" == "--remaining" ]] || (( readc < read_target )) && (( read_iter < argc ))
     do
         file=${filelist[$read_iter]}
         if [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]]
         then
-            images+=("$file") && (( readc += 1 ))
+            echo "$file" >> "${tmp_dir}/image_names.txt"
+            echo "$file" >> "${tmp_dir}/images.txt"
+            (( readc += 1 ))
+        elif [[ $(file --mime-type -b "$file") =~ ^video/.*$ ]] && [[ "$video_thumbnails" -eq 1 ]] \
+            && command -v ffmpeg &> /dev/null
+        then
+            ! find_thumbnail && create_thumbnail
+            echo "$file" >> "${tmp_dir}/image_names.txt"
+            echo "$thumbnail_file" >> "${tmp_dir}/images.txt"
+            if [[ "$cache_thumbnails" -eq 1 ]] && [[ ! "$thumbnail_file" == "$cache_name" ]]
+            then
+                cp -f "$thumbnail_file" "$cache_name"
+            fi
+            (( readc += 1 ))
         else
-            [[ -z "$start" ]] && printf "." # only print if ui is not started
+            [[ -z "$start" ]] && [[ ! "$1" == "--remaining" ]] && printf "." # only print if ui is not started
         fi
         (( read_iter += 1 ))
     done
     printf "\n"
-    total="${#images[@]}"
+    [[ "$1" == "--remaining" ]] && > "${tmp_dir}/done_reading" || rm -f "${tmp_dir}/done_reading"
 }
 
 clear_screen() {
@@ -189,16 +235,23 @@ start_daemon() {
     mkfifo "$fifo"
     ueberzug layer --parse bash --silent < "$fifo" &
     exec {colfd}> "$fifo"
+    daemon_on=1
 }
 
 stop_daemon() {
-    exec {colfd}>&-
+    [[ "$daemon_on" -eq 1 ]] && exec {colfd}>&- # prevent error message
+    daemon_on=0
     rm -f "$fifo"
-    [[ ! "$1" == "--no-exit" ]] && clear_screen && rm -rf "$tmp_dir" && show_cursor && stty echo && exit
+    if [[ "$1" == "--exit" ]]
+    then
+        kill "$background_pid" &>/dev/null
+        [[ "$exit_clear" -eq 1 ]] && clear_screen
+        rm -rf "$tmp_dir" && show_cursor && stty echo && exit
+    fi
 }
 
 restart_daemon() {
-    stop_daemon --no-exit
+    stop_daemon
     start_daemon
 }
 
@@ -415,7 +468,7 @@ print_names() {
 
 modify_names() {
     cnt=0
-    [[ "$show_names" -eq 0 ]] || [[ "$show" -eq 1 ]] && return 1
+    [[ "$show_names" -eq 0 ]] || in_monocle && return 1
     line_names=()
     for (( i = 0; i < fit_vertical; i++ ))
     do
@@ -426,7 +479,7 @@ modify_names() {
             if [[ "$cnt" -lt "$show" ]]
             then
                 (( current_number = i * fit_horizontal + j + 1 ))
-                current_name="${current_number}: $(basename "${images[$index]}")"
+                current_name="${current_number}: $(basename "${image_names[$index]}")"
                 (( max_length = photo_columns - 2 ))
                 current_name=${current_name:0:$max_length}
                 pad_sides
@@ -486,14 +539,13 @@ maybe_redraw() {
 
 print_info() {
     info="[$fit_vertical x $fit_horizontal]"
-    if [[ "$show" -gt 1 ]]
+    ((begin = start + 1))
+    if in_monocle
     then
-        ((begin = start + 1))
+        info+=" - Photo $begin of $total - $(basename "${image_names[$start]}")"
+    else
         ((finish = begin + show - 1))
         info+=" - Photos [$begin - $finish] of $total"
-    else
-        ((begin = start + 1))
-        info+=" - Photo $begin of $total - $(basename "${images[$start]}")"
     fi
     [[ -n "$prefix" ]] && info+=" ($prefix)"
     printf "%s" "$info"
@@ -588,22 +640,22 @@ global_jump() {
 execute() {
     ! get_image_index "execute" && return 1
     echo
-    printf "%%s: %s\n" "${images[$image_index]}"
+    printf "%%s: %s\n" "${image_names[$image_index]}"
     [[ -f "$rotated_file" ]] && printf "%%r: %s" "$rotated_file"
     printf "\e[H"
     ! get_input "Command: " && return 1
-    cmd=${input//%s/${images[$image_index]}}
-    cmd=${cmd//%r/${rotated_file}}
-    eval_cmd "Execute: \"${cmd}\"" "$cmd" "Succesful execution" && global_jump
+    cmd=${input//%s/\"${image_names[$image_index]}\"}
+    cmd=${cmd//%r/\"${rotated_file}\"}
+    eval_cmd "Execute: ${cmd}" "$cmd" "Succesful execution" && global_jump
 }
 
 rename() {
     ! get_image_index "rename" && return 1
-    printf "Old name: %s\n" "${images[$image_index]}"
+    printf "Old name: %s\n" "${image_names[$image_index]}"
     ! get_input "New name: " && return 1
-    cmd="mv ${images[$image_index]} $input"
-    eval_cmd "Rename to: \"${input}\"" "$cmd" "Succesfully renamed" \
-        && images[$image_index]="$input" && global_jump || update_names
+    cmd="mv \"${image_names[$image_index]}\" \"$input\""
+    eval_cmd "Rename to: ${input}" "$cmd" "Succesfully renamed" \
+        && image_names[$image_index]="$input" && global_jump || update_names
 }
 
 goto_image() {
@@ -630,13 +682,30 @@ update_status() {
     fi
 }
 
+populate_arrays() {
+    # This is to read only new files in each iteratio. Should scale well
+    mv "${tmp_dir}/image_names.txt" "${tmp_dir}/image_names.txt.old"
+    mv "${tmp_dir}/images.txt" "${tmp_dir}/images.txt.old"
+    mapfile -t temp_names < "${tmp_dir}/image_names.txt.old"
+    mapfile -t temp < "${tmp_dir}/images.txt.old"
+    image_names+=("${temp_names[@]}")
+    images+=("${temp[@]}")
+    [[ -f "${tmp_dir}/done_reading" ]] && done_reading=1 || done_reading=0
+    total="${#images[@]}"
+}
+
 read_key() {
     while true
     do
-        read -rsN1 -t 0.001 key
+        if [[ "$done_reading" -eq 1 ]]
+        then
+            read -rsN1 key
+        else
+            read -rsN1 -t 0.5 key
+        fi
         case $key in
             q)
-                stop_daemon
+                stop_daemon --exit
                 ;;
             n|N|p|P)
                 empty_messages
@@ -834,7 +903,11 @@ read_key() {
                 update_status
                 ;;
         esac
-        [[ read_iter -lt "$argc" ]] && read_images "$batch" && update_status
+        if [[ ! "$done_reading" -eq 1 ]]
+        then
+            populate_arrays
+            update_status
+        fi
     done
 }
 
@@ -852,15 +925,19 @@ check_dependencies
 parse_config
 set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
-trap stop_daemon SIGINT
+[[ ! -d "$cache_dir" ]] && mkdir -p "$cache_dir"
+trap "stop_daemon --exit" EXIT #handles stty echo better than SIGINT
 trap "redraw; update_status" SIGWINCH
-[[ "$1" =~ ^-h$|^--help$ ]] && help
+[[ "$1" =~ ^-h$|^--help$ ]] && help && exit_clear=0 && exit
 (( first_batch = fit_vertical * fit_horizontal ))
 pre_read_images "$@"
 stty -echo
 unset start #make sure that start is not set, makes check in read_images
-read_images "$first_batch"
-[[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit 1
+read_target="$first_batch" && read_images
+populate_arrays
+unset read_target && read_images --remaining &
+background_pid="$!"
+[[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit_clear=0 && exit
 start=0
 declare -A assoc
 init

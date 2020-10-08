@@ -17,6 +17,9 @@ For image rotation:
 
 - `imagemagick`
 
+For video thumbnails:
+- `ffmpeg`
+
 ## Installation
 `ucollage` is a bash script, so you only have to download the file and make it executable.
 
@@ -102,15 +105,21 @@ export UCOLLAGE_SORT_BY=time
 
 Variable | Valid | Default | Description
 ---|:---:|:---:|---
-UCOLLAGE_LINES        | Integer | 3 | number of lines when the scripts starts
-UCOLLAGE_COLUMNS      | Integer | 4 | number of columns when the scripts starts
-UCOLLAGE_TMP_DIR      |  String | /tmp/ucollage | temporary directory to store script relevant files
-UCOLLAGE_EXEC_PROMPT  | {0, 1}  | 0 | whether or not to ask for confirmation when executing commands # in monocle mode
-UCOLLAGE_SHOW_NAMES   | {0, 1}  | 1 | whether or not show the names of all images in the wide view
-UCOLLAGE_EXPAND_DIRS  | {0, 1, ask} | ask | whether or not directories should be expanded when given as arguments
-UCOLLAGE_SORT_BY      | {name, time, size, extension} | name | sort image files by name, time, size or extension
-UCOLLAGE_SORT_REVERSE | {0, 1}  | 0 | whether or not image files should be sorted in reverse order
-UCOLLAGE_SCALER       | {crop, distort, fit\_contain, contain, forced_cover, cover} | contain | image scaler to use with ueberzug
+UCOLLAGE_LINES            | Integer | 3 | number of lines when the scripts starts
+UCOLLAGE_COLUMNS          | Integer | 4 | number of columns when the scripts starts
+UCOLLAGE_TMP_DIR  *       | String  | /tmp/ucollage | temporary directory to store script relevant files
+UCOLLAGE_CACHE_DIR  *     | String  | ~/.local/share/ucollage | cache directory to store script relevant files
+UCOLLAGE_EXEC_PROMPT      | {0, 1}  | 0 | whether or not to ask for confirmation when executing commands # in monocle mode
+UCOLLAGE_SHOW_NAMES       | {0, 1}  | 1 | whether or not show the names of all images in the wide view
+UCOLLAGE_EXPAND_DIRS      | {0, 1, ask} | ask | whether or not directories should be expanded when given as arguments
+UCOLLAGE_SORT_BY          | {name, time, size, extension} | name | sort image files by name, time, size or extension
+UCOLLAGE_SORT_REVERSE     | {0, 1}  | 0 | whether or not image files should be sorted in reverse order
+UCOLLAGE_SCALER           | {crop, distort, fit\_contain, contain, forced_cover, cover} | contain | image scaler to use with ueberzug
+UCOLLAGE_VIDEO_THUMBNAILS | {0, 1} | 1 | whether or not support showing video thumbnails. Slower startup time if the first batch consists of many thumbnails which are not present in the cache directory.
+UCOLLAGE_CACHE_THUMBNAILS | {0, 1} | 1 | whether or not save computed thumbnails for future usage
+UCOLLAGE_THUMBNAIL_WIDTH  | Integer | 500 | width of thumbnails of videos, image ratio is preserved. Actual appearance on screen will depend on the value of UCOLLAGE_SCALER
+
+\* don't quote directories if you want tilde expansion (~) to occur. $HOME should be fine either way
 
 #### Image scalers explained (taken from [ueberzug](https://github.com/seebye/ueberzug#add))
 | Name          | Description                                                                      |
