@@ -684,6 +684,7 @@ update_status() {
 
 populate_arrays() {
     # This is to read only new files in each iteratio. Should scale well
+    [[ ! -f "${tmp_dir}/image_names.txt" ]] || [[ ! -f "${tmp_dir}/images.txt" ]] && return
     mv "${tmp_dir}/image_names.txt" "${tmp_dir}/image_names.txt.old"
     mv "${tmp_dir}/images.txt" "${tmp_dir}/images.txt.old"
     mapfile -t temp_names < "${tmp_dir}/image_names.txt.old"

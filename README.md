@@ -1,7 +1,16 @@
 # ucollage
 An image viewer for the terminal based on Überzug
 
+**Disclaimer:** The usage gif below is showing only a subset of the capabilities of the script. It is older and needs updating
 ![](resources/usage.gif)
+
+## Supports
+- images
+- video thumbnails
+- showing file names
+- renaming (view is updated)
+- general command execution
+- vim-like movements and prefix arguments
 
 ## Dependencies
 - `Überzug` 
