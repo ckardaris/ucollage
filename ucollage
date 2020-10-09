@@ -988,6 +988,7 @@ delete_image() {
         unset images["$image_index"]
         image_names=("${image_names[@]}")
         images=("${images[@]}")
+        total=${#images[@]}
         ! is_index_global && redraw
     fi
 }
@@ -1002,9 +1003,6 @@ delete_image() {
 #   status
 # Outputs:
 #   prints the status on stdout
-# Return:
-#   0
-#   1
 ######################################################################
 update_status() {
     local new_status
