@@ -847,7 +847,7 @@ rotate() {
             [width]="$photo_columns" \
             [height]="$photo_lines" \
             [x]=0 \
-            [y]=0 \
+            [y]=3 \
             [scaler]="$scaler" )
     declare -p assoc > "$fifo"
     return 0
@@ -1262,6 +1262,9 @@ read_key() {
                 empty_prefix
                 update_status
                 stty -echo
+                ;;
+            t|T)
+                [[ "$key" == "d" ]] && scope="local" || scope="global"
                 ;;
             [0-9])
                 empty_messages
