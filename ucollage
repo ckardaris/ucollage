@@ -295,6 +295,7 @@ clear_screen() {
 clear_status() {
     # clear only first three lines of screen
     printf "\e[?25l\e[H\e[2B\e[2K\e[1J\e[H"
+    status=""
 }
 
 ######################################################################
@@ -1020,7 +1021,7 @@ update_status() {
         set_info
         new_status="\e[107;30m${info}\e[m"
     fi
-    [[ ! "$new_status" == "$status" ]] && status="$new_status" && clear_status && printf "$status"
+    [[ ! "$new_status" == "$status" ]] && clear_status && status="$new_status" && printf "$status"
 }
 
 ######################################################################
