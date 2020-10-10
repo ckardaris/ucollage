@@ -184,7 +184,7 @@ UCOLLAGE_SCALER           | {crop, distort, fit\_contain, contain, forced_cover,
 UCOLLAGE_VIDEO_THUMBNAILS | {0, 1} | 1 | whether or not support showing video thumbnails. Slower startup time if the first batch consists of many thumbnails which are not present in the cache directory.
 UCOLLAGE_CACHE_THUMBNAILS | {0, 1} | 1 | whether or not save computed thumbnails for future usage
 UCOLLAGE_THUMBNAIL_WIDTH  | Integer | 500 | width of thumbnails of videos, image ratio is preserved. Actual appearance on screen will depend on the value of UCOLLAGE_SCALER
-UCOLLAGE_MESSAGE_TIMEOUT  | Real    | 1 | time in seconds to show messages (errors, success, warning) on screen (0 to hide, very big to never hide)
+UCOLLAGE_MESSAGE_TIMEOUT  | Real    | 1 | time in seconds to show messages (error, success, warning) on screen (0 to hide, very big to never hide)
 
 \* don't quote directories if you want tilde expansion (~) to occur. $HOME should be fine either way
 

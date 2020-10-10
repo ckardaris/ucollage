@@ -1165,10 +1165,10 @@ rename() {
     done
     if [[ "$renamed" -eq "$index_count" ]]
     then
-        [[ "$index_count" -gt 1 ]] && success="Successfully renamed ${deleted} out of ${index_count} files"
-    elif [[ "$deleted" -gt 0 ]]
+        [[ "$index_count" -gt 1 ]] && success="Successfully renamed ${renamed} out of ${index_count} files"
+    elif [[ "$renamed" -gt 0 ]]
     then
-        [[ "$index_count" -gt 1 ]] && warning="Successfully renamed ${deleted} out of ${index_count} files"
+        [[ "$index_count" -gt 1 ]] && warning="Successfully renamed ${renamed} out of ${index_count} files"
     else
         error="No files renamed"
     fi
