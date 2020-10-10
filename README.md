@@ -8,7 +8,9 @@ An image viewer for the terminal based on Überzug
 - images
 - video thumbnails
 - showing file names
-- renaming (view is updated)
+- image tags
+- renaming
+- deleting
 - general command execution
 - vim-like movements and prefix arguments
 
@@ -19,7 +21,6 @@ An image viewer for the terminal based on Überzug
 
 - `bash >= 4`
 - `file`
-- `basename`
 
 ### Optional
 For image rotation:
@@ -64,29 +65,46 @@ the README or the help page if something is not working as expected in regard to
 Key          | Action
 -------------|-------
 `m/M`        | enter monocle mode: show only one image (equivalent to `1g`/`1G`)
+`;`          | enter tag mode with
 `Backspace`  | exit monocle mode
 `n/N`        | get next/last batch of images
 `p/P`        | get previous/first batch of images
-`s`          | input exact number for lines and columns
 `q`          | exit
 
 #### Controls with vim-like prefix counters
 
-Key      | Action                                                    | No-Prefix Default
----------|-----------------------------------------------------------|------------------
-`[N]-`   | decrease both the numbers of columns and lines by N       | 1
-`[N]+/=` | increase both the numbers of columns and lines by N       | 1
-`[N]h`   | decrease number of columns by N                           | 1
-`[N]j`   | decrease number of lines by N                             | 1
-`[N]k`   | increase number of lines by N                             | 1
-`[N]l`   | increase number of columns by N                           | 1
-`[N]c/C` | rename image with (local/global) index N                  | ask for input
-`[N]d/D` | move image with (local/global) index N to Trash           | ask for input
-`[N]g/G` | go to image with (local/global) index N                   | ask for input
-`[N]x/X` | execute command for image with (local/global) index N   * | ask for input
+Key      | Action                                                                     | No-Prefix Default
+---------|----------------------------------------------------------------------------|------------------
+`(N)s`   | input exact number for lines and columns                                   | ask for input  *
+`(N)-`   | decrease both the numbers of columns and lines by N                        | 1
+`(N)+/=` | increase both the numbers of columns and lines by N                        | 1
+`(N)h`   | decrease number of columns by N                                            | 1
+`(N)j`   | decrease number of lines by N                                              | 1
+`(N)k`   | increase number of lines by N                                              | 1
+`(N)l`   | increase number of columns by N                                            | 1
+`(N)c/C` | rename image with (local/global) index N                                   | ask for input  *
+`(N)d/D` | move image with (local/global) index N to Trash                            | ask for input  *
+`(N)g/G` | go to image with (local/global) index N                                    | ask for input  *
+`(N)t/T` | tag image with (local/global) index N                                      | ask for input  *
+`(N)u/U` | untag image with (local/global) index N                                    | ask for input  *
+`(N)x/X` | execute different commands for each image with (local/global) index N   ** | ask for input  *
+`(N)b/B` | execute one command for all images with (local/global) index N  \*\*\*     | ask for input  *
 
-\* placeholders are available for common substitutions<br>
-- `%s` original image filename
+Prefix (N) is a space-separated list of values. <br>
+`*` selects all available indices for the given [scope](#explaining-scope) (local/global).<br>
+The current value of the prefix can be seen on the status line inside parentheses.
+- `s` uses only the first 2 values of (N)
+- `h`, `j`, `k`, `l`, `+/=`, `-` use only the first value of (N)
+- the rest of the commands use the whole prefix according to their definition
+
+\* The input behaves exactly like the prefix list. It accepts multiple space-separated values. Write
+`*` to select all values of the scope (local/global)
+
+\*\* placeholders are available for common substitutions<br>
+- `%s` image filename
+
+\*\*\* placeholders
+- `%S` all image filenames side by side
 
 
 #### Monocle mode controls
@@ -95,14 +113,50 @@ Key   | Action
 ------|-------
 `r`   | rotate image 90 degrees clockwise
 `R`   | rotate image 90 degrees counterclockwise
-`u`   | rotate image 180 degrees
 `c/C` | rename image
 `d/D` | move image to Trash
-`x/X` | execute command for image   * 
+`x/X` | execute command for image   *
+`b/B` | execute command for image   **
 
-\* placeholders are available for common substitutions<br>
+\* placeholders
 - `%s` original image filename
 - `%r` rotated image filename
+
+\*\* placeholders
+- `%S` original image filename
+- `%r` rotated image filename
+
+#### Tag mode controls
+Key   | Action
+------|-------
+`c/C` | rename (local/global) tagged images one by one
+`d/D` | move (local/global) tagged images to Trash
+`g/G` | go to first (local/global) tagged image
+`x/X` | execute different command for every (local/global) tagged image *
+`b/B` | execute one command for all (local/global) tagged images **
+
+\* placeholders
+- `%s` tagged image filename
+
+\*\* placeholders
+- `%S` all tagged images filenames side by side
+
+#### Scope explained
+When you press any lowercase letter from the ones that correspond to an action on images (rename,
+tag, delete, go to, etc.), the action will be performed strictly on images that you can see on your
+screen (local scope). If you input indices that are out of the local scope, then you will see an
+error. If you are in tag mode, then only images that are tagged and local will be used.
+
+The opposite case is global scope. Pressing any capital letter will use all images available. The
+only error can happen by selecting indices that surpass the total number of images available.
+
+#### Control examples
+- `1` `└─┘` `2` `└─┘` `4` `d`: delete images with local indices 1,2 and 4 (same as `d` `1` `└─┘` `2` `└─┘` `4` `Enter`)
+- `*` `T`: tag all images available<br>
+- `;` `d`: delete the local tagged images
+- `*` `c` : rename all local images
+- `2` `└─┘` `3` `s`: set 2x3 grid
+- `2` `l` : increase number of columns by 2
 
 ### Default values
 
