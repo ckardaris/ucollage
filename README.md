@@ -65,8 +65,8 @@ the README or the help page if something is not working as expected in regard to
 Key          | Action
 -------------|-------
 `m/M`        | enter monocle mode: show only one image (equivalent to `1g`/`1G`)
-`;`          | enter tag mode with
 `Backspace`  | exit monocle mode
+`;`          | enter tag mode
 `n/N`        | get next/last batch of images
 `p/P`        | get previous/first batch of images
 `q`          | exit
@@ -91,7 +91,7 @@ Key      | Action                                                               
 `(N)b/B` | execute one command for all images with (local/global) index N  \*\*\*     | ask for input  *
 
 Prefix (N) is a space-separated list of values. <br>
-`*` selects all available indices for the given [scope](#explaining-scope) (local/global).<br>
+`*` selects all available indices for the given [scope](#scope-explained) (local/global).<br>
 The current value of the prefix can be seen on the status line inside parentheses.
 - `s` uses only the first 2 values of (N)
 - `h`, `j`, `k`, `l`, `+/=`, `-` use only the first value of (N)
