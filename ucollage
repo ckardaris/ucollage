@@ -1537,7 +1537,8 @@ read_key() {
             [0-9]|" "|"*"|";")
                 empty_messages
                 [[ "$prefix" =~ ^(;|\*)$ ]] && prefix=""
-                prefix+="$key"
+                [[ "$key" == ";" ]] && [[ ${#tags[@]} -eq 0 ]] && warning="No tagged images" \
+                    || prefix+="$key"
                 update_status
                 ;;
             $'\e'|$'\n')
