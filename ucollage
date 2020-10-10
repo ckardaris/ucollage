@@ -46,6 +46,9 @@ parse_config() {
         && config_error "UCOLLAGE_THUMBNAIL_WIDTH" "$UCOLLAGE_THUMBNAIL_WIDTH" \
         "is not a natural number" \
         && unset UCOLLAGE_THUMBNAIL_WIDTH && errors=1
+    [[ -n "$UCOLLAGE_MESSAGE_TIMEOUT" ]] && ! is_time "$UCOLLAGE_MESSAGE_TIMEOUT" \
+        && config_error "UCOLLAGE_MESSAGE_TIMEOUT" "$UCOLLAGE_MESSAGE_TIMEOUT" "is not a real number" \
+        && unset UCOLLAGE_MESSAGE_TIMEOUT && errors=1
 
     [[ "$errors" -eq 1 ]] && read -rsN1
 }
@@ -65,6 +68,7 @@ set_defaults() {
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
+    message_timeout=${UCOLLAGE_MESSAGE_TIMEOUT:-1}
     error=""
     warning=""
     success=""
@@ -545,6 +549,7 @@ compute_batch() {
 #   input
 # Arguments:
 #   $1              text to show as prompt
+#   $2              text to have already in the input line
 # Outputs:
 #   None
 # Return:
@@ -554,7 +559,7 @@ compute_batch() {
 get_input() {
     show_cursor
     printf "%s\e7" "$1"
-    left=""
+    [[ -n "$2" ]] && left="$2" || left=""
     right=""
     while true
     do
@@ -623,8 +628,12 @@ get_input() {
     [[ "$input" == "ESCAPE" || -z "$input" ]] && return 1 || return 0
 }
 
+is_time() {
+    [[ "$1" =~ ^[0-9]*\.?[0-9]+$ ]]
+}
+
 is_natural() {
-    [[ "$1" =~ ^[1-9][0-9]*$|^0+[1-9]+$ ]]
+    [[ "$1" =~ ^([1-9][0-9]*|0+[1-9][0-9]*)$ ]]
 }
 
 set_error() {
@@ -1104,6 +1113,7 @@ execute() {
             cmd=${input//%s/\"${image_names[$ind]}\"}
             cmd=${cmd//%r/\"${rotated_file}\"}
             eval_cmd "Execute: ${cmd}" "$cmd" "Successful execution"
+            update_status
         done
     else # bundle images
         ! get_image_index "execute bundled" && return 1
@@ -1126,20 +1136,42 @@ rename() {
     local update=0
     local i
     ! get_image_index "rename" && return 1
+    local renamed=0
     for (( i = 0; i < index_count; i++))
     do
         ind=${image_index[$i]}
         printf "\e[1J\e[HOld name: %s\n" "${image_names[$ind]}"
-        ! get_input "New name: " && continue
-        [[ -f "$input" ]] && error="Filename exists" && continue
+        ! get_input "New name: " "${image_names[$ind]}" && continue
+        if [[ "${image_names[$ind]}" == "$input" ]]
+        then
+            error="New name has to be different"
+            update_status
+            continue
+        elif [[ -f "$input" ]]
+        then
+            error="Filename exists"
+            update_status
+            continue
+        fi
         cmd="mv \"${image_names[$ind]}\" \"$input\""
         if eval_cmd "Rename to: ${input}" "$cmd" "Successfully renamed"
         then
+            update_status
             is_image "$ind" && images[$ind]="$input"
             image_names[$ind]="$input"
             is_index_local "$ind" && update=1
+            (( renamed += 1 ))
         fi
     done
+    if [[ "$renamed" -eq "$index_count" ]]
+    then
+        [[ "$index_count" -gt 1 ]] && success="Successfully renamed ${deleted} out of ${index_count} files"
+    elif [[ "$deleted" -gt 0 ]]
+    then
+        [[ "$index_count" -gt 1 ]] && warning="Successfully renamed ${deleted} out of ${index_count} files"
+    else
+        error="No files renamed"
+    fi
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
 
@@ -1155,7 +1187,7 @@ delete_image() {
     local update=0
     local i
     ! get_image_index "delete" && return 1
-    deleted=0
+    local deleted=0
     for (( i = 0; i < index_count; i++))
     do
         (( updated = i - deleted )) # adjust index because we trim the arrays after deleting
@@ -1164,6 +1196,7 @@ delete_image() {
         if eval_cmd "Delete: ${image_names[$ind]}" \
             "$cmd" "Successfully deleted"
         then
+            update_status
             unset image_names[${image_index[$updated]}]
             unset images[${image_index[$updated]}]
             image_names=("${image_names[@]}")
@@ -1173,6 +1206,15 @@ delete_image() {
             (( deleted += 1 ))
         fi
     done
+    if [[ "$deleted" -eq "$index_count" ]]
+    then
+        [[ "$index_count" -gt 1 ]] && success="Successfully deleted ${deleted} out of ${index_count} files"
+    elif [[ "$deleted" -gt 0 ]]
+    then
+        [[ "$index_count" -gt 1 ]] && warning="Successfully deleted ${deleted} out of ${index_count} files"
+    else
+        error="No files deleted"
+    fi
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
 
@@ -1213,20 +1255,39 @@ tag_image() {
 ######################################################################
 update_status() {
     local new_status
+    local status_timeout
     if [[ -n "$success" ]]
     then
         new_status="\e[32m${success}\e[m"
+        success=""
+        status_timeout=1
     elif [[ -n "$error" ]]
     then
         new_status="\e[31m${error}\e[m"
+        error=""
+        status_timeout=1
     elif [[ -n "$warning" ]]
     then
         new_status="\e[33m${warning}\e[m"
+        warning=""
+        status_timeout=1
     else
         set_info
         new_status="\e[107;30m${info}\e[m"
+        status_timeout=0
     fi
-    [[ ! "$new_status" == "$status" ]] && clear_status && status="$new_status" && printf "$status"
+    if [[ ! "$new_status" == "$status" ]]
+    then
+        clear_status && status="$new_status"
+        if [[ "$status_timeout" -eq 1 ]]
+        then
+            printf "$status"
+            read -t "$message_timeout" -sN1
+            update_status
+        else
+            printf "$status"
+        fi
+    fi
 }
 
 ######################################################################
