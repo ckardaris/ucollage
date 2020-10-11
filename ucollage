@@ -544,12 +544,114 @@ compute_batch() {
 }
 
 ######################################################################
+# Calculates the next suggestion from the autocomplete array
+# Uses:
+#   autocomplete
+#   suggestion_count
+# Modifies:
+#   suggestion_index
+#   suggestion
+# Arguments:
+#   $1              prev or next, depending on the direction we are cycling
+######################################################################
+set_suggestion() {
+    [[ "$suggestion_count" -eq 2 ]] && suggestion="${autocomplete[1]}" && clear_suggestions && return
+    if [[ "$1" == "next" ]]
+    then
+        (( suggestion_index = (suggestion_index + 1) % suggestion_count ))
+    elif [[ "$1" == "prev" ]]
+    then
+        (( suggestion_index = (suggestion_index - 1) % suggestion_count ))
+    fi
+    suggestion="${autocomplete[$suggestion_index]}"
+}
+
+######################################################################
+# Saves the suggestion as input and clears everything related to autocomplete
+# Uses:
+#   suggestion
+# Modifies:
+#   left
+#   suggestion
+#   autocomplete
+######################################################################
+clear_suggestions() {
+    [[ -z "$suggestion" ]] && return
+    left="$suggestion"
+    suggestion=""
+    suggestion_count=0
+    unset autocomplete
+}
+
+######################################################################
+# Escapes special characters in filenames in order to not have a problem
+# with command execution. Should be used like var=$(escape_name "$var")
+# Arguments:
+#   $1              The name we want to escape chars for
+# Outputs:
+#   $2              Prints the updated name
+######################################################################
+escape_name() {
+    local name="$1"
+    name="${name// /\\ }"
+    name="${name//\(/\\\(}"
+    name="${name//\)/\\\)}"
+    name="${name//\{/\\\{}"
+    name="${name//\}/\\\}}"
+    printf "%s" "$name"
+}
+
+######################################################################
+# Creates the automplete array based on the autocomplete type we want
+# Uses:
+#   left
+# Modifies:
+#   autocomplete
+# Arguments:
+#   $1              autocomplete type: command, file, etc.
+# Return:
+#   0               if autocomplete array was created
+#   1               if array was not created for any reason
+######################################################################
+create_suggestions() {
+    IFS=" " read -r -a split_left <<< "$left"
+    [[ "${left: -1}" == " " ]] && split_left+=("") #we do that so that a space confirms a suggestion
+    [[ "${#split_left[@]}" -eq 0 ]] && return 1
+    if [[ "$1" == "command" ]]
+    then
+        if [[ "${#split_left[@]}" -gt 1 ]]
+        then
+            mapfile -t autocomplete < <(compgen -f "${split_left[-1]}" | sort)
+        else
+            mapfile -t autocomplete < <(compgen -c "${split_left[-1]}" | sort)
+        fi
+    elif [[ "$1" == "file" ]]
+    then
+        mapfile -t autocomplete < <(compgen -f "${split_left[-1]}" | sort)
+    fi
+
+    autocomplete=("$left" "${autocomplete[@]}")
+    [[ "${#split_left[@]}" -gt 0 ]] && unset split_left[-1]
+    local i=1
+    while [[ "$i" -lt ${#autocomplete[@]} ]]
+    do
+        autocomplete[$i]=$(escape_name "${autocomplete[$i]}")
+        [[ "${#split_left[@]}" -gt 0 ]] && autocomplete[$i]="${split_left[@]} ${autocomplete[$i]}"
+        (( i += 1 ))
+    done
+    suggestion_index=0
+    suggestion_count=${#autocomplete[@]}
+    return 0
+}
+
+######################################################################
 # Gets input from the user
 # Modifies:
 #   input
 # Arguments:
 #   $1              text to show as prompt
 #   $2              text to have already in the input line
+#   $3              suggestion type (command, file, etc.)
 # Outputs:
 #   None
 # Return:
@@ -566,7 +668,12 @@ get_input() {
         printf "\e8\e[K"
         move=""
         [[ -n "$right" ]] && move="\e[${#right}D"
-        printf "%s%s$move" "$left" "$right"
+        if [[ -n "$suggestion" ]]
+        then
+            printf "%s%s$move" "$suggestion" "$right"
+        else
+            printf "%s%s$move" "$left" "$right"
+        fi
         read -rsN1 char
         read -rsN1 -t 0.0001 k1
         read -rsN1 -t 0.0001 k2
@@ -575,53 +682,67 @@ get_input() {
         key="${char}${k1}${k2}${k3}${k4}"
         case "$key" in
             $'\e[D') #left arrow press
+                clear_suggestions
                 if [[ -n "$left" ]]
                 then
-                    right="${left: -1}$right";
+                    right="${left: -1}$right"
                     left="${left:0:-1}"
                 fi
-                continue
                 ;;
             $'\e[C') #right arrow press
+                clear_suggestions
                 if [[ -n "$right" ]]
                 then
                     left="$left${right:0:1}"
-                    right="${right:1}";
+                    right="${right:1}"
                 fi
-                continue
                 ;;
-            $'\e[H'|$'\e[1~')
+            $'\e[H'|$'\e[1~') #Home
+                clear_suggestions
                 right="${left}${right}"
                 left=""
-                continue
                 ;;
-            $'\e[F'|$'\e[4~')
+            $'\e[F'|$'\e[4~') #End
+                clear_suggestions
                 left="${left}${right}"
                 right=""
-                continue
                 ;;
             $'\e[3~'|$'\e[P')
+                clear_suggestions
                 [[ -n "$right" ]] && right="${right:1}"
-                continue
                 ;;
             $'\e')
-                input="ESCAPE";
+                clear_suggestions
+                input="ESCAPE"
                 break
                 ;;
             $'\b'|$'\x7F')
+                clear_suggestions
                 [[ -n "$left" ]] && left="${left:0:-1}"
-                continue
                 ;;
             $'\n')
-                input="$left$right";
+                clear_suggestions
+                input="${left}${right}"
                 break
                 ;;
             [0-9]|[A-Z]|[a-z]|' '|[\/\:\;\|\<\>?+\-%._\\*@!$])
+                clear_suggestions
                 left+="$key"
-                continue
+                ;;
+            $'\t')
+                [ -z "$3" ] && continue
+                [[ ${#autocomplete[@]} -gt 0 ]] && set_suggestion next && continue
+                ! create_suggestions "$3" && continue || set_suggestion next
+                ;;
+            $'\e[Z')
+                [ -z "$3" ] && continue
+                [[ ${#autocomplete[@]} -gt 0 ]] && set_suggestion prev && continue
+                ! create_suggestions "$3" && continue || set_suggestion prev
+                ;;
+            $'\e[B')
+                clear_suggestions
                 ;;
             *)
-                continue
                 ;;
         esac
     done
@@ -1110,7 +1231,7 @@ execute() {
             printf "%%s: %s\n" "${image_names[$ind]}"
             [[ -f "$rotated_file" ]] && printf "%%r: %s" "$rotated_file"
             printf "\e[H"
-            ! get_input "Command: " && continue
+            ! get_input "Command: " "" "command" && continue
             cmd=${input//%s/\"${image_names[$ind]}\"}
             cmd=${cmd//%r/\"${rotated_file}\"}
             eval_cmd "Execute: ${cmd}" "$cmd" "Successful execution"
@@ -1127,7 +1248,7 @@ execute() {
         printf "\e[1J\e[H\n"
         printf "%%S: %s\n" "$args"
         printf "\e[H"
-        ! get_input "Command: " && return
+        ! get_input "Command: " "" "command" && return
         cmd=${input//%S/${args[@]}}
         eval_cmd "Execute: ${cmd}" "$cmd" "Successful execution"
     fi
