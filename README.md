@@ -19,7 +19,7 @@ An image viewer for the terminal based on Überzug
 
    Überzug is a command line util which allows to draw images on terminals by using child windows.
 
-- `bash >= 4`
+- `bash >= 4.2`
 - `file`
 
 ### Optional

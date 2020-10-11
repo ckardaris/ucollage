@@ -819,7 +819,8 @@ set_info() {
     ((begin = start + 1))
     if in_monocle
     then
-        local photo_name=$(basename "${image_names[$start]}")
+        local photo_name
+        photo_name=$(basename "${image_names[$start]}")
         [[ -n ${tags[$start]} ]] && photo_name="* ${photo_name}"
         info+=" - Photo $begin of $total - ${photo_name}"
     else
@@ -975,13 +976,13 @@ all_indices() {
     then
         for ((i = 1; i <= show; i++ ))
         do
-            image_index+=($i)
+            image_index+=("$i")
         done
     elif [[ "$scope" == "global" ]]
     then
         for ((i = 1; i <= total; i++ ))
         do
-            image_index+=($i)
+            image_index+=("$i")
         done
     fi
 
@@ -1018,24 +1019,24 @@ get_image_index() {
                 if [[ "$scope" == "local" ]]
                 then
                     # filter non-local indices out
-                    [[ -n ${tags[$i]} ]] && is_index_local "$i" && image_index+=($i)
+                    [[ -n ${tags[$i]} ]] && is_index_local "$i" && image_index+=("$i")
                 else
-                    [[ -n ${tags[$i]} ]] && image_index+=($i)
+                    [[ -n ${tags[$i]} ]] && image_index+=("$i")
                 fi
             done
         elif [[ "$prefix" == "*" ]]
         then
             all_indices
         else
-            image_index=($prefix)
+            IFS=" " read -r -a image_index <<< "$prefix"
         fi
     elif [[ "$batch" -eq 1 ]] # no-prefix, just the key pressed
     then
         scope=local
-        image_index=1
+        image_index[0]=1
     else
         ! get_input "Give $scope indices to $1: " && return 1
-        [[ "$input" == "*" ]] && all_indices || image_index=($input)
+        [[ "$input" == "*" ]] && all_indices || IFS=" " read -r -a image_index <<< "$input"
         clear_status
     fi
 
@@ -1093,7 +1094,7 @@ is_index_local() {
 #   1           if the index is not an image
 ######################################################################
 is_image() {
-    [[ ${image_names[$1]} == ${images[$1]} ]] && return 0 || return 1
+    [[ "${image_names[$1]}" == "${images[$1]}" ]] && return 0 || return 1
 }
 
 execute() {
@@ -1282,7 +1283,7 @@ update_status() {
         if [[ "$status_timeout" -eq 1 ]]
         then
             printf "$status"
-            read -t "$message_timeout" -sN1
+            read -t "$message_timeout" -rsN1
             update_status
         else
             printf "$status"
@@ -1385,9 +1386,9 @@ read_key() {
                 then
                     give_dimensions
                 else
-                    prefix=($prefix)
-                    (( new_fit_vertical = prefix[0] ))
-                    (( new_fit_horizontal = prefix[1] ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_vertical = prefix_args[0] ))
+                    (( new_fit_horizontal = prefix_args[1] ))
                 fi
                 new_start="$start"
                 maybe_redraw
@@ -1403,9 +1404,9 @@ read_key() {
                     (( new_fit_vertical = fit_vertical + 1 ))
                     (( new_fit_horizontal = fit_horizontal + 1 ))
                 else
-                    prefix=($prefix)
-                    (( new_fit_vertical = fit_vertical + prefix[0] ))
-                    (( new_fit_horizontal = fit_horizontal + prefix[0] ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_vertical = fit_vertical + prefix_args[0] ))
+                    (( new_fit_horizontal = fit_horizontal + prefix_args[0] ))
                 fi
                 new_start="$start"
                 maybe_redraw
@@ -1420,9 +1421,9 @@ read_key() {
                     (( new_fit_vertical = fit_vertical - 1 ))
                     (( new_fit_horizontal = fit_horizontal - 1 ))
                 else
-                    prefix=($prefix)
-                    (( new_fit_vertical = fit_vertical - prefix[0] ))
-                    (( new_fit_horizontal = fit_horizontal - prefix[0] ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_vertical = fit_vertical - prefix_args[0] ))
+                    (( new_fit_horizontal = fit_horizontal - prefix_args[0] ))
                 fi
                 new_start="$start"
                 maybe_redraw
@@ -1460,8 +1461,8 @@ read_key() {
                 then
                     (( new_fit_vertical = fit_vertical + 1 ))
                 else
-                    prefix=($prefix)
-                    (( new_fit_vertical = fit_vertical + prefix ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_vertical = fit_vertical + prefix_args[0] ))
                 fi
                 (( new_fit_horizontal = fit_horizontal ))
                 new_start="$start"
@@ -1476,8 +1477,8 @@ read_key() {
                 then
                     (( new_fit_vertical = fit_vertical - 1 ))
                 else
-                    prefix=($prefix)
-                    (( new_fit_vertical = fit_vertical - prefix ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_vertical = fit_vertical - prefix_args[0] ))
                 fi
                 (( new_fit_horizontal = fit_horizontal ))
                 new_start="$start"
@@ -1492,8 +1493,8 @@ read_key() {
                 then
                     (( new_fit_horizontal = fit_horizontal + 1 ))
                 else
-                    prefix=($prefix)
-                    (( new_fit_horizontal = fit_horizontal + prefix ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_horizontal = fit_horizontal + prefix_args[0] ))
                 fi
                 (( new_fit_vertical = fit_vertical ))
                 new_start="$start"
@@ -1508,8 +1509,8 @@ read_key() {
                 then
                     (( new_fit_horizontal = fit_horizontal - 1 ))
                 else
-                    prefix=($prefix)
-                    (( new_fit_horizontal = fit_horizontal - prefix ))
+                    IFS=" " read -r -a prefix_args <<< "$prefix"
+                    (( new_fit_horizontal = fit_horizontal - prefix_args[0] ))
                 fi
                 (( new_fit_vertical = fit_vertical ))
                 new_start="$start"
@@ -1538,10 +1539,10 @@ read_key() {
                 clear_status
                 case $key in
                     x|X)
-                        action=split
+                        action="split"
                         ;;
                     b|B)
-                        action=bundle
+                        action="bundle"
                         ;;
                 esac
                 execute "$action"
