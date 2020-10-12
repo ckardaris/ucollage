@@ -206,8 +206,8 @@ pre_read_images() {
     argc="${#filelist[@]}"
     image_names=()
     images=()
-    rm -f ${tmp_dir}/image_names.txt*
-    rm -f ${tmp_dir}/images.txt*
+    rm -f "${tmp_dir}/image_names.txt*"
+    rm -f "${tmp_dir}/images.txt*"
     read_iter=0
 }
 
@@ -638,12 +638,12 @@ create_suggestions() {
     fi
 
     autocomplete=("$left" "${autocomplete[@]}")
-    [[ "${#split_left[@]}" -gt 0 ]] && unset split_left[-1]
+    [[ "${#split_left[@]}" -gt 0 ]] && unset "split_left[-1]"
     local i=1
     while [[ "$i" -lt ${#autocomplete[@]} ]]
     do
         autocomplete[$i]=$(escape_name "${autocomplete[$i]}")
-        [[ "${#split_left[@]}" -gt 0 ]] && autocomplete[$i]="${split_left[@]} ${autocomplete[$i]}"
+        [[ "${#split_left[@]}" -gt 0 ]] && autocomplete[$i]="${split_left[*]} ${autocomplete[$i]}"
         (( i += 1 ))
     done
     suggestion_index=0
@@ -781,8 +781,6 @@ give_dimensions() {
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
     read -r lines columns < <(stty size)
-    (( max_lines = lines -3 ))
-
     ! get_input "Give number of lines and columns [current: $fit_vertical $fit_horizontal]: " && return
     local fit
     IFS=" " read -r -a fit <<< "$input"
@@ -1175,7 +1173,7 @@ get_image_index() {
     then
         for (( i = 0; i < index_count; i++ ))
         do
-            ! is_natural ${image_index[$i]} && set_error "${scope} index" \
+            ! is_natural "${image_index[$i]}" && set_error "${scope} index" \
                 "${image_index[$i]}: not a natural number" && return 1
             (( image_index[i] -= 1 ))
         done
@@ -1375,8 +1373,8 @@ delete_image() {
             "$cmd" "Successfully deleted"
         then
             update_status
-            unset image_names[${image_index[$updated]}]
-            unset images[${image_index[$updated]}]
+            unset image_names["${image_index[$updated]}"]
+            unset images["${image_index[$updated]}"]
             image_names=("${image_names[@]}")
             images=("${images[@]}")
             total=${#images[@]}
@@ -1412,7 +1410,7 @@ tag_image() {
             ! get_image_index "untag" && return 1
             for (( i = 0; i < index_count; i++))
             do
-                [[ -n ${tags[${image_index[$i]}]} ]] && unset tags[${image_index[$i]}] \
+                [[ -n ${tags[${image_index[$i]}]} ]] && unset tags["${image_index[$i]}"] \
                     && is_index_local "${image_index[$i]}" && update=1
             done
             ;;
