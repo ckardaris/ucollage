@@ -85,6 +85,11 @@ help(){
     echo "  ;           enter tag mode"
     echo "  n/N         get next/last batch of images"
     echo "  p/P         get previous/first batch of images"
+    echo "  E           toggle exec prompt"
+    echo "  F           toggle filenames on screen"
+    echo "  o           change sort type"
+    echo "  O           reverse sort"
+    echo "  S           change scaler"
     echo "  q           exit"
     echo
     echo "Controls with vim-like prefix counters"
