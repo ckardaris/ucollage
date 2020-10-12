@@ -1,5 +1,5 @@
 # ucollage
-An image viewer for the terminal based on Überzug
+A command line image viewer based on Überzug
 
 ![](resources/screenshot.png)
 You can also checkout a [usage gif](resources/usage2.gif), showing some of the capabilities of the script in a little more
