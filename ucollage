@@ -201,6 +201,8 @@ pre_read_images() {
     argc="${#filelist[@]}"
     image_names=()
     images=()
+    rm -f ${tmp_dir}/image_names.txt*
+    rm -f ${tmp_dir}/images.txt*
     read_iter=0
 }
 
@@ -336,12 +338,6 @@ clear_names() {
     printf "\e[?25l\e[H\e[3B\e[2K\e[0J\e[H"
 }
 
-empty_messages() {
-    success=""
-    error=""
-    warning=""
-}
-
 empty_prefix() {
     prefix=""
 }
@@ -378,7 +374,8 @@ start_daemon() {
 # Modifies:
 #   daemon_on
 # Arguments:
-#   $1              if "--exit" exit the program
+#   $1              "--exit" exit the program
+#                   "--reload" kill the background process
 # Outputs:
 #   deletes the fifo file
 ######################################################################
@@ -391,6 +388,10 @@ stop_daemon() {
         kill "$background_pid" &>/dev/null
         [[ "$exit_clear" -eq 1 ]] && clear_screen
         rm -rf "$tmp_dir" && show_cursor && stty echo && exit
+    elif [[ "$1" == "--reload" ]]
+    then
+        kill "$background_pid" &>/dev/null
+        return 0
     fi
 }
 
@@ -776,14 +777,13 @@ give_dimensions() {
     read -r lines columns < <(stty size)
     (( max_lines = lines -3 ))
 
-    ! get_input "Give number of lines [default: $fit_vertical, max: $max_lines]: " && return
-    ! is_natural "$input" && set_error lines "$input" && return
-    [[ ! "$input" -eq "$fit_vertical" ]] && (( new_fit_vertical = input ))
-
-    printf "\n"
-    ! get_input "Give number of columns [Default: $fit_horizontal, Max: $columns]: " && return
-    ! is_natural "$input" && set_error columns "$input" && return
-    [[ ! "$input" -eq "$fit_horizontal" ]] && (( new_fit_horizontal = input ))
+    ! get_input "Give number of lines and columns [current: $fit_vertical $fit_horizontal]: " && return
+    local fit
+    IFS=" " read -r -a fit <<< "$input"
+    ! is_natural "${fit[0]}" && set_error "lines" "${fit[0]}" && return
+    ! is_natural "${fit[1]}" && set_error "columns" "${fit[1]}" && return
+    [[ ! "${fit[0]}" -eq "$fit_vertical" ]] && (( new_fit_vertical = fit[0] ))
+    [[ ! "${fit[1]}" -eq "$fit_horizontal" ]] && (( new_fit_horizontal = fit[1] ))
 }
 
 ######################################################################
@@ -1218,6 +1218,54 @@ is_image() {
     [[ "${image_names[$1]}" == "${images[$1]}" ]] && return 0 || return 1
 }
 
+######################################################################
+# Update the status line
+# Uses:
+#   warning
+#   error
+#   success
+# Modifies:
+#   status
+# Outputs:
+#   prints the status on stdout
+######################################################################
+update_status() {
+    local new_status
+    local status_timeout
+    if [[ -n "$success" ]]
+    then
+        new_status="\e[32m${success}\e[m"
+        success=""
+        status_timeout=1
+    elif [[ -n "$error" ]]
+    then
+        new_status="\e[31m${error}\e[m"
+        error=""
+        status_timeout=1
+    elif [[ -n "$warning" ]]
+    then
+        new_status="\e[33m${warning}\e[m"
+        warning=""
+        status_timeout=1
+    else
+        set_info
+        new_status="\e[107;30m${info}\e[m"
+        status_timeout=0
+    fi
+    if [[ ! "$new_status" == "$status" ]]
+    then
+        clear_status && status="$new_status"
+        if [[ "$status_timeout" -eq 1 ]]
+        then
+            printf "$status"
+            read -t "$message_timeout" -rsN1
+            update_status
+        else
+            printf "$status"
+        fi
+    fi
+}
+
 execute() {
     local i
     local action="$1"
@@ -1364,52 +1412,64 @@ tag_image() {
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
 
-######################################################################
-# Update the status line
-# Uses:
-#   warning
-#   error
-#   success
-# Modifies:
-#   status
-# Outputs:
-#   prints the status on stdout
-######################################################################
-update_status() {
-    local new_status
-    local status_timeout
-    if [[ -n "$success" ]]
+change_sort() {
+    ! get_input "New sort [current: ${sort_by}] (options: name, time, size, extension): " && return 1
+    if [[ ! "$input" =~ ^(name|time|size|extension)$ ]]
     then
-        new_status="\e[32m${success}\e[m"
-        success=""
-        status_timeout=1
-    elif [[ -n "$error" ]]
-    then
-        new_status="\e[31m${error}\e[m"
-        error=""
-        status_timeout=1
-    elif [[ -n "$warning" ]]
-    then
-        new_status="\e[33m${warning}\e[m"
-        warning=""
-        status_timeout=1
-    else
-        set_info
-        new_status="\e[107;30m${info}\e[m"
-        status_timeout=0
+        set_error "sort" "$input"
+        update_status
+        return 1
     fi
-    if [[ ! "$new_status" == "$status" ]]
+    local new_sort_by="$input"
+    [[ ! "$new_sort_by" == "$sort_by" ]] && sort_by="$new_sort_by" && return 0
+    return 1
+}
+
+toggle_sort_reverse() {
+    [[ "$sort_reverse" -eq 1 ]] && sort_reverse=0 || sort_reverse=1
+}
+
+reverse_images(){
+    min=0
+    (( max = ${#images[@]} -1 ))
+    local temp
+    while [[ min -lt max ]]
+    do
+        temp="${image_names[$min]}"
+        image_names[$min]="${image_names[$max]}"
+        image_names[$max]="$temp"
+
+        temp="${images[$min]}"
+        images[$min]="${images[$max]}"
+        images[$max]="$temp"
+
+        (( min += 1 ))
+        (( max -= 1 ))
+    done
+}
+
+toggle_names() {
+    [[ "$show_names" -eq 1 ]] && show_names=0 || show_names=1
+}
+
+change_scaler() {
+    ! get_input "New scaler [current: ${scaler}] (options: crop, distort, fit_contain, contain, forced_cover, cover): " && return 1
+    if [[ ! "$input" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]]
     then
-        clear_status && status="$new_status"
-        if [[ "$status_timeout" -eq 1 ]]
-        then
-            printf "$status"
-            read -t "$message_timeout" -rsN1
-            update_status
-        else
-            printf "$status"
-        fi
+        set_error "scaler" "$input"
+        update_status
+        return 1
     fi
+    local new_scaler="$input"
+    [[ ! "$new_scaler" == "$scaler" ]] && scaler="$new_scaler" && return 0
+    return 1
+}
+
+toggle_exec_prompt() {
+    [[ "$exec_prompt" -eq 1 ]] && exec_prompt=0 || exec_prompt=1
+    [[ "$exec_prompt" -eq 1 ]] && success="Confirm command execution" \
+        || warning="Don't confirm command execution"
+    update_status
 }
 
 ######################################################################
@@ -1477,7 +1537,6 @@ read_key() {
                 ;;
             n|N|p|P)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 case $key in
                     n)
                         keyword=next
@@ -1500,8 +1559,6 @@ read_key() {
                 ;;
             s)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                stty echo
-                empty_messages
                 clear_status
                 if [[ -z "$prefix" ]]
                 then
@@ -1515,11 +1572,9 @@ read_key() {
                 maybe_redraw
                 empty_prefix
                 update_status
-                stty -echo
                 ;;
             +|=)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical + 1 ))
@@ -1536,7 +1591,6 @@ read_key() {
                 ;;
             -)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical - 1 ))
@@ -1554,14 +1608,12 @@ read_key() {
             m|M)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
                 set_scope
-                empty_messages
                 hardcode_index=1
                 goto_image
                 empty_prefix
                 update_status
                 ;;
             $'\b'|$'\x7F')
-                empty_messages
                 if [[ -n "$prefix" ]]
                 then
                     prefix=${prefix:0:-1}
@@ -1577,7 +1629,6 @@ read_key() {
                 ;;
             k)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical + 1 ))
@@ -1593,7 +1644,6 @@ read_key() {
                 ;;
             j)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical - 1 ))
@@ -1609,7 +1659,6 @@ read_key() {
                 ;;
             l)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_horizontal = fit_horizontal + 1 ))
@@ -1625,7 +1674,6 @@ read_key() {
                 ;;
             h)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_horizontal = fit_horizontal - 1 ))
@@ -1641,7 +1689,6 @@ read_key() {
                 ;;
             r|R)
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                empty_messages
                 case $key in
                     r)
                         degrees=90
@@ -1655,8 +1702,6 @@ read_key() {
                 ;;
             x|X|b|B)
                 set_scope
-                stty echo
-                empty_messages
                 clear_status
                 case $key in
                     x|X)
@@ -1669,41 +1714,30 @@ read_key() {
                 execute "$action"
                 empty_prefix
                 update_status
-                stty -echo
                 ;;
             c|C)
                 set_scope
-                stty echo
-                empty_messages
                 clear_status
                 rename && update_names
                 empty_prefix
                 update_status
-                stty -echo
                 ;;
             g|G)
                 set_scope
-                stty echo
-                empty_messages
                 clear_status
                 goto_image
                 empty_prefix
                 update_status
-                stty -echo
                 ;;
             d|D)
                 set_scope
-                stty echo
-                empty_messages
                 clear_status
                 delete_image && redraw
                 empty_prefix
                 update_status
-                stty -echo
                 ;;
             u|U|t|T)
                 set_scope
-                empty_messages
                 clear_status
                 case $key in
                     t|T)
@@ -1718,14 +1752,46 @@ read_key() {
                 update_status
                 ;;
             [0-9]|" "|"*"|";")
-                empty_messages
                 [[ "$prefix" =~ ^(;|\*)$ ]] && prefix=""
                 [[ "$key" == ";" ]] && [[ ${#tags[@]} -eq 0 ]] && warning="No tagged images" \
                     || prefix+="$key"
                 update_status
                 ;;
+            o)
+                clear_status
+                change_sort && stop_daemon --reload && break
+                empty_prefix
+                update_status
+                ;;
+            O)
+                toggle_sort_reverse
+                if [[ "$done_reading" -eq 1 ]]
+                then
+                    reverse_images
+                    start=0
+                    redraw
+                else # we have not read all images so we need to go from the start
+                    stop_daemon --reload && break
+                fi
+                empty_prefix
+                update_status
+                ;;
+            F)
+                toggle_names && redraw
+                empty_prefix
+                update_status
+                ;;
+            S)
+                clear_status
+                change_scaler && redraw
+                empty_prefix
+                update_status
+                ;;
+            E)
+                toggle_exec_prompt
+                empty_prefix
+                ;;
             $'\e'|$'\n')
-                empty_messages
                 empty_prefix
                 update_status
                 ;;
@@ -1758,14 +1824,17 @@ trap "stop_daemon --exit" EXIT #handles stty echo better than SIGINT
 trap "redraw; update_status" SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help && exit_clear=0 && exit
 (( first_batch = fit_vertical * fit_horizontal ))
-pre_read_images "$@"
-stty -echo
-unset start #make sure that start is not set, makes check in read_images
-read_target="$first_batch" && read_images
-populate_arrays
-unset read_target && read_images --remaining &
-background_pid="$!"
-[[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit_clear=0 && exit
-start=0
-declare -A assoc
-init
+while true
+do
+    pre_read_images "$@"
+    stty -echo
+    unset start #make sure that start is not set, makes check in read_images
+    read_target="$first_batch" && read_images
+    populate_arrays
+    unset read_target && read_images --remaining &
+    background_pid="$!"
+    [[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit_clear=0 && exit
+    start=0
+    declare -A assoc
+    init
+done

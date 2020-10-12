@@ -69,6 +69,11 @@ Key          | Action
 `;`          | enter tag mode
 `n/N`        | get next/last batch of images
 `p/P`        | get previous/first batch of images
+`o`          | change sort
+`O`          | toggle sort reverse
+`E`          | toggle exec prompt
+`F`          | toggle filenames on screen
+`S`          | change scaler
 `q`          | exit
 
 #### Controls with vim-like prefix counters
