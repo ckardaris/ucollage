@@ -35,6 +35,12 @@ For video thumbnails:
 ## Installation
 `ucollage` is a bash script, so you only have to download the file and make it executable.
 
+For Arch Linux users you can also download it from the AUR. Using `yay` that would be
+
+```bash
+yay -S ucollage
+```
+
 To install `Überzug` you have several options:
 
 Via pip:
