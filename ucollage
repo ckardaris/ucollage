@@ -360,6 +360,7 @@ show_cursor() {
 #   daemon_on
 # Outputs:
 #   creates the fifo file
+######################################################################
 start_daemon() {
     fifo=$(mktemp --dry-run "${tmp_dir}/fifo-XXXXXXXXX")
     mkfifo "$fifo"
