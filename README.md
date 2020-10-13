@@ -12,6 +12,7 @@ detail.
 - image tags
 - renaming
 - deleting
+- rotating
 - sorting
 - general command execution
 - vim-like movements and prefix arguments

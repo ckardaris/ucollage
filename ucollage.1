@@ -1,0 +1,47 @@
+.\" Manpage for ucollage.
+.\" Contact ckardarisk at outlook dot com to correct errors or typos.
+.TH UCOLLAGE 1 "October 2020" "ucollage" "User Commands"
+.SH NAME
+.B ucollage 
+\- A command line image viewer base on Überzug
+.SH SYNOPSIS
+.B ucollage [images] [directories]
+.SH DESCRIPTION
+.B ucollage 
+is a TUI (terminal user interface) written in bash on top of 
+.BI Überzug. 
+It is created to make viewing images from your command line a smooth experience.
+It supports showing images and video thumbnails. Among the available actions on the files are removing,
+renaming, rotating, tagging and executing commands. 
+.SH KEYBINDS
+Run 
+.I ucollage -h
+to see available keybinds
+
+.SH CONFIGURATION
+You can 
+.B export
+variables in your
+.I .bashrc
+in order to customize the behavior of certain aspects of the program. For an extensible list
+checkout the README page locally or on
+.I https://github.com/ckardaris/ucollage#default-values
+
+.SH SEE ALSO
+ueberzug
+.I (https://github.com/seebye/ueberzug)
+.SH BUGS
+Report issues at: 
+
+- 
+.I https://github.com/ckardaris/ucollage/issues
+
+- ckardaris at outlook dot com
+.SH AUTHORS
+Charalampos Kardaris (ckardaris at outlook dot com)
+
+.SH COPYRIGHT
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
