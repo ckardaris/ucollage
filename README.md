@@ -1,8 +1,8 @@
 # ucollage
 A command line image viewer based on Überzug
 
-![](resources/screenshot.png)
-You can also checkout a [usage gif](resources/usage2.gif), showing some of the capabilities of the script in a little more
+![](https://i.imgur.com/VFKi4L2.png)
+You can also checkout a [usage gif](https://i.imgur.com/aN5eACA.mp4), showing some of the capabilities of the script in a little more
 detail.
 
 ## Supports
