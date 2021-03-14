@@ -342,6 +342,11 @@ clear_screen() {
 # 1J                Clear screen from cursor up
 ######################################################################
 clear_status() {
+    if [[ "$1" == "--temp-message" ]] #clear 2nd and 3rd line
+    then
+        printf "\e[?25l\e[H\e[2B\e[2K\e[1A\e[2K\e[2;1H"
+        return
+    fi
     # clear only first three lines of screen
     printf "\e[?25l\e[H\e[2B\e[2K\e[1J\e[H"
     status=""
@@ -1260,39 +1265,34 @@ is_image() {
 #   prints the status on stdout
 ######################################################################
 update_status() {
-    local new_status
-    local status_timeout
+    local new_status=""
+    set_info
+    new_status="\e[107;30m${info}\e[m"
+    if [[ ! "$new_status" == "$status" ]]
+    then
+        clear_status && status="$new_status"
+        printf "$status"
+    fi
+    new_status=""
     if [[ -n "$success" ]]
     then
         new_status="\e[32m${success}\e[m"
         success=""
-        status_timeout=1
     elif [[ -n "$error" ]]
     then
         new_status="\e[31m${error}\e[m"
         error=""
-        status_timeout=1
     elif [[ -n "$warning" ]]
     then
         new_status="\e[33m${warning}\e[m"
         warning=""
-        status_timeout=1
-    else
-        set_info
-        new_status="\e[107;30m${info}\e[m"
-        status_timeout=0
     fi
-    if [[ ! "$new_status" == "$status" ]]
+    if [[ -n "$new_status" ]]
     then
-        clear_status && status="$new_status"
-        if [[ "$status_timeout" -eq 1 ]]
-        then
-            printf "$status"
-            read -t "$message_timeout" -rsN1
-            update_status
-        else
-            printf "$status"
-        fi
+        clear_status --temp-message
+        printf "$new_status"
+        read -t "$message_timeout" -rsN1
+        clear_status --temp-message
     fi
 }
 
