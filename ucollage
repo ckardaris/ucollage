@@ -142,7 +142,7 @@ help(){
 
 check_dependencies() {
     local dependency
-    for dependency in ueberzug file
+    for dependency in ueberzug file xxh128sum
     do
         if ! command -v "$dependency" &>/dev/null
         then
@@ -224,12 +224,7 @@ pre_read_images() {
 #   1 thumbnail file was not found
 ######################################################################
 find_thumbnail() {
-    real_path=$(realpath "$file")
-    cache_name=${real_path//\ /_}
-    cache_name=${cache_name//\(/_}
-    cache_name=${cache_name//\)/_}
-    cache_name=${cache_name//\//_}
-    cache_name="${cache_dir}/${cache_name}.thumbnail"
+    cache_name="${cache_dir}/thumbnails/${hash}.jpg"
     [[ -f "$cache_name" ]] && thumbnail_file="$cache_name" && return 0
     return 1
 }
@@ -244,7 +239,7 @@ find_thumbnail() {
 #   thumbnail_file
 ######################################################################
 create_thumbnail() {
-    thumbnail_file=$(mktemp --dry-run "${tmp_dir}/thumbnail-XXXXXXXX.jpg")
+    thumbnail_file="${tmp_dir}/${hash}.jpg"
     eval "$(ffprobe -i "$file" -show_entries format=duration -v quiet -of flat="s=_")"
     format_duration=${format_duration/.*/}
     (( time_point = format_duration / 2 ))
@@ -253,6 +248,25 @@ create_thumbnail() {
     montage -label "thumbnail" "$thumbnail_file" -geometry +0+0 -background Gold "$thumbnail_file"
 }
 
+is_media_image() {
+    [[ -f "${cache_dir}/hash/images/${hash}" ]] && return 0
+    if [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]]
+    then
+        touch "${cache_dir}/hash/images/${hash}"
+        return 0
+    fi
+    return 1
+}
+
+is_media_video() {
+    [[ -f "${cache_dir}/hash/videos/${hash}" ]] && return 0
+    if [[ $(file --mime-type -b "$file") =~ ^video/.*$ ]]
+    then
+        touch "${cache_dir}/hash/videos/${hash}"
+        return 0
+    fi
+    return 1
+}
 ######################################################################
 # Parses filelist and filters supported filetypes
 # Uses:
@@ -281,12 +295,13 @@ read_images() {
     while [[ "$1" == "--remaining" ]] || (( readc < read_target )) && (( read_iter < argc ))
     do
         file=${filelist[$read_iter]}
-        if [[ $(file --mime-type -b "$file") =~ ^image/.*$ ]]
+        read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+        if is_media_image "$file"
         then
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$file" >> "${tmp_dir}/images.txt"
             (( readc += 1 ))
-        elif [[ $(file --mime-type -b "$file") =~ ^video/.*$ ]] \
+        elif is_media_video "$file" \
             && [[ "$video_thumbnails" -eq 1 ]] \
             && command -v ffmpeg &> /dev/null
         then
@@ -299,6 +314,7 @@ read_images() {
             fi
             (( readc += 1 ))
         else
+            touch "${cache_dir}/hash/other/${hash}"
             [[ ! "$1" == "--remaining" ]] && printf "." # only print if ui is not started
         fi
         (( read_iter += 1 ))
@@ -1841,6 +1857,10 @@ set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 [[ ! -d "$cache_dir" ]] && mkdir -p "$cache_dir"
 [[ ! -d "$trash_dir" ]] && mkdir -p "$trash_dir"
+[[ ! -d "${cache_dir}/hash/images" ]] && mkdir -p "${cache_dir}/hash/images"
+[[ ! -d "${cache_dir}/hash/videos" ]] && mkdir -p "${cache_dir}/hash/videos"
+[[ ! -d "${cache_dir}/hash/other" ]] && mkdir -p "${cache_dir}/hash/other"
+[[ ! -d "${cache_dir}/thumbnails" ]] && mkdir -p "${cache_dir}/thumbnails"
 trap "stop_daemon --exit" EXIT #handles stty echo better than SIGINT
 trap "redraw; update_status" SIGWINCH
 [[ "$1" =~ ^-h$|^--help$ ]] && help && exit_clear=0 && exit

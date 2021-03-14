@@ -28,6 +28,7 @@ To checkout the newest changes you have to run the script residing in the
 
 - `bash >= 4.2`
 - `file`
+- `xxhash`
 
 ### Optional
 For image rotation:
