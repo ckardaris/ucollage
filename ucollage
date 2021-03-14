@@ -56,6 +56,10 @@ parse_config() {
 set_defaults() {
     fit_vertical=${UCOLLAGE_LINES:-3}
     fit_horizontal=${UCOLLAGE_COLUMNS:-4}
+    wide_vertical="$fit_vertical"
+    wide_horizontal="$fit_horizontal"
+    old_fit_vertical="$fit_vertical"
+    old_fit_horizontal="$fit_horizontal"
     tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
     cache_dir=${UCOLLAGE_CACHE_DIR:-~/.local/share/ucollage}
     trash_dir=${UCOLLAGE_TRASH_DIR:-~/.local/share/Trash/ucollage}
@@ -397,7 +401,7 @@ start_daemon() {
 ######################################################################
 stop_daemon() {
     exec {ueberzug}>&-
-    clear_screen
+    [[ "$exit_clear" == 1 ]] && clear_screen
     rm -rf "$tmp_dir"
     show_cursor
     stty echo
@@ -1641,7 +1645,7 @@ read_key() {
                 if [[ -n "$prefix" ]]
                 then
                     prefix=${prefix:0:-1}
-                elif [[ "$show" -eq 1 ]]
+                elif [[ "$batch" -eq 1 ]]
                 then
                     old_fit_vertical="$fit_vertical"
                     old_fit_horizontal="$fit_horizontal"
@@ -1863,6 +1867,15 @@ do
     (( first_batch = fit_vertical * fit_horizontal ))
     read_target="$first_batch" && read_images
     populate_arrays
+    if [[ "$total" -eq 1 ]]
+    then
+        fit_vertical=1
+        fit_horizontal=1
+        old_fit_vertical=1
+        old_fit_horizontal=1
+        wide_vertical=1
+        wide_horizontal=1
+    fi
     unset read_target && read_images --remaining &
     background_pid="$!"
     [[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit_clear=0 && exit
