@@ -1253,7 +1253,7 @@ update_status() {
     local new_status=""
     set_info
     new_status="\e[107;30m${info}\e[m"
-    if [[ ! "$new_status" == "$status" ]]
+    if [[ ! "$new_status" == "$status" ]] || [[ "$1" == "--force" ]]
     then
         clear_status && status="$new_status"
         printf "$status"
@@ -1287,9 +1287,9 @@ execute() {
     if [[ "$action" == "split" ]] # each image on its own
     then
         ! get_image_index "execute individually" && return 1
-        for (( i = 0; i < index_count; i++))
+        for (( ex_i = 0; ex_i < index_count; ex_i++))
         do
-            ind=${image_index[$i]}
+            ind=${image_index[$ex_i]}
             printf "\e[1J\e[H\n"
             printf "%%s: %s\n" "${image_names[$ind]}"
             [[ -f "$rotated_file" ]] && printf "%%r: %s" "$rotated_file"
@@ -1298,7 +1298,7 @@ execute() {
             cmd=${input//%s/\"${image_names[$ind]}\"}
             cmd=${cmd//%r/\"${rotated_file}\"}
             eval_cmd "Execute: ${cmd}" "$cmd" "Successful execution"
-            update_status
+            update_status --force
         done
     else # bundle images
         ! get_image_index "execute bundled" && return 1
@@ -1322,20 +1322,20 @@ rename() {
     local i
     ! get_image_index "rename" && return 1
     local renamed=0
-    for (( i = 0; i < index_count; i++))
+    for (( mv_i = 0; mv_i < index_count; mv_i++))
     do
-        ind=${image_index[$i]}
+        ind=${image_index[$mv_i]}
         printf "\e[1J\e[HOld name: %s\n" "${image_names[$ind]}"
         ! get_input "New name: " "${image_names[$ind]}" && continue
         if [[ "${image_names[$ind]}" == "$input" ]]
         then
             error="New name has to be different"
-            update_status
+            update_status --force
             continue
         elif [[ -f "$input" ]]
         then
             error="Filename exists"
-            update_status
+            update_status --force
             continue
         fi
         cmd="mv \"${image_names[$ind]}\" \"$input\""
@@ -1375,15 +1375,15 @@ delete_image() {
     local i
     ! get_image_index "delete" && return 1
     local deleted=0
-    for (( i = 0; i < index_count; i++))
+    for (( del_i = 0; del_i < index_count; del_i++))
     do
-        (( updated = i - deleted )) # adjust index because we trim the arrays after deleting
+        (( updated = del_i - deleted )) # adjust index because we trim the arrays after deleting
         ind=${image_index[$updated]}
         cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
         if eval_cmd "Delete: ${image_names[$ind]}" \
             "$cmd" "Successfully moved image to trash folder"
         then
-            update_status
+            update_status --force
             unset image_names["${image_index[$updated]}"]
             unset images["${image_index[$updated]}"]
             image_names=("${image_names[@]}")
