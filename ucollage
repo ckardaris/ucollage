@@ -378,53 +378,30 @@ show_cursor() {
 #   tmp_dir
 # Modifies:
 #   fifo
-#   daemon_on
 # Outputs:
 #   creates the fifo file
 ######################################################################
 start_daemon() {
-    fifo=$(mktemp --dry-run "${tmp_dir}/fifo-XXXXXXXXX")
+    fifo="${tmp_dir}/fifo"
     mkfifo "$fifo"
     ueberzug layer --parse bash --silent < "$fifo" &
-    exec {colfd}> "$fifo"
-    daemon_on=1
+    exec {ueberzug}> "$fifo"
 }
 
 ######################################################################
-# Stops the ueberzug daemon and maybe exits the program
+# Stops the ueberzug daemon and exits the program
 # Uses:
-#   daemon_on
-#   background_pid
-#   fifo
-#   exit_clear
 #   tmp_dir
-# Modifies:
-#   daemon_on
-# Arguments:
-#   $1              "--exit" exit the program
-#                   "--reload" kill the background process
 # Outputs:
 #   deletes the fifo file
 ######################################################################
 stop_daemon() {
-    [[ "$daemon_on" -eq 1 ]] && exec {colfd}>&- # prevent error message
-    daemon_on=0
-    rm -f "$fifo"
-    if [[ "$1" == "--exit" ]]
-    then
-        kill "$background_pid" &>/dev/null
-        [[ "$exit_clear" -eq 1 ]] && clear_screen
-        rm -rf "$tmp_dir" && show_cursor && stty echo && exit
-    elif [[ "$1" == "--reload" ]]
-    then
-        kill "$background_pid" &>/dev/null
-        return 0
-    fi
-}
-
-restart_daemon() {
-    stop_daemon
-    start_daemon
+    exec {ueberzug}>&-
+    clear_screen
+    rm -rf "$tmp_dir"
+    show_cursor
+    stty echo
+    exit
 }
 
 ######################################################################
@@ -498,15 +475,17 @@ show_batch() {
         draw_lines="$photo_lines"
     fi
     local i
-    for (( i = 0; i < fit_vertical; i++ ))
+    (( limit_i = old_fit_vertical > fit_vertical ? old_fit_vertical : fit_vertical ))
+    (( limit_j = old_fit_horizontal > fit_horizontal ? old_fit_horizontal : fit_horizontal ))
+    for (( i = 0; i < limit_i; i++ ))
     do
-        for (( j = 0; j < fit_horizontal; j++, cnt++ ))
+        for (( j = 0; j < limit_j; j++))
         do
-            (( index = start + i * fit_horizontal + j))
-            (( posx = j * photo_columns))
-            (( posy = 3 + i * photo_lines))
-            if [[ "$cnt" -lt "$show" ]]
+            if (( i < fit_vertical && j < fit_horizontal && count < show ))
             then
+                (( index = start + i * fit_horizontal + j))
+                (( posx = j * photo_columns))
+                (( posy = 3 + i * photo_lines))
                 assoc=( [action]=add \
                         [identifier]="${fifo}${i}${j}" \
                         [path]="${images[$index]}" \
@@ -515,6 +494,9 @@ show_batch() {
                         [x]="$posx" \
                         [y]="$posy" \
                         [scaler]="$scaler" )
+            else
+                assoc=( [action]=remove \
+                        [identifier]="${fifo}${i}${j}" )
             fi
             declare -p assoc > "$fifo"
         done
@@ -799,6 +781,8 @@ set_error() {
 #   new_fit_horizontal
 ######################################################################
 give_dimensions() {
+    old_fit_vertical="$fit_vertical"
+    old_fit_horizontal="$fit_horizontal"
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
     read -r lines columns < <(stty size)
@@ -887,7 +871,6 @@ update_names() {
 }
 
 redraw() {
-    restart_daemon
     calculate_dimensions
     show_batch
     update_names
@@ -941,6 +924,8 @@ maybe_redraw() {
                 (( wide_start = wide_start - wide_batch ))
             done
         fi
+        old_fit_vertical="$fit_vertical"
+        old_fit_horizontal="$fit_horizontal"
         fit_vertical="$new_fit_vertical"
         fit_horizontal="$new_fit_horizontal"
         start="$new_start"
@@ -1378,6 +1363,8 @@ rename() {
 goto_image() {
     ! get_image_index "go to" && return
     new_start="$image_index"
+    old_fit_vertical="$fit_vertical"
+    old_fit_horizontal="$fit_horizontal"
     new_fit_vertical=1
     new_fit_horizontal=1
     maybe_redraw
@@ -1568,7 +1555,7 @@ read_key() {
         key="${char}${k1}${k2}${k3}${k4}"
         case $key in
             q)
-                stop_daemon --exit
+                stop_daemon
                 ;;
             n|N|p|P|$'\e[C'|$'\e[D')
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
@@ -1586,6 +1573,8 @@ read_key() {
                         keyword=first
                         ;;
                 esac
+                old_fit_vertical="$fit_vertical"
+                old_fit_horizontal="$fit_horizontal"
                 new_fit_vertical="$fit_vertical"
                 new_fit_horizontal="$fit_horizontal"
                 compute_batch "$keyword" && maybe_redraw
@@ -1654,6 +1643,8 @@ read_key() {
                     prefix=${prefix:0:-1}
                 elif [[ "$show" -eq 1 ]]
                 then
+                    old_fit_vertical="$fit_vertical"
+                    old_fit_horizontal="$fit_horizontal"
                     fit_vertical="$wide_vertical"
                     fit_horizontal="$wide_horizontal"
                     start="$wide_start"
@@ -1794,7 +1785,7 @@ read_key() {
                 ;;
             o)
                 clear_status
-                change_sort && stop_daemon --reload && break
+                change_sort && break
                 empty_prefix
                 update_status
                 ;;
@@ -1806,7 +1797,7 @@ read_key() {
                     start=0
                     redraw
                 else # we have not read all images so we need to go from the start
-                    stop_daemon --reload && break
+                    break
                 fi
                 empty_prefix
                 update_status
@@ -1842,7 +1833,6 @@ read_key() {
 }
 
 init() {
-    start_daemon
     calculate_dimensions
     show_batch
     clear_screen
@@ -1861,9 +1851,10 @@ set_defaults
 [[ ! -d "${cache_dir}/hash/videos" ]] && mkdir -p "${cache_dir}/hash/videos"
 [[ ! -d "${cache_dir}/hash/other" ]] && mkdir -p "${cache_dir}/hash/other"
 [[ ! -d "${cache_dir}/thumbnails" ]] && mkdir -p "${cache_dir}/thumbnails"
-trap "stop_daemon --exit" EXIT #handles stty echo better than SIGINT
+[[ "$1" =~ ^-h$|^--help$ ]] && help && exit
+trap "stop_daemon" EXIT #handles stty echo better than SIGINT
 trap "redraw; update_status" SIGWINCH
-[[ "$1" =~ ^-h$|^--help$ ]] && help && exit_clear=0 && exit
+start_daemon
 while true
 do
     pre_read_images "$@"
