@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+declare -A use_script
+declare -A edit_script
+declare -A filehash
+CONFIG_FILE="$HOME/.config/ucollage/config.sh"
+[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+unset use_script[w]
+unset edit_script[w]
+
 config_error() {
     echo "Configuration error [${1}]: \"${2}\" ${3}"
 }
@@ -109,6 +117,7 @@ help(){
     echo "  (N)g/G      go to image with (local/global) index N"
     echo "  (N)t/T      tag image with (local/global) index N"
     echo "  (N)u/U      untag image with (local/global) index N"
+    echo "  (N)w/W      save edits of image with (local/global) index N"
     echo "  (N)x/X      execute different commands for each image with (local/global) index N"
     echo "              placeholders are available for command execution"
     echo "                  %s - image filename"
@@ -121,6 +130,9 @@ help(){
     echo "  R           rotate image 90 degrees counterclockwise"
     echo "  c/C         rename image"
     echo "  d/D         move image to Trash"
+    echo "  t/T         tag image"
+    echo "  u/U         untag image"
+    echo "  w/W         save edits of image"
     echo "  x/X         execute command for image"
     echo "              placeholders"
     echo "                  %s - original image filename"
@@ -134,6 +146,8 @@ help(){
     echo "  c/C         rename (local/global) tagged images"
     echo "  d/D         move (local/global) tagged images to Trash"
     echo "  g/G         go to first (local/global) tagged image"
+    echo "  u/U         untag (local/global) tagged images"
+    echo "  w/W         save edits of (local/global) tagged images"
     echo "  x/X         execute different command for every (local/global) tagged image"
     echo "              placeholders"
     echo "                  %s - original image filename"
@@ -1060,7 +1074,7 @@ eval_cmd() {
             [[ -z "$error" ]] && success="$3" && return 0
         fi
     else
-        error=$(eval "$cmd" 2>&1 >/dev/null)
+        error=$(eval "$2" 2>&1 >/dev/null)
         error=$(echo "$error" | head -3)
         [[ -z "$error" ]] && success="$3" && return 0
     fi
@@ -1263,6 +1277,7 @@ update_status() {
         printf "$status"
     fi
     new_status=""
+    [[ "$exec_prompt" -eq 0 ]] && [[ ! "$1" == "--force" ]] && return
     if [[ -n "$success" ]]
     then
         new_status="\e[32m${success}\e[m"
@@ -1285,8 +1300,82 @@ update_status() {
     fi
 }
 
-execute() {
+run_use_script() {
     local i
+    local success
+    ! get_image_index "run script \"${cmd}\" on" && return 1
+    for (( sc_i = 0; sc_i < index_count; sc_i++))
+    do
+        ind=${image_index[$sc_i]}
+        printf "\e[H"
+        full_cmd="$cmd"
+        full_cmd+=" \"${image_names[$ind]}\""
+        eval_cmd "${cmd} ${image_names[$ind]}" "$full_cmd" \
+            "Successful execution" && update_status && success=1
+    done
+}
+
+run_edit_script() {
+    local sc_i
+    local edited=0
+    ! get_image_index "run script \"${cmd}\" on" && return 1
+    for (( sc_i = 0; sc_i < index_count; sc_i++))
+    do
+        ind=${image_index[$sc_i]}
+        printf "\e[H"
+        full_cmd="$cmd"
+        file="${image_names[$ind]}"
+        read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+        if ! is_media_image
+        then
+            error="Editing only supported for images"
+            update_status
+            continue
+        fi
+        filehash[$hash]=${image_names[$ind]}
+        full_cmd+=" \"${images[$ind]}\" \"${tmp_dir}/${hash}.jpg\""
+        eval_cmd "${cmd} for ${image_names[$ind]}" "$full_cmd" \
+            "Successful edit" && edited=1
+        if [[ "$edited" -eq 1 ]]
+        then
+            images[$ind]="${tmp_dir}/${hash}.jpg"
+            redraw
+        fi
+    done
+}
+
+save_edits() {
+    local se_i
+    local saved=1
+    ! get_image_index "save edits for" && return 1
+    for (( se_i = 0; se_i < index_count; se_i++))
+    do
+        ind=${image_index[$se_i]}
+        tmpfile=${images[$ind]}
+        hash=${tmpfile%.jpg}
+        hash=${hash#${tmp_dir}/}
+        original=${filehash[$hash]}
+        if [[ -z $original ]]
+        then
+            error="File does not have pending edits"
+            update_status
+            continue
+        fi
+        printf "\e[H"
+        full_cmd="cp -f \"${tmpfile}\" \"${original}\""
+        eval_cmd "Save edits for ${original}" "$full_cmd" \
+            "Saved succesfully" && saved=1
+        if [[ "$saved" -eq 1 ]]
+        then
+            images[$ind]="${original}"
+            rm ${tmpfile}
+            unset filehash[$hash]
+        fi
+    done
+}
+
+execute() {
+    local ex_i
     local action="$1"
     if [[ "$action" == "split" ]] # each image on its own
     then
@@ -1323,7 +1412,7 @@ execute() {
 
 rename() {
     local update=0
-    local i
+    local mv_i
     ! get_image_index "rename" && return 1
     local renamed=0
     for (( mv_i = 0; mv_i < index_count; mv_i++))
@@ -1376,7 +1465,7 @@ goto_image() {
 
 delete_image() {
     local update=0
-    local i
+    local del_i
     ! get_image_index "delete" && return 1
     local deleted=0
     for (( del_i = 0; del_i < index_count; del_i++))
@@ -1490,7 +1579,7 @@ toggle_exec_prompt() {
     [[ "$exec_prompt" -eq 1 ]] && exec_prompt=0 || exec_prompt=1
     [[ "$exec_prompt" -eq 1 ]] && success="Confirm command execution" \
         || warning="Don't confirm command execution"
-    update_status
+    update_status --force
 }
 
 ######################################################################
@@ -1557,6 +1646,27 @@ read_key() {
         read -rsN1 -t 0.0001 k3
         read -rsN1 -t 0.0001 k4
         key="${char}${k1}${k2}${k3}${k4}"
+        lowercase=${key,,}
+        if [[ -n "$key" ]] && [[ -n "${use_script[$lowercase]}" ]]
+        then
+            set_scope
+            clear_status
+            cmd="${use_script[$lowercase]}"
+            run_use_script
+            empty_prefix
+            update_status
+            continue
+        fi
+        if [[ -n "$key" ]] && [[ -n "${edit_script[$lowercase]}" ]]
+        then
+            set_scope
+            clear_status
+            cmd="${edit_script[$lowercase]}"
+            run_edit_script
+            empty_prefix
+            update_status
+            continue
+        fi
         case $key in
             q)
                 stop_daemon
@@ -1822,6 +1932,13 @@ read_key() {
                 empty_prefix
                 ;;
             $'\e'|$'\n')
+                empty_prefix
+                update_status
+                ;;
+            w|W)
+                set_scope
+                clear_status
+                save_edits
                 empty_prefix
                 update_status
                 ;;

@@ -105,6 +105,7 @@ Key      | Action                                                               
 `(N)d/D` | move image with (local/global) index N to Trash                            | ask for input  *
 `(N)g/G` | go to image with (local/global) index N                                    | ask for input  *
 `(N)t/T` | tag image with (local/global) index N                                      | ask for input  *
+`(N)w/W` | save edits of image with (local/global) index N                            | ask for input  *
 `(N)u/U` | untag image with (local/global) index N                                    | ask for input  *
 `(N)x/X` | execute different commands for each image with (local/global) index N   ** | ask for input  *
 `(N)b/B` | execute one command for all images with (local/global) index N  \*\*\*     | ask for input  *
@@ -135,6 +136,9 @@ Key   | Action
 `c/C` | rename image
 `d/D` | move image to Trash
 `x/X` | execute command for image   *
+`w/W` | save edits for image for image
+`t/T` | tag image
+`u/U` | untag image
 `b/B` | execute command for image   **
 
 \* placeholders
@@ -152,6 +156,7 @@ Key   | Action
 `d/D` | move (local/global) tagged images to Trash
 `g/G` | go to first (local/global) tagged image
 `x/X` | execute different command for every (local/global) tagged image *
+`u/U` | untag (local/global) images
 `b/B` | execute one command for all (local/global) tagged images **
 
 \* placeholders
@@ -179,7 +184,7 @@ only error can happen by selecting indices that surpass the total number of imag
 
 ### Default values
 
-You can set default values for some of the variables. You just have to export the relevant variables in your `.bashrc`
+You can set default values for some of the variables. You just have to export the relevant variables in the config file `$HOME/.config/ucollage/config.sh` or in your `.bashrc`
 
 ``` bash
 # Example
@@ -216,3 +221,43 @@ UCOLLAGE_MESSAGE_TIMEOUT  | Real    | 1 | time in seconds to show messages (erro
 | contain       | Resizes the image to a size <= the placement size while keeping the image ratio. |
 | forced_cover  | Resizes the image to cover the entire area which should be filled while keeping the image ratio. If the image is smaller than the desired size it will be stretched to reach the desired size. If the ratio of the area differs from the image ratio the edges will be cut off. |
 | cover         | The same as forced_cover but images won't be stretched if they are smaller than the area which should be filled. |
+
+### User Scripts
+The user can now set custom keybindings in order to be able to execute scripts of their own for
+the selected images.
+
+Two types of user scripts are introduced:
+- `edit scripts`
+- `use scripts`
+
+`use scripts` make use of the selected images in order to perform another action.
+
+`edit scripts` edit the selected images and the user can save the changes at a later time.
+
+In order to set these userscripts you have to add lines in your `config` file like the following:
+```
+edit_script[lowercase_letter]=path/to/script`
+use_script[lowercase_letter]=path/to/script`
+```
+
+For example you could have: <br>
+```
+use_script[w]="feh --bg-fill"`
+```
+That would provide the option to set your background from within
+`ucollage`.
+
+#### !ATTENTION!
+- The `use scripts` are executed by providing the image selected as the first and only argument. What
+  is executed internally is the responsibility of the user.
+- The `edit scripts` are executed by providing the image selected as the first argument and the
+  temporary file used to make the edits as the second argument. So the script should be able
+  to be called like
+  ```
+  ./script infile outfile
+  ```
+- The key value has to be a lowercase letter, because the script will only check for these cases.
+  The upper case letter is automatically used to execute the script in global scope. In the last
+  example that would mean that pressing `W` sets the background from the given global index.
+- Setting an `edit_script` refreshes the view. For example, if you provide a custom script to apply
+  a filter on an image (e.g. monochrome).
