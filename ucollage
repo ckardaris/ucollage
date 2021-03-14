@@ -955,6 +955,14 @@ set_info() {
     local t=${#tags[@]}
     [[ "$t" -gt 1 ]] && info+=" [${t} tagged]"
     [[ -n "$prefix" ]] && info+=" ($prefix)"
+    local padding
+    local length
+    length=${#info}
+    (( padding = COLUMNS - length))
+    for ((i = 0; i < padding; i++))
+    do
+        info+=" "
+    done
 }
 
 ######################################################################
@@ -1370,7 +1378,7 @@ delete_image() {
         ind=${image_index[$updated]}
         cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
         if eval_cmd "Delete: ${image_names[$ind]}" \
-            "$cmd" "Successfully deleted"
+            "$cmd" "Successfully moved image to trash folder"
         then
             update_status
             unset image_names["${image_index[$updated]}"]
@@ -1384,10 +1392,10 @@ delete_image() {
     done
     if [[ "$deleted" -eq "$index_count" ]]
     then
-        [[ "$index_count" -gt 1 ]] && success="Successfully deleted ${deleted} out of ${index_count} files"
+        [[ "$index_count" -gt 1 ]] && success="Successfully moved to trash folder ${deleted} out of ${index_count} files"
     elif [[ "$deleted" -gt 0 ]]
     then
-        [[ "$index_count" -gt 1 ]] && warning="Successfully deleted ${deleted} out of ${index_count} files"
+        [[ "$index_count" -gt 1 ]] && warning="Successfully move to trash folder ${deleted} out of ${index_count} files"
     else
         error="No files deleted"
     fi
@@ -1536,21 +1544,26 @@ set_scope() {
 read_key() {
     while true
     do
-        read -rsN1 -t 0.01 key
+        read -rsN1 -t 0.01 char
+        read -rsN1 -t 0.0001 k1
+        read -rsN1 -t 0.0001 k2
+        read -rsN1 -t 0.0001 k3
+        read -rsN1 -t 0.0001 k4
+        key="${char}${k1}${k2}${k3}${k4}"
         case $key in
             q)
                 stop_daemon --exit
                 ;;
-            n|N|p|P)
+            n|N|p|P|$'\e[C'|$'\e[D')
                 [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
                 case $key in
-                    n)
+                    n|$'\e[C')
                         keyword=next
                         ;;
                     N)
                         keyword=last
                         ;;
-                    p)
+                    p|$'\e[D')
                         keyword=prev
                         ;;
                     P)
@@ -1800,6 +1813,8 @@ read_key() {
             $'\e'|$'\n')
                 empty_prefix
                 update_status
+                ;;
+            *)
                 ;;
         esac
         if [[ ! "$done_reading" -eq 1 ]]
