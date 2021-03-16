@@ -64,6 +64,8 @@ parse_config() {
 set_defaults() {
     fit_vertical=${UCOLLAGE_LINES:-3}
     fit_horizontal=${UCOLLAGE_COLUMNS:-4}
+    max_fit_vertical="${UCOLLAGE_MAX_LINES:-20}"
+    max_fit_horizontal="${UCOLLAGE_MAX_COLUMNS:-20}"
     wide_vertical="$fit_vertical"
     wide_horizontal="$fit_horizontal"
     old_fit_vertical="$fit_vertical"
@@ -92,79 +94,82 @@ help(){
     echo "Usage: ucollage [images] [directories]"
     echo
     echo "Controls:"
-    echo "  m/M         enter monocle mode: show only one image (equivalent to 1g/1G)"
-    echo "  Backspace   exit monocle mode"
-    echo "  ;           enter tag mode"
-    echo "  n/N         get next/last batch of images"
-    echo "  p/P         get previous/first batch of images"
-    echo "  E           toggle exec prompt"
-    echo "  F           toggle filenames on screen"
-    echo "  o           change sort type"
-    echo "  O           reverse sort"
-    echo "  S           change scaler"
-    echo "  q           exit"
+    echo "  Backspace            exit monocle mode"
+    echo "  ;                    enter tag mode"
+    echo "  n/right arrow        get next batch of images"
+    echo "  N/shift+right arrow  get last batch of images"
+    echo "  p/left arrow         get previous batch of images"
+    echo "  P/shift+left arrow   get first batch of images"
+    echo "  E                    toggle exec prompt"
+    echo "  F                    toggle filenames on screen"
+    echo "  o                    change sort type"
+    echo "  O                    reverse sort"
+    echo "  S                    change scaler"
+    echo "  q                    exit"
     echo
     echo "Controls with vim-like prefix counters"
-    echo "  (N)s        input exact number for lines and columns"
     echo "  (N)-        decrease both the numbers of columns and lines by N"
     echo "  (N)+/=      increase both the numbers of columns and lines by N"
+    echo "  (N)b        execute one command for all images with index N"
+    echo "              placeholders"
+    echo "                  %S - all image filenames side by side"
+    echo "  (N)c        rename image with index N"
+    echo "  (N)d        move image with index N to Trash"
     echo "  (N)h        decrease number of columns by N"
     echo "  (N)j        decrease number of lines by N"
     echo "  (N)k        increase number of lines by N"
     echo "  (N)l        increase number of columns by N"
-    echo "  (N)c/C      rename image with (local/global) index N"
-    echo "  (N)d/D      move image with (local/global) index N to Trash"
-    echo "  (N)g/G      go to image with (local/global) index N"
-    echo "  (N)t/T      tag image with (local/global) index N"
-    echo "  (N)u/U      untag image with (local/global) index N"
-    echo "  (N)w/W      save edits of image with (local/global) index N"
-    echo "  (N)x/X      execute different commands for each image with (local/global) index N"
+    echo "  (N)m        enter monocle mode; go to image with index N"
+    echo "  (N)s        input exact number for lines and columns"
+    echo "  (N)t        tag image with index N"
+    echo "  (N)u        untag image with index N"
+    echo "  (N)w        save edits of image with index N"
+    echo "  (N)x        execute different commands for each image with index N"
     echo "              placeholders are available for command execution"
     echo "                  %s - image filename"
-    echo "  (N)b/B      execute one command for all images with (local/global) index N"
-    echo "              placeholders"
-    echo "                  %S - all image filenames side by side"
     echo
     echo "Monocle mode controls:"
-    echo "  r           rotate image 90 degrees clockwise"
-    echo "  R           rotate image 90 degrees counterclockwise"
-    echo "  c/C         rename image"
-    echo "  d/D         move image to Trash"
-    echo "  t/T         tag image"
-    echo "  u/U         untag image"
-    echo "  w/W         save edits of image"
-    echo "  x/X         execute command for image"
-    echo "              placeholders"
-    echo "                  %s - original image filename"
-    echo "                  %r - rotated image filename"
-    echo "  b/B         execute command for image"
+    echo "  b           execute command for image"
     echo "              placeholders"
     echo "                  %S - original image filename"
+    echo "  c           rename image"
+    echo "  d           move image to Trash"
+    echo "  r           rotate image 90 degrees clockwise"
+    echo "  R           rotate image 90 degrees counterclockwise"
+    echo "  t           tag image"
+    echo "  u           untag image"
+    echo "  w           save edits of image"
+    echo "  x           execute command for image"
+    echo "              placeholders"
+    echo "                  %s - original image filename"
     echo "                  %r - rotated image filename"
     echo
     echo "Tag mode controls:"
-    echo "  c/C         rename (local/global) tagged images"
-    echo "  d/D         move (local/global) tagged images to Trash"
-    echo "  g/G         go to first (local/global) tagged image"
-    echo "  u/U         untag (local/global) tagged images"
-    echo "  w/W         save edits of (local/global) tagged images"
-    echo "  x/X         execute different command for every (local/global) tagged image"
-    echo "              placeholders"
-    echo "                  %s - original image filename"
-    echo "  b/B         execute one command for all (local/global) tagged images"
+    echo "  b           execute one command for all images"
     echo "              placeholders"
     echo "                  %S - original image filename"
-    echo "                  %r - rotated image filename"
+    echo "  c           rename images"
+    echo "  d           move images to Trash"
+    echo "  m           go to first image"
+    echo "  u           untag images"
+    echo "  w           save edits of images"
+    echo "  x           execute different command for every image"
+    echo "              placeholders"
+    echo "                  %s - original image filename"
 
 }
 
 check_dependencies() {
     local dependency
+    declare -A dep
+    dep[ueberzug]=ueberzug
+    dep[file]=file
+    dep[xxh128sum]=xxhash
     for dependency in ueberzug file xxh128sum
     do
         if ! command -v "$dependency" &>/dev/null
         then
-            echo "Required dependency not installed: $dependency" && exit_clear=0 && exit
+            echo "Required dependency not installed: ${dep[$dependency]}" && exit_clear=0 && exit
         fi
     done
 }
@@ -382,10 +387,6 @@ clear_names() {
     printf "\e[?25l\e[H\e[3B\e[2K\e[0J\e[H"
 }
 
-empty_prefix() {
-    prefix=""
-}
-
 show_cursor() {
     printf "\e[?25h"
 }
@@ -406,13 +407,6 @@ start_daemon() {
     exec {ueberzug}> "$fifo"
 }
 
-######################################################################
-# Stops the ueberzug daemon and exits the program
-# Uses:
-#   tmp_dir
-# Outputs:
-#   deletes the fifo file
-######################################################################
 stop_daemon() {
     exec {ueberzug}>&-
     [[ "$exit_clear" == 1 ]] && clear_screen
@@ -687,6 +681,7 @@ create_suggestions() {
 #   1               if input is not meaningful
 ######################################################################
 get_input() {
+    clear_status
     show_cursor
     printf "%s\e7" "$1"
     [[ -n "$2" ]] && left="$2" || left=""
@@ -707,7 +702,9 @@ get_input() {
         read -rsN1 -t 0.0001 k2
         read -rsN1 -t 0.0001 k3
         read -rsN1 -t 0.0001 k4
-        key="${char}${k1}${k2}${k3}${k4}"
+        read -rsN1 -t 0.0001 k5
+        read -rsN1 -t 0.0001 k6
+        key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
         case "$key" in
             $'\e[D') #left arrow press
                 clear_suggestions
@@ -732,7 +729,7 @@ get_input() {
                 ;;
             $'\e[F'|$'\e[4~') #End
                 clear_suggestions
-                left="${left}${right}"
+                left+="${right}"
                 right=""
                 ;;
             $'\e[3~'|$'\e[P')
@@ -803,12 +800,11 @@ give_dimensions() {
     old_fit_horizontal="$fit_horizontal"
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
-    read -r lines columns < <(stty size)
-    ! get_input "Give number of lines and columns [current: $fit_vertical $fit_horizontal]: " && return
+    ! get_input "Give number of lines and columns: " && return
     local fit
     IFS=" " read -r -a fit <<< "$input"
-    ! is_natural "${fit[0]}" && set_error "lines" "${fit[0]}" && return
-    ! is_natural "${fit[1]}" && set_error "columns" "${fit[1]}" && return
+    ! is_natural "${fit[0]}" && error="NaN: ${fit[0]}" && return
+    ! is_natural "${fit[1]}" && error="Nan: ${fit[1]}" && return
     [[ ! "${fit[0]}" -eq "$fit_vertical" ]] && (( new_fit_vertical = fit[0] ))
     [[ ! "${fit[1]}" -eq "$fit_horizontal" ]] && (( new_fit_horizontal = fit[1] ))
 }
@@ -826,9 +822,9 @@ print_names() {
     do
         separator+="─"
     done
-    l=${#line_names[@]}
+    local len=${#line_names[@]}
     local i
-    for (( i = 0; i < l; i++))
+    for (( i = 0; i < len; i++))
     do
         (( current_line = 2 + (i + 1) * photo_lines ))
         printf "\e[%s;1f" "$current_line"
@@ -920,10 +916,12 @@ maybe_redraw() {
         || (( new_fit_horizontal != fit_horizontal )) \
         || (( new_start != start ))
     then
-        (( new_fit_vertical > lines - 3 || new_fit_vertical < 1 )) \
-            && set_error lines "$new_fit_vertical" && return
-        (( new_fit_horizontal > columns || new_fit_horizontal < 1 )) \
-            && set_error columns "$new_fit_horizontal" && return
+        (( new_fit_vertical > max_fit_vertical )) && \
+            error="Maximum number of lines set to $max_fit_vertical" && return
+        (( new_fit_vertical < 1 )) && return
+        (( new_fit_horizontal > max_fit_horizontal )) && \
+            error="Maximum number of columns set to $max_fit_vertical" && return
+        (( new_fit_horizontal < 1 )) && return
         if [[ "$new_fit_vertical" -eq 1 && "$new_fit_horizontal" -eq 1 && "$batch" -gt 1 ]]
         then
             wide_vertical="$fit_vertical"
@@ -964,8 +962,18 @@ maybe_redraw() {
 #   info
 ######################################################################
 set_info() {
-    info="[$fit_vertical x $fit_horizontal]"
+    case "$mode" in
+        "tag")
+            info="[ TAG  ] "
+            ;;
+        "normal")
+            info="[NORMAL] "
+            ;;
+        *)
+            ;;
+    esac
     ((begin = start + 1))
+    info+="[$fit_vertical x $fit_horizontal]"
     if in_monocle
     then
         local photo_name
@@ -976,17 +984,25 @@ set_info() {
         ((finish = begin + show - 1))
         info+=" - Photos [$begin - $finish] of $total"
     fi
-    local t=${#tags[@]}
-    [[ "$t" -gt 1 ]] && info+=" [${t} tagged]"
-    [[ -n "$prefix" ]] && info+=" ($prefix)"
+    local tlen=${#tags[@]}
+    [[ "$tlen" -gt 0 ]] && info+=" [${tlen} tagged]"
     local padding
     local length
     length=${#info}
-    (( padding = COLUMNS - length))
+    read -r lines columns < <(stty size)
+    (( padding = columns - length))
     for ((i = 0; i < padding; i++))
     do
         info+=" "
     done
+    case "$mode" in
+        "tag")
+            info="\e[44m\e[30m$info"
+            ;;
+        *)
+            ;;
+    esac
+    info+="\e[m"
 }
 
 ######################################################################
@@ -1065,9 +1081,9 @@ eval_cmd() {
     if [[ "$exec_prompt" -eq 1 ]]
     then
         clear_status
-        printf "%s? (press n/N/Esc to abort)" "$1"
+        printf "%s ?\n(press y/Y/Enter to confirm)" "$1"
         read -rsN1 ans
-        if [[ ! "$ans" =~ ^(n|N|$'\e')$ ]]
+        if [[ "$ans" =~ ^(y|Y|$'\n')$ ]]
         then
             error=$(eval "$2" 2>&1 >/dev/null)
             error=$(echo "$error" | head -3)
@@ -1082,9 +1098,8 @@ eval_cmd() {
 }
 
 ######################################################################
-# Checks if all indices given as input are valid in the specified scope
+# Checks if all indices given as input are valid
 # Uses:
-#   scope
 #   image_index
 #   total
 #   show
@@ -1094,33 +1109,23 @@ eval_cmd() {
 ######################################################################
 valid_indices() {
     local i
-    if [[ "$scope" == "global" ]]
-    then
-        for (( i = 0; i < index_count; i++ ))
-        do
-            if (( image_index[i] < 0 || image_index[i] >= total ))
-            then
-                (( humanized_index = image_index[i] + 1 ))
-                set_error "global index" "${humanized_index}: valid in range [1, $total]" && return 1
-            fi
-        done
-    else
-        for (( i = 0; i < index_count; i++ ))
-        do
-            if (( image_index[i] < 0 || image_index[i] >= show ))
-            then
-                (( humanized_index = image_index[i] + 1 ))
-                set_error "local index" "${humanized_index}: valid in range [1, $show]" && return 1
-            fi
-        done
-    fi
+    for (( i = 0; i < index_count; i++ ))
+    do
+        if (( image_index[i] <= 0 || image_index[i] > show ))
+        then
+            error="Index out of bounds: ${image_index[$i]}" && return 1
+        elif ! is_natural ${image_index[i]}
+        then
+            error="NaN: ${image_index[$i]}" && return 1
+
+        fi
+    done
     return 0
 }
 
 ######################################################################
 # Selects all indices given the scope
 # Uses:
-#   scope
 #   show
 #   total
 # Modifies:
@@ -1129,29 +1134,25 @@ valid_indices() {
 all_indices() {
     image_index=()
     local i
-    if [[ "$scope" == "local" ]]
-    then
-        for ((i = 1; i <= show; i++ ))
-        do
-            image_index+=("$i")
-        done
-    elif [[ "$scope" == "global" ]]
+    if [[ "$1" == "--global" ]]
     then
         for ((i = 1; i <= total; i++ ))
         do
             image_index+=("$i")
         done
+    else
+        for ((i = 1; i <= show; i++ ))
+        do
+            image_index+=("$i")
+        done
     fi
-
 }
 
 ######################################################################
 # Set the image_index to operate on (array of indices)
 # Uses:
-#   hardcode_index
 #   prefix
 #   batch
-#   scope
 #   start
 #   tags
 # Modifies:
@@ -1163,61 +1164,61 @@ all_indices() {
 get_image_index() {
     unset image_index
     local i
-    if [[ -n "$hardcode_index" ]]
+    local star=0
+    if [[ "$mode" == "tag" ]]
     then
-        (( image_index = hardcode_index ))
-        unset hardcode_index
+        for (( i = 1; i <= total; i++ ))
+        do
+            ((tag_index = i - 1)) # indices start from 0 in tag array
+            [[ -n ${tags[$tag_index]} ]] && image_index+=("$i")
+        done
+    elif [[ "$prefix" =~ ^\*\* ]]
+    then
+        all_indices --global
+        star=2
+    elif [[ "$prefix" =~ ^\* ]]
+    then
+        all_indices --local
+        star=1
     elif [[ -n "$prefix" ]]
     then
-        if [[ "$prefix" == ";" ]] # in tag mode
-        then
-            for (( i = 0; i < total; i++ ))
-            do
-                if [[ "$scope" == "local" ]]
-                then
-                    # filter non-local indices out
-                    [[ -n ${tags[$i]} ]] && is_index_local "$i" && image_index+=("$i")
-                else
-                    [[ -n ${tags[$i]} ]] && image_index+=("$i")
-                fi
-            done
-        elif [[ "$prefix" == "*" ]]
-        then
-            all_indices
-        else
-            IFS=" " read -r -a image_index <<< "$prefix"
-        fi
+        IFS=" " read -r -a image_index <<< "$prefix"
+        index_count=${#image_index[@]}
+        ! valid_indices && return 1
+    # no prefix given
     elif [[ "$batch" -eq 1 ]] # no-prefix, just the key pressed
     then
-        scope=local
-        image_index[0]=1
+        image_index=1
     else
-        ! get_input "Give $scope indices to $1: " && return 1
-        [[ "$input" == "*" ]] && all_indices || IFS=" " read -r -a image_index <<< "$input"
-        clear_status
+        ! get_input "$1 # " && return 1
+        if [[ "$input" =~ ^\*\* ]] 
+        then
+            all_indices --global
+            star=2
+        elif [[ "$input" =~ ^\* ]] 
+        then
+            all_indices --local 
+            star=1
+        else
+            IFS=" " read -r -a image_index <<< "$input"
+            index_count=${#image_index[@]}
+            ! valid_indices && return 1
+        fi
     fi
 
     index_count=${#image_index[@]}
     [[ "$index_count" -eq 0 ]] && return 1
 
-    # if in tag mode don't check and don't adjust offset, it has already been done
-    if [[ ! "$prefix" == ";" ]]
+    for (( i = 0; i < index_count; i++ ))
+    do
+        (( image_index[i] -= 1 )) #adjust index for arrays
+    done
+    if [[ "$star" -lt 2 ]] ## if ** is used then the indices are correct
     then
         for (( i = 0; i < index_count; i++ ))
         do
-            ! is_natural "${image_index[$i]}" && set_error "${scope} index" \
-                "${image_index[$i]}: not a natural number" && return 1
-            (( image_index[i] -= 1 ))
+            (( image_index[i] += start))
         done
-
-        ! valid_indices && return 1
-        if [[ "$scope" == "local" ]]
-        then
-            for (( i = 0; i < index_count; i++ ))
-            do
-                (( image_index[i] += start))
-            done
-        fi
     fi
     return 0
 }
@@ -1268,14 +1269,21 @@ is_image() {
 #   prints the status on stdout
 ######################################################################
 update_status() {
+    read -r lines columns < <(stty size)
     local new_status=""
     set_info
     new_status="\e[107;30m${info}\e[m"
     if [[ ! "$new_status" == "$status" ]] || [[ "$1" == "--force" ]]
     then
-        clear_status && status="$new_status"
+        clear_status
+        status="$new_status"
         printf "$status"
     fi
+    [[ ${#prefix} -gt 30 ]] && 
+        prefix_status=${prefix: -30} || 
+        prefix_status="$prefix"
+    [[ ! "$prefix" =~ ^(;)$ ]] && \
+        printf "\e[H\e[B\e[2K\e[%sC%s" $((columns - 20)) "$prefix_status"
     new_status=""
     [[ "$exec_prompt" -eq 0 ]] && [[ ! "$1" == "--force" ]] && return
     if [[ -n "$success" ]]
@@ -1284,6 +1292,8 @@ update_status() {
         success=""
     elif [[ -n "$error" ]]
     then
+        ((space = 2 * columns))
+        [[ "${#error}" -gt "$space" ]] && error="${error:0:$space}"
         new_status="\e[31m${error}\e[m"
         error=""
     elif [[ -n "$warning" ]]
@@ -1310,7 +1320,9 @@ run_use_script() {
         printf "\e[H"
         full_cmd="$cmd"
         full_cmd+=" \"${image_names[$ind]}\""
-        eval_cmd "${cmd} ${image_names[$ind]}" "$full_cmd" \
+        show_cmd=$(basename -a ${cmd})
+        show_cmd=$(echo $show_cmd)
+        eval_cmd "$ ${show_cmd} $(basename ${image_names[$ind]})" "$full_cmd" \
             "Successful execution" && update_status && success=1
     done
 }
@@ -1325,6 +1337,10 @@ run_edit_script() {
         printf "\e[H"
         full_cmd="$cmd"
         file="${image_names[$ind]}"
+        case $file in
+            (*.*) extension=${file##*.};;
+            (*)   extension="";;
+        esac
         read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
         if ! is_media_image
         then
@@ -1333,12 +1349,14 @@ run_edit_script() {
             continue
         fi
         filehash[$hash]=${image_names[$ind]}
-        full_cmd+=" \"${images[$ind]}\" \"${tmp_dir}/${hash}.jpg\""
-        eval_cmd "${cmd} for ${image_names[$ind]}" "$full_cmd" \
+        full_cmd+=" \"${images[$ind]}\" \"${tmp_dir}/${hash}.${extension}\""
+        show_cmd=$(basename -a ${cmd})
+        show_cmd=$(echo $show_cmd)
+        eval_cmd "$ ${show_cmd} $(basename ${image_names[$ind]}) tmp_file" "$full_cmd" \
             "Successful edit" && edited=1
         if [[ "$edited" -eq 1 ]]
         then
-            images[$ind]="${tmp_dir}/${hash}.jpg"
+            images[$ind]="${tmp_dir}/${hash}.${extension}"
             redraw
         fi
     done
@@ -1347,12 +1365,16 @@ run_edit_script() {
 save_edits() {
     local se_i
     local saved=1
-    ! get_image_index "save edits for" && return 1
+    ! get_image_index "Save edits for" && return 1
     for (( se_i = 0; se_i < index_count; se_i++))
     do
         ind=${image_index[$se_i]}
         tmpfile=${images[$ind]}
-        hash=${tmpfile%.jpg}
+        case $tmpfile in
+            (*.*) extension=${tmpfile##*.};;
+            (*)   extension="";;
+        esac
+        hash=${tmpfile%.${extension}}
         hash=${hash#${tmp_dir}/}
         original=${filehash[$hash]}
         if [[ -z $original ]]
@@ -1379,7 +1401,7 @@ execute() {
     local action="$1"
     if [[ "$action" == "split" ]] # each image on its own
     then
-        ! get_image_index "execute individually" && return 1
+        ! get_image_index "Execute individually" && return 1
         for (( ex_i = 0; ex_i < index_count; ex_i++))
         do
             ind=${image_index[$ex_i]}
@@ -1390,11 +1412,11 @@ execute() {
             ! get_input "Command: " "" "command" && continue
             cmd=${input//%s/\"${image_names[$ind]}\"}
             cmd=${cmd//%r/\"${rotated_file}\"}
-            eval_cmd "Execute: ${cmd}" "$cmd" "Successful execution"
+            eval_cmd "$ ${cmd}" "$cmd" "Successful execution"
             update_status --force
         done
     else # bundle images
-        ! get_image_index "execute bundled" && return 1
+        ! get_image_index "Execute bundled" && return 1
         local args=""
         for (( i = 0; i < index_count; i++))
         do
@@ -1406,14 +1428,14 @@ execute() {
         printf "\e[H"
         ! get_input "Command: " "" "command" && return
         cmd=${input//%S/${args[@]}}
-        eval_cmd "Execute: ${cmd}" "$cmd" "Successful execution"
+        eval_cmd "$ ${cmd}" "$cmd" "Successful execution"
     fi
 }
 
 rename() {
     local update=0
     local mv_i
-    ! get_image_index "rename" && return 1
+    ! get_image_index "Rename" && return 1
     local renamed=0
     for (( mv_i = 0; mv_i < index_count; mv_i++))
     do
@@ -1447,8 +1469,6 @@ rename() {
     elif [[ "$renamed" -gt 0 ]]
     then
         [[ "$index_count" -gt 1 ]] && warning="Successfully renamed ${renamed} out of ${index_count} files"
-    else
-        error="No files renamed"
     fi
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
@@ -1466,7 +1486,7 @@ goto_image() {
 delete_image() {
     local update=0
     local del_i
-    ! get_image_index "delete" && return 1
+    ! get_image_index "Delete" && return 1
     local deleted=0
     for (( del_i = 0; del_i < index_count; del_i++))
     do
@@ -1492,8 +1512,6 @@ delete_image() {
     elif [[ "$deleted" -gt 0 ]]
     then
         [[ "$index_count" -gt 1 ]] && warning="Successfully move to trash folder ${deleted} out of ${index_count} files"
-    else
-        error="No files deleted"
     fi
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
@@ -1503,7 +1521,7 @@ tag_image() {
     local i
     case $1 in
         tag)
-            ! get_image_index "tag" && return 1
+            ! get_image_index "Tag" && return 1
             for (( i = 0; i < index_count; i++))
             do
                 [[ -z ${tags[${image_index[$i]}]} ]] && tags[${image_index[$i]}]=1 \
@@ -1511,7 +1529,7 @@ tag_image() {
             done
             ;;
         untag)
-            ! get_image_index "untag" && return 1
+            ! get_image_index "Untag" && return 1
             for (( i = 0; i < index_count; i++))
             do
                 [[ -n ${tags[${image_index[$i]}]} ]] && unset tags["${image_index[$i]}"] \
@@ -1563,7 +1581,14 @@ toggle_names() {
 }
 
 change_scaler() {
-    ! get_input "New scaler [current: ${scaler}] (options: crop, distort, fit_contain, contain, forced_cover, cover): " && return 1
+    local input_message="New scaler (options: "
+    for opt in crop distort fit_contain contain forced_cover cover
+    do
+        [[ "$scaler" == "$opt" ]] && input_message+="*"
+        input_message+="$opt, "
+    done
+    input_message="${input_message:0: -2}): "
+    ! get_input "$input_message" && return 1
     if [[ ! "$input" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]]
     then
         set_error "scaler" "$input"
@@ -1607,23 +1632,6 @@ populate_arrays() {
 }
 
 ######################################################################
-# Sets the scope based on the key that was pressed
-# Uses:
-#   key
-# Modifies:
-#   scope
-######################################################################
-set_scope() {
-    case $key in
-        [a-z])
-            scope=local
-            ;;
-        [A-Z])
-            scope=global
-    esac
-}
-
-######################################################################
 # Loop waiting for user input to execute actions
 # Uses:
 #   fit_vertical
@@ -1634,36 +1642,33 @@ set_scope() {
 #   new_fit_vertical
 #   new_fit_horizontal
 #   prefix
-#   scope
-#   hardcode_index
 ######################################################################
 read_key() {
     while true
     do
+        [[ "$total" -eq 0 ]] && stop_daemon
         read -rsN1 -t 0.01 char
         read -rsN1 -t 0.0001 k1
         read -rsN1 -t 0.0001 k2
         read -rsN1 -t 0.0001 k3
         read -rsN1 -t 0.0001 k4
-        key="${char}${k1}${k2}${k3}${k4}"
-        lowercase=${key,,}
-        if [[ -n "$key" ]] && [[ -n "${use_script[$lowercase]}" ]]
+        read -rsN1 -t 0.0001 k5
+        read -rsN1 -t 0.0001 k6
+        key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
+        if [[ -n "$key" ]] && [[ -n "${use_script[$key]}" ]]
         then
-            set_scope
-            clear_status
-            cmd="${use_script[$lowercase]}"
+            cmd="${use_script[$key]}"
             run_use_script
-            empty_prefix
+            prefix=
             update_status
             continue
         fi
-        if [[ -n "$key" ]] && [[ -n "${edit_script[$lowercase]}" ]]
+        if [[ -n "$key" ]] && [[ -n "${edit_script[$key]}" ]]
         then
-            set_scope
             clear_status
-            cmd="${edit_script[$lowercase]}"
+            cmd="${edit_script[$key]}"
             run_edit_script
-            empty_prefix
+            prefix=
             update_status
             continue
         fi
@@ -1671,19 +1676,19 @@ read_key() {
             q)
                 stop_daemon
                 ;;
-            n|N|p|P|$'\e[C'|$'\e[D')
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+            n|N|p|P|$'\e[C'|$'\e[D'|$'\e[1;2C'|$'\e[1;2D')
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 case $key in
                     n|$'\e[C')
                         keyword=next
                         ;;
-                    N)
+                    N|$'\e[1;2C')
                         keyword=last
                         ;;
                     p|$'\e[D')
                         keyword=prev
                         ;;
-                    P)
+                    P|$'\e[1;2D')
                         keyword=first
                         ;;
                 esac
@@ -1692,11 +1697,11 @@ read_key() {
                 new_fit_vertical="$fit_vertical"
                 new_fit_horizontal="$fit_horizontal"
                 compute_batch "$keyword" && maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             s)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 clear_status
                 if [[ -z "$prefix" ]]
                 then
@@ -1708,11 +1713,11 @@ read_key() {
                 fi
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             +|=)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical + 1 ))
@@ -1724,11 +1729,11 @@ read_key() {
                 fi
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             -)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical - 1 ))
@@ -1740,15 +1745,14 @@ read_key() {
                 fi
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
-            m|M)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
-                set_scope
-                hardcode_index=1
+            m)
+                clear_status
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 goto_image
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             $'\b'|$'\x7F')
@@ -1763,12 +1767,12 @@ read_key() {
                     fit_horizontal="$wide_horizontal"
                     start="$wide_start"
                     redraw
-                    empty_prefix
+                    prefix=
                 fi
                 update_status
                 ;;
             k)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical + 1 ))
@@ -1779,11 +1783,11 @@ read_key() {
                 (( new_fit_horizontal = fit_horizontal ))
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             j)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_vertical = fit_vertical - 1 ))
@@ -1794,11 +1798,11 @@ read_key() {
                 (( new_fit_horizontal = fit_horizontal ))
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             l)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_horizontal = fit_horizontal + 1 ))
@@ -1809,11 +1813,11 @@ read_key() {
                 (( new_fit_vertical = fit_vertical ))
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             h)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 if [[ -z "$prefix" ]]
                 then
                     (( new_fit_horizontal = fit_horizontal - 1 ))
@@ -1824,11 +1828,11 @@ read_key() {
                 (( new_fit_vertical = fit_vertical ))
                 new_start="$start"
                 maybe_redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             r|R)
-                [[ "$prefix" =~ ^(;|\*)$ ]] && empty_prefix
+                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 case $key in
                     r)
                         degrees=90
@@ -1838,10 +1842,9 @@ read_key() {
                         ;;
                 esac
                 ! rotate && update_status
-                empty_prefix
+                prefix=
                 ;;
-            x|X|b|B)
-                set_scope
+            x|b)
                 clear_status
                 case $key in
                     x|X)
@@ -1852,55 +1855,58 @@ read_key() {
                         ;;
                 esac
                 execute "$action"
-                empty_prefix
+                prefix=
                 update_status
                 ;;
-            c|C)
-                set_scope
+            c)
                 clear_status
                 rename && update_names
-                empty_prefix
+                prefix=
                 update_status
                 ;;
-            g|G)
-                set_scope
-                clear_status
-                goto_image
-                empty_prefix
-                update_status
-                ;;
-            d|D)
-                set_scope
+            d)
                 clear_status
                 delete_image && redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
-            u|U|t|T)
-                set_scope
-                clear_status
+            u|t)
                 case $key in
-                    t|T)
+                    t)
                         action=tag
                         ;;
-                    u|U)
+                    u)
                         action=untag
                         ;;
                 esac
                 tag_image "$action" && update_names
-                empty_prefix
+                prefix=
                 update_status
                 ;;
-            [0-9]|" "|"*"|";")
-                [[ "$prefix" =~ ^(;|\*)$ ]] && prefix=""
-                [[ "$key" == ";" ]] && [[ ${#tags[@]} -eq 0 ]] && warning="No tagged images" \
-                    || prefix+="$key"
+            [0-9]|" ")
+                prefix+="$key"
+                mode=normal
+                update_status
+                ;;
+            "*")
+                if [[ "$prefix" =~ ^\*+$ ]]
+                then
+                    prefix="**"
+                else
+                    prefix="*"
+                fi
+                mode=normal
+                update_status
+                ;;
+            ";")
+                prefix=
+                [[ "${#tags}" -gt 0 ]] && mode=tag || warning="No tagged images"
                 update_status
                 ;;
             o)
                 clear_status
                 change_sort && break
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             O)
@@ -1913,33 +1919,33 @@ read_key() {
                 else # we have not read all images so we need to go from the start
                     break
                 fi
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             F)
                 toggle_names && redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             S)
                 clear_status
                 change_scaler && redraw
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             E)
                 toggle_exec_prompt
-                empty_prefix
+                prefix=
                 ;;
             $'\e'|$'\n')
-                empty_prefix
+                prefix=
+                mode=normal
                 update_status
                 ;;
-            w|W)
-                set_scope
+            w)
                 clear_status
                 save_edits
-                empty_prefix
+                prefix=
                 update_status
                 ;;
             *)
@@ -1998,5 +2004,6 @@ do
     [[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit_clear=0 && exit
     start=0
     declare -A assoc
+    mode=normal
     init
 done
