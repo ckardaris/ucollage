@@ -7,58 +7,86 @@ CONFIG_FILE="$HOME/.config/ucollage/config.sh"
 unset use_script[w]
 unset edit_script[w]
 
-config_error() {
-    echo "Configuration error [${1}]: \"${2}\" ${3}"
+check_config_variable() {
+    [[ -z "${!variable_name}" ]] && return
+    eval "[[ \"${!variable_name}\" =~ $accept_regexp ]]" && return
+    if [[ "$errors" -eq 0 ]]
+    then
+        echo "Error: configuration"
+        echo "--------------------"
+    fi
+    echo "[$variable_name]"
+    echo "Value: ${!variable_name}"
+    echo "Valid: $valid_values"
+    echo "--------------------"
+    eval "${variable_name}=" #unset the variable
+    errors=1
 }
 
 parse_config() {
     local errors=0
 
-    [[ -n "$UCOLLAGE_LINES" ]] && ! is_natural "$UCOLLAGE_LINES" \
-        && config_error "UCOLLAGE_LINES" "$UCOLLAGE_LINES" "is not a natural number" \
-        && unset UCOLLAGE_LINES && errors=1
-    [[ -n "$UCOLLAGE_COLUMNS" ]] && ! is_natural "$UCOLLAGE_COLUMNS" \
-        && config_error "UCOLLAGE_COLUMNS" "$UCOLLAGE_COLUMNS" "is not a natural number" \
-        && unset UCOLLAGE_COLUMNS && errors=1
-    [[ -n "$UCOLLAGE_EXEC_PROMPT" ]] && [[ ! "$UCOLLAGE_EXEC_PROMPT" =~ ^(0|1)$ ]] \
-        && config_error "UCOLLAGE_EXEC_PROMPT" "$UCOLLAGE_EXEC_PROMPT" " - valid values: 0, 1" \
-        && unset UCOLLAGE_EXEC_PROMPT && errors=1
-    [[ -n "$UCOLLAGE_SHOW_NAMES" ]] && [[ ! "$UCOLLAGE_SHOW_NAMES" =~ ^(0|1)$ ]] \
-        && config_error "UCOLLAGE_SHOW_NAMES" "$UCOLLAGE_SHOW_NAMES" " - valid values: 0, 1" \
-        && unset UCOLLAGE_SHOW_NAMES && errors=1
-    [[ -n "$UCOLLAGE_EXPAND_DIRS" ]] && [[ ! "$UCOLLAGE_EXPAND_DIRS" =~ ^(0|1|ask)$ ]] \
-        && config_error "UCOLLAGE_EXPAND_DIRS" "$UCOLLAGE_EXPAND_DIRS" \
-        " - valid values: 0, 1, ask" \
-        && unset UCOLLAGE_EXPAND_DIRS && errors=1
-    [[ -n "$UCOLLAGE_SORT_BY" ]] && [[ ! "$UCOLLAGE_SORT_BY" =~ ^(name|time|size|extension)$ ]] \
-        && config_error "UCOLLAGE_SORT_BY" "$UCOLLAGE_SORT_BY" \
-        " - valid values: name, time, size, extension" \
-        && unset UCOLLAGE_SORT_BY && errors=1
-    [[ -n "$UCOLLAGE_SORT_REVERSE" ]] && [[ ! "$UCOLLAGE_SORT_REVERSE" =~ ^(0|1)$ ]] \
-        && config_error "UCOLLAGE_SORT_REVERSE" "$UCOLLAGE_SORT_REVERSE" " - valid values: 0, 1" \
-        && unset UCOLLAGE_SORT_REVERSE && errors=1
-    [[ -n "$UCOLLAGE_SCALER" ]] \
-        && [[ ! "$UCOLLAGE_SCALER" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]] \
-        && config_error "UCOLLAGE_SCALER" "$UCOLLAGE_SCALER" \
-        " - valid values: crop, distort, fit_contain, contain, forced_cover, cover" \
-        && unset UCOLLAGE_SCALER && errors=1
-    [[ -n "$UCOLLAGE_VIDEO_THUMBNAILS" ]] && [[ ! "$UCOLLAGE_VIDEO_THUMBNAILS" =~ ^(0|1)$ ]] \
-        && config_error "UCOLLAGE_VIDEO_THUMBNAILS" "$UCOLLAGE_VIDEO_THUMBNAILS" \
-        " - valid values: 0, 1" \
-        && unset UCOLLAGE_VIDEO_THUMBNAILS && errors=1
-    [[ -n "$UCOLLAGE_CACHE_THUMBNAILS" ]] && [[ ! "$UCOLLAGE_CACHE_THUMBNAILS" =~ ^(0|1)$ ]] \
-        && config_error "UCOLLAGE_CACHE_THUMBNAILS" "$UCOLLAGE_CACHE_THUMBNAILS" \
-        " - valid values: 0, 1" \
-        && unset UCOLLAGE_CACHE_THUMBNAILS && errors=1
-    [[ -n "$UCOLLAGE_THUMBNAIL_WIDTH" ]] && ! is_natural "$UCOLLAGE_THUMBNAIL_WIDTH" \
-        && config_error "UCOLLAGE_THUMBNAIL_WIDTH" "$UCOLLAGE_THUMBNAIL_WIDTH" \
-        "is not a natural number" \
-        && unset UCOLLAGE_THUMBNAIL_WIDTH && errors=1
-    [[ -n "$UCOLLAGE_MESSAGE_TIMEOUT" ]] && ! is_time "$UCOLLAGE_MESSAGE_TIMEOUT" \
-        && config_error "UCOLLAGE_MESSAGE_TIMEOUT" "$UCOLLAGE_MESSAGE_TIMEOUT" "is not a real number" \
-        && unset UCOLLAGE_MESSAGE_TIMEOUT && errors=1
+    variable_name="UCOLLAGE_LINES"
+    accept_regexp="^([1-9][0-9]*|0+[1-9][0-9]*)$" # is natural
+    valid_values="natural numbers"
+    check_config_variable
 
-    [[ "$errors" -eq 1 ]] && read -rsN1
+    variable_name="UCOLLAGE_COLUMNS"
+    accept_regexp="^([1-9][0-9]*|0+[1-9][0-9]*)$"
+    valid_values="natural numbers"
+    check_config_variable
+
+    variable_name="UCOLLAGE_EXEC_PROMPT"
+    accept_regexp="^(0|1)$"
+    valid_values="0, 1"
+    check_config_variable
+
+    variable_name="UCOLLAGE_SHOW_NAMES"
+    accept_regexp="^(0|1)$"
+    valid_values="0, 1"
+    check_config_variable
+
+    variable_name="UCOLLAGE_EXPAND_DIRS"
+    accept_regexp="^(0|1|ask)$"
+    valid_values="0, 1, ask"
+    check_config_variable
+
+    variable_name="UCOLLAGE_SORT_BY"
+    accept_regexp="^(name|time|size|extension)$"
+    valid_values="name, time, size, extension"
+    check_config_variable
+
+    variable_name="UCOLLAGE_SORT_REVERSE"
+    accept_regexp="^(0|1)$"
+    valid_values="0, 1"
+    check_config_variable
+
+    variable_name="UCOLLAGE_SCALER"
+    accept_regexp="^(crop|distort|fit_contain|contain|forced_cover|cover)$"
+    valid_values="crop, distort, fit_contain, contain, forced_cover, cover"
+    check_config_variable
+
+    variable_name="UCOLLAGE_VIDEO_THUMBNAILS"
+    accept_regexp="^(0|1)$"
+    valid_values="0, 1"
+    check_config_variable
+
+    variable_name="UCOLLAGE_CACHE_THUMBNAILS"
+    accept_regexp="^(0|1)$"
+    valid_values="0, 1"
+    check_config_variable
+
+    variable_name="UCOLLAGE_THUMBNAIL_WIDTH"
+    accept_regexp="^([1-9][0-9]*|0+[1-9][0-9]*)$" # is natural
+    valid_values="natural numbers"
+    check_config_variable
+
+    variable_name="UCOLLAGE_MESSAGE_TIMEOUT"
+    accept_regexp="^[0-9]*\.?[0-9]+$" # is time
+    valid_values="real numbers"
+    check_config_variable
+
+    [[ "$errors" -eq 1 ]] && read -rsN1 -p "Using default variables..." && echo
 }
 
 set_defaults() {
@@ -772,10 +800,6 @@ get_input() {
         esac
     done
     [[ "$input" == "ESCAPE" || -z "$input" ]] && return 1 || return 0
-}
-
-is_time() {
-    [[ "$1" =~ ^[0-9]*\.?[0-9]+$ ]]
 }
 
 is_natural() {
