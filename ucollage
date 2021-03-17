@@ -82,11 +82,6 @@ parse_config() {
     valid_values="natural numbers"
     check_config_variable
 
-    variable_name="UCOLLAGE_MESSAGE_TIMEOUT"
-    accept_regexp="^[0-9]*\.?[0-9]+$" # is time
-    valid_values="real numbers"
-    check_config_variable
-
     [[ "$errors" -eq 1 ]] && read -rsN1 -p "Using default variables..." && echo
 }
 
@@ -111,7 +106,6 @@ set_defaults() {
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
-    message_timeout=${UCOLLAGE_MESSAGE_TIMEOUT:-1}
     error=""
     warning=""
     success=""
@@ -144,6 +138,8 @@ help(){
     echo "                  %S - all image filenames side by side"
     echo "  (N)c        rename image with index N"
     echo "  (N)d        move image with index N to Trash"
+    echo "  (N)g        undo edits of image with index N"
+    echo "  (N)Ctrl+r   redo edits of image with index N"
     echo "  (N)h        decrease number of columns by N"
     echo "  (N)j        decrease number of lines by N"
     echo "  (N)k        increase number of lines by N"
@@ -156,22 +152,7 @@ help(){
     echo "  (N)x        execute different commands for each image with index N"
     echo "              placeholders are available for command execution"
     echo "                  %s - image filename"
-    echo
-    echo "Monocle mode controls:"
-    echo "  b           execute command for image"
-    echo "              placeholders"
-    echo "                  %S - original image filename"
-    echo "  c           rename image"
-    echo "  d           move image to Trash"
-    echo "  r           rotate image 90 degrees clockwise"
-    echo "  R           rotate image 90 degrees counterclockwise"
-    echo "  t           tag image"
-    echo "  u           untag image"
-    echo "  w           save edits of image"
-    echo "  x           execute command for image"
-    echo "              placeholders"
-    echo "                  %s - original image filename"
-    echo "                  %r - rotated image filename"
+    echo "                  %e - edited image filename"
     echo
     echo "Tag mode controls:"
     echo "  b           execute one command for all images"
@@ -179,12 +160,15 @@ help(){
     echo "                  %S - original image filename"
     echo "  c           rename images"
     echo "  d           move images to Trash"
+    echo "  g           undo edits of images"
+    echo "  Ctrl+r      redo edits of images"
     echo "  m           go to first image"
     echo "  u           untag images"
     echo "  w           save edits of images"
     echo "  x           execute different command for every image"
     echo "              placeholders"
     echo "                  %s - original image filename"
+    echo "                  %e - edited image filename"
 
 }
 
@@ -550,12 +534,9 @@ show_batch() {
 # Uses:
 #   start
 #   show
-#   rotated_file
 # Modifies:
 #   new_start
 #   warning
-# Outputs:
-#   deletes rotated file if new batch is different than the current
 # Return:
 #   0               new batch is different than the current
 #   1               new batch is the same as the current
@@ -592,7 +573,7 @@ compute_batch() {
             new_start=0
             ;;
     esac
-    [[ -z "$warning" ]] && rm -f "$rotated_file" && return 0 || return 1
+    [[ -z "$warning" ]] && return 0 || return 1
 }
 
 ######################################################################
@@ -848,7 +829,7 @@ give_dimensions() {
     old_fit_horizontal="$fit_horizontal"
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
-    input_prompt="Give number of lines and columns:"
+    input_prompt="Grid dimensions #"
     ! get_input && return
     local fit
     IFS=" " read -r -a fit <<< "$input"
@@ -957,8 +938,6 @@ redraw() {
 #   fit_vertical
 #   fit_horizontal
 #   start
-# Outputs:
-#   deletes the rotated image file
 ######################################################################
 maybe_redraw() {
     read -r lines columns < <(stty size)
@@ -995,7 +974,6 @@ maybe_redraw() {
         fit_vertical="$new_fit_vertical"
         fit_horizontal="$new_fit_horizontal"
         start="$new_start"
-        rm -f "$rotated_file"
         redraw
     fi
 }
@@ -1096,8 +1074,8 @@ eval_cmd() {
         read -rsN1 ans
         [[ ! "$ans" =~ ^(y|Y|$'\n')$ ]] && return 1
     fi
-    error=$(eval "$cmd" 2>&1 >/dev/null)
-    [[ -z "$error" ]] && success="$cmd_success" && return 0 || return 1
+    local error=$(eval "$cmd" 2>&1 >/dev/null)
+    [[ -z "$error" ]] && return 0 || return 1
 }
 
 ######################################################################
@@ -1288,58 +1266,64 @@ update_status() {
     [[ ! "$prefix" =~ ^(;)$ ]] && \
         printf "\e[H\e[B\e[2K\e[%sC%s" $((columns - 20)) "$prefix_status"
     new_status=""
-    [[ "$exec_prompt" -eq 0 ]] && [[ ! "$1" == "--force" ]] && return
     if [[ -n "$success" ]]
     then
         new_status="\e[32m${success}\e[m"
-        success=""
     elif [[ -n "$error" ]]
     then
         ((space = 2 * columns))
         [[ "${#error}" -gt "$space" ]] && error="${error:0:$space}"
         new_status="\e[31m${error}\e[m"
-        error=""
     elif [[ -n "$warning" ]]
     then
         new_status="\e[33m${warning}\e[m"
-        warning=""
     fi
     if [[ -n "$new_status" ]]
     then
         clear_status --temp-message
         printf "$new_status"
-        read -t "$message_timeout" -rsN1
-        clear_status --temp-message
     fi
+    success=""
+    error=""
+    warning=""
 }
 
 run_use_script() {
-    local i
-    local success
+    local sc_i
+    local executed=0
     show_cmd=$(basename -a ${script} | tr '\n' ' ' | head -c-1)
-    input_prompt="Run script \"${show_cmd}\" on #"
     ! get_image_index && return 1
     for (( sc_i = 0; sc_i < index_count; sc_i++))
     do
         ind=${image_index[$sc_i]}
         printf "\e[H"
         cmd="${script} \"${image_names[$ind]}\""
-        cmd_prompt="$ ${show_cmd} \"$(basename -a ${image_names[$ind]} | tr '\n' ' ' | head -c-1)\""
-        cmd_success="Successful execution"
-        eval_cmd && update_status && success=1
+        cmd_prompt+=" : \"$(basename -a ${image_names[$ind]} | tr '\n' ' ' | head -c-1)\""
+        eval_cmd && ((executed += 1))
     done
+    if [[ "$executed" -eq 0 ]]
+    then
+        error="No executions"
+    elif [[ "$executed" -lt "$index_count" ]]
+    then
+        warning="Executed: $executed of $index_count"
+    else
+        success="Success"
+    fi
 }
 
 run_edit_script() {
     old_exec_prompt="$exec_prompt"
     exec_prompt=0
-    local sc_i
     local edited=0
+    local non_image=0
+    local sc_i
     show_cmd=$(basename -a ${script} | tr '\n' ' ' | head -c-1)
     ! get_image_index && exec_prompt="$old_exec_prompt" && return 1
     for (( sc_i = 0; sc_i < index_count; sc_i++))
     do
         ind=${image_index[$sc_i]}
+        level=${edits[$ind]}
         printf "\e[H"
         full_cmd="$cmd"
         file="${image_names[$ind]}"
@@ -1348,35 +1332,50 @@ run_edit_script() {
             (*)   extension="";;
         esac
         read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
-        if ! is_image
-        then
-            error="Editing only supported for images"
-            update_status
-            continue
-        fi
+        ! is_image && ((non_image += 1)) && continue
         filehash[$hash]=${image_names[$ind]}
-        cmd="${script} \"${images[$ind]}\" \"${tmp_dir}/${hash}.${extension}\""
+        tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
+        cmd="${script} \"${images[$ind]}\" \"${tmpfile}\""
         cmd_prompt="$ ${show_cmd} \"$(basename -a ${image_names[$ind]} | tr '\n' ' ' | head -c-1)\" {tmpfile}"
-        cmd_success=
         if eval_cmd
         then
-            edited=1
-            [[ -n ${edits[$ind]} ]] && (( edits[ind]+=1 )) || edits[ind]=1 
-        fi
-        if [[ "$edited" -eq 1 ]]
-        then
-            images[$ind]="${tmp_dir}/${hash}.${extension}"
+            ((edited += 1))
+            ((edits[ind] += 1))
+            images[$ind]="$tmpfile"
+            # now delete the other branch of the history if it exists
+            ((level += 2))
+            while [[ -f "${tmp_dir}/${hash}.$((level)).${extension}" ]]
+            do
+                rm "${tmp_dir}/${hash}.$((level)).${extension}"
+                ((level += 1))
+            done
             redraw
         fi
     done
+    if [[ "$non_image" -eq "$index_count" ]]
+    then
+        error="Editing supported only for images"
+    else
+        if [[ "$edited" -eq 0 ]]
+        then
+            error="No images edited"
+        elif [[ "$edited" -lt "$index_count" ]]
+        then
+            warning="Edited: $edited of $index_count"
+        else
+            success="Success"
+        fi
+    fi
     exec_prompt="$old_exec_prompt"
 }
 
 save_edits() {
     local se_i
-    local saved=1
+    local saved=0
+    local no_pending=0
     input_prompt="Save edits for #"
     ! get_image_index && return 1
+    local local_changes=0
     for (( se_i = 0; se_i < index_count; se_i++))
     do
         ind=${image_index[$se_i]}
@@ -1385,32 +1384,42 @@ save_edits() {
             (*.*) extension=${tmpfile##*.};;
             (*)   extension="";;
         esac
-        hash=${tmpfile%.${extension}}
+        hash=${tmpfile%.*([[:digit:]]).${extension}}
         hash=${hash#${tmp_dir}/}
         original=${filehash[$hash]}
-        if [[ -z $original ]]
-        then
-            error="File does not have pending edits"
-            update_status
-            continue
-        fi
+        [[ -z $original ]] && ((no_pending += 1)) && continue
         printf "\e[H"
         cmd="cp -f \"${tmpfile}\" \"${original}\""
         cmd_prompt="Save edits for ${original}"
-        cmd_success="Saved succesfully"
-        eval_cmd && saved=1
-        if [[ "$saved" -eq 1 ]]
+        if eval_cmd
         then
+            ((saved += 1))
             images[$ind]="${original}"
-            rm ${tmpfile}
+            rm ${tmp_dir}/$hash.* # delete all history
+            unset edits[$ind]
             unset filehash[$hash]
+            is_index_local "$ind" && local_changes=1
         fi
     done
+
+    [[ "$no_pending" -eq "$index_count" ]] && error="Nothing to save" && return
+    if [[ "$saved" -eq 0 ]]
+    then
+        error="No images saved"
+    elif [[ "$saved" -lt "$index_count" ]]
+    then
+        warning="Saved: $saved of $index_count"
+        [[ "$local_changes" -eq 1 ]] && update_names
+    else
+        success="Done"
+        [[ "$local_changes" -eq 1 ]] && update_names
+    fi
 }
 
 execute() {
     local ex_i
     local action="$1"
+    local executed=0
     if [[ "$action" == "split" ]] # each image on its own
     then
         input_prompt="Execute individually #"
@@ -1420,17 +1429,15 @@ execute() {
             ind=${image_index[$ex_i]}
             printf "\e[1J\e[H\n"
             printf "%%s: %s\n" "${image_names[$ind]}"
-            [[ -f "$rotated_file" ]] && printf "%%r: %s" "$rotated_file"
+            [[ "${edits[$ind]}" -gt 0 ]] && printf "%%e: %s" "{edited file}"
             printf "\e[H"
             input_prompt="Command:"
             input_autocomplete="command"
             ! get_input && continue
             cmd=${input//%s/\"${image_names[$ind]}\"}
-            cmd=${cmd//%r/\"${rotated_file}\"}
+            cmd=${cmd//%e/\"${images[$ind]}\"}
             cmd_prompt="$ ${cmd}"
-            cmd_success="Successful execution"
-            eval_cmd
-            update_status --force
+            eval_cmd && ((executed += 1))
         done
     else # bundle images
         input_prompt="Execute bundled #"
@@ -1449,8 +1456,16 @@ execute() {
         ! get_input && return
         cmd=${input//%S/${args[@]}}
         cmd_prompt="$ ${cmd}"
-        cmd_success="Successful execution"
-        eval_cmd
+        eval_cmd && ((executed += index_count))
+    fi
+    if [[ "$executed" -eq 0 ]]
+    then
+        error="No executions"
+    elif [[ "$executed" -lt "$index_count" ]]
+    then
+        warning="Executed: $executed of $index_count"
+    else
+        success="Success"
     fi
 }
 
@@ -1470,32 +1485,34 @@ rename() {
         if [[ "${image_names[$ind]}" == "$input" ]]
         then
             error="New name has to be different"
-            update_status --force
+            update_status
+            read
             continue
         elif [[ -f "$input" ]]
         then
             error="Filename exists"
-            update_status --force
+            update_status
+            read
             continue
         fi
         cmd="mv \"${image_names[$ind]}\" \"$input\""
         cmd_prompt="Rename to: ${input}"
-        cmd_success="Successfully renamed"
         if eval_cmd
         then
-            update_status
+            ((renamed += 1))
             parallel_update "$ind" && images[$ind]="$input"
             image_names[$ind]="$input"
             is_index_local "$ind" && update=1
-            (( renamed += 1 ))
         fi
     done
-    if [[ "$renamed" -eq "$index_count" ]]
+    if [[ "$renamed" -eq 0 ]]
     then
-        [[ "$index_count" -gt 1 ]] && success="Successfully renamed ${renamed} out of ${index_count} files"
-    elif [[ "$renamed" -gt 0 ]]
+        error="No renames"
+    elif [[ "$renamed" -lt "$index_count" ]]
     then
-        [[ "$index_count" -gt 1 ]] && warning="Successfully renamed ${renamed} out of ${index_count} files"
+        warning="Renamed: $renamed of $index_count"
+    else
+        success="Success"
     fi
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
@@ -1523,10 +1540,8 @@ delete_image() {
         ind=${image_index[$updated]}
         cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
         cmd_prompt="Delete: ${image_names[$ind]}"
-        cmd_success="Successfully moved to trash folder"
         if eval_cmd
         then
-            update_status --force
             unset image_names["${image_index[$updated]}"]
             unset images["${image_index[$updated]}"]
             image_names=("${image_names[@]}")
@@ -1536,12 +1551,14 @@ delete_image() {
             (( deleted += 1 ))
         fi
     done
-    if [[ "$deleted" -eq "$index_count" ]]
+    if [[ "$deleted" -eq 0 ]]
     then
-        [[ "$index_count" -gt 1 ]] && success="Successfully moved to trash folder"
-    elif [[ "$deleted" -gt 0 ]]
+        error="No deletions"
+    elif [[ "$deleted" -lt "$index_count" ]]
     then
-        [[ "$index_count" -gt 1 ]] && warning="Successfully moved to trash folder ${deleted} out of ${index_count} files"
+        warning="Deleted: $deleted of $index_count"
+    else
+        success="Success"
     fi
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
@@ -1572,6 +1589,83 @@ tag_image() {
     [[ "$update" -eq 1 ]] && return 0 || return 1
 }
 
+edit_history() {
+    old_exec_prompt="$exec_prompt"
+    exec_prompt=0
+    if [[ "$1" == "--undo" ]]
+    then
+        local undone=0
+        input_prompt="Undo #"
+        local undo_i
+        ! get_image_index && exec_prompt="$old_exec_prompt" && return 1
+        for (( undo_i = 0; undo_i < index_count; undo_i++))
+        do
+            ind=${image_index[$undo_i]}
+            level=${edits[$ind]:-0}
+            [[ "$level" -eq 0 ]] && continue
+            file="${image_names[$ind]}"
+            case $file in
+                (*.*) extension=${file##*.};;
+                (*)   extension="";;
+            esac
+            read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+            if [[ "$level" -eq 1 ]]
+            then
+                tmpfile="$file"
+            else
+                tmpfile="${tmp_dir}/${hash}.$((level - 1)).${extension}"
+            fi
+            ((undone += 1))
+            ((edits[ind] -= 1))
+            ((edits[ind] == 0)) && unset edits[$ind] #unset if at start of history
+            images[$ind]="$tmpfile"
+            redraw
+        done
+        if [[ "$undone" -eq 0 ]]
+        then
+            error="Already at oldest change"
+        elif [[ "$undone" -lt "$index_count" ]]
+        then
+            warning="Undone: $undone of $index_count"
+        else
+            success="Success"
+        fi
+    elif [[ "$1" == "--redo" ]]
+    then
+        input_prompt="Redo #"
+        local redo_i
+        ! get_image_index && exec_prompt="$old_exec_prompt" && return 1
+        local redone=0
+        for (( redo_i = 0; redo_i < index_count; redo_i++))
+        do
+            ind=${image_index[$redo_i]}
+            level=${edits[$ind]:-0}
+            file="${image_names[$ind]}"
+            case $file in
+                (*.*) extension=${file##*.};;
+                (*)   extension="";;
+            esac
+            read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+            tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
+            [[ ! -f "$tmpfile" ]] && continue
+            ((redone += 1))
+            ((edits[ind] += 1))
+            images[$ind]="$tmpfile"
+            redraw
+        done
+        if [[ "$redone" -eq 0 ]]
+        then
+            error="Already at newest change"
+        elif [[ "$redone" -lt "$index_count" ]]
+        then
+            warning="Redone: $redone of $index_count"
+        else
+            success="Success"
+        fi
+    fi
+    exec_prompt="$old_exec_prompt"
+}
+
 change_sort() {
     input_prompt="New sort (options: "
     for opt in name time size extension
@@ -1586,6 +1680,7 @@ change_sort() {
     then
         set_error "sort" "$input"
         update_status
+        read
         return 1
     fi
     local new_sort_by="$input"
@@ -1634,18 +1729,24 @@ change_scaler() {
     then
         set_error "scaler" "$input"
         update_status
+        read
         return 1
     fi
     local new_scaler="$input"
-    [[ ! "$new_scaler" == "$scaler" ]] && scaler="$new_scaler" && return 0
-    return 1
+    if [[ ! "$new_scaler" == "$scaler" ]]
+    then
+        scaler="$new_scaler"
+        success="Change scaler to: $scaler"
+        return 0
+    else
+        return 1
+    fi
 }
 
 toggle_exec_prompt() {
     [[ "$exec_prompt" -eq 1 ]] && exec_prompt=0 || exec_prompt=1
     [[ "$exec_prompt" -eq 1 ]] && success="Confirm command execution" \
         || warning="Don't confirm command execution"
-    update_status --force
 }
 
 ######################################################################
@@ -1702,6 +1803,7 @@ read_key() {
             entry="${use_script[$key]}"
             script=${entry%%*([[:space:]]);*}
             input_prompt="${entry##*;*([[:space:]])} #"
+            cmd_prompt="${entry##*;*([[:space:]])}"
             run_use_script
             prefix=
             update_status
@@ -1883,6 +1985,7 @@ read_key() {
                 then
                     error="imagemagick not installed: required for rotation of images"
                     update_status
+                    read
                     continue
                 fi
                 case $key in
@@ -1924,6 +2027,18 @@ read_key() {
             d)
                 clear_status
                 delete_image && redraw
+                prefix=
+                update_status
+                ;;
+            g)
+                clear_status
+                edit_history --undo
+                prefix=
+                update_status
+                ;;
+            $'')
+                clear_status
+                edit_history --redo
                 prefix=
                 update_status
                 ;;
@@ -1993,6 +2108,7 @@ read_key() {
             E)
                 toggle_exec_prompt
                 prefix=
+                update_status
                 ;;
             $'\e'|$'\n')
                 prefix=

@@ -15,10 +15,12 @@ check out the newest changes.
 - showing file names
 - image tags
 - renaming
-- deleting
+- moving to trash
 - rotating
 - sorting
 - general command execution
+- keybindings to custom scripts
+- undo/redo of editing commands
 - vim-like movements and prefix arguments
 
 ### Active Development
@@ -82,14 +84,12 @@ the README or the help page if something is not working as expected in regard to
 #### General
 Key          | Action
 -------------|-------
-`m/M`        | enter monocle mode: show only one image (equivalent to `1g`/`1G`)
 `Backspace`  | exit monocle mode
 `;`          | enter tag mode
 `n/right arrow`      | get next batch of images
 `N/shift+right arrow`| get last batch of images
 `p/left arrow`      | get previous batch of images
 `P/shift+left arrow`| get first batch of images
-`p/P`        | get previous/first batch of images
 `E`          | toggle exec prompt
 `F`          | toggle filenames on screen
 `o`          | change sort type
@@ -110,7 +110,9 @@ Key     | Action                                                      | No-Prefi
 `(N)l`  | increase number of columns by N                             | 1
 `(N)c`  | rename image with index N                                   | ask for input  *
 `(N)d`  | move image with index N to Trash                            | ask for input  *
-`(N)g`  | go to image with index N                                    | ask for input  *
+`(N)g`  | undo edits of image with index N                           | ask for input  *
+`(N)Ctrl+r`  | redo edits of image with index N                            | ask for input  *
+`(N)m`  | enter monocle mode; go to image with index N                                    | ask for input  *
 `(N)t`  | tag image with index N                                      | ask for input  *
 `(N)w`  | save edits of image with index N                            | ask for input  *
 `(N)u`  | untag image with index N                                    | ask for input  *
@@ -130,31 +132,10 @@ The current value of the prefix can be seen on the second line of the screen.
 
 \*\* placeholders are available for common substitutions<br>
 - `%s` image filename
+- `%e` edited image filename
 
 \*\*\* placeholders
 - `%S` all image filenames side by side
-
-
-#### Monocle mode controls
-
-Key   | Action
-------|-------
-`b`| execute command for image   **
-`c`| rename image
-`d`| move image to Trash
-`r`| rotate image 90 degrees clockwise
-`R`| rotate image 90 degrees counterclockwise
-`t`| tag image
-`u`| untag image
-`w`| save edits for image for image
-`x`| execute command for image   *
-
-\* placeholders
-- `%s` original image filename
-- `%r` rotated image filename
-
-\*\* placeholders
-- `%S` original image filename
 
 #### Tag mode controls
 Key| Action
@@ -162,13 +143,16 @@ Key| Action
 `b`| execute one command for all tagged images **
 `c`| rename tagged images one by one
 `d`| move tagged images to Trash
+`g`| undo edits for tagged images
+`Ctrl+r`| redo edits for tagged images
 `m`| go to first tagged image
 `u`| untag tagged images
 `w`| save edits for tagged images
 `x`| execute different command for every tagged image *
 
 \* placeholders
-- `%s` tagged image filename
+- `%s` image filename
+- `%e` edited image filename
 
 \*\* placeholders
 - `%S` all tagged images filenames side by side
@@ -210,7 +194,6 @@ UCOLLAGE_SCALER           | {crop, distort, fit\_contain, contain, forced_cover,
 UCOLLAGE_VIDEO_THUMBNAILS | {0, 1} | 1 | whether or not support showing video thumbnails. Slower startup time if the first batch consists of many thumbnails which are not present in the cache directory.
 UCOLLAGE_CACHE_THUMBNAILS | {0, 1} | 1 | whether or not save computed thumbnails for future usage
 UCOLLAGE_THUMBNAIL_WIDTH  | Integer | 500 | width of thumbnails of videos, image ratio is preserved. Actual appearance on screen will depend on the value of UCOLLAGE_SCALER
-UCOLLAGE_MESSAGE_TIMEOUT  | Real    | 1 | time in seconds to show messages (error, success, warning) on screen (0 to hide messages, very big to never hide)
 
 \* don't quote directories if you want tilde expansion (~) to occur. $HOME should be fine either way
 
@@ -224,39 +207,49 @@ UCOLLAGE_MESSAGE_TIMEOUT  | Real    | 1 | time in seconds to show messages (erro
 | forced_cover  | Resizes the image to cover the entire area which should be filled while keeping the image ratio. If the image is smaller than the desired size it will be stretched to reach the desired size. If the ratio of the area differs from the image ratio the edges will be cut off. |
 | cover         | The same as forced_cover but images won't be stretched if they are smaller than the area which should be filled. |
 
-### User Scripts
+### User Scripts and Undos/Redos
 The user can now set custom keybindings in order to be able to execute scripts of their own for
 the selected images.
 
 Two types of user scripts are introduced:
-- `edit scripts`
 - `use scripts`
+- `edit scripts`
 
 `use scripts` make use of the selected images in order to perform another action.
 
-`edit scripts` edit the selected images and the user can save the changes at a later time.
+`edit scripts` edit the selected images and the user can save the changes at a later time, while
+also providing support for undo and redo actions.
 
 In order to set these user scripts you have to add lines in your `config` file like the following:
 ```
-edit_script[key]=path/to/script
-use_script[key]=path/to/script
+edit_script[key]="path/to/script; description"
+use_script[key]="path/to/script; description"
 ```
 
 For example you could have: <br>
 ```
-use_script[w]="feh --bg-fill"
+use_script[z]="feh --bg-fill; Change background"
 ```
-That would provide the option to set your background from within
-`ucollage`.
+That would provide the option to set your background from within `ucollage`. The `description` is
+there to provide an informational message on the status bar, when the user does not input a prefix
+and instead is asked to provide one. In the case of the `use scripts` it also appears in the
+confirmation message, when `UCOLLAGE_EXEC_PROMPT` is set to `1`. `Edit scripts` disable
+confirmations since they come equiped with the undo action internally.
 
 #### !ATTENTION!
 - The `use scripts` are executed by providing the image selected as the first and only argument. What
   is executed internally is the responsibility of the user.
+  ```
+  ./script infile
+  ```
 - The `edit scripts` are executed by providing the image selected as the first argument and the
   temporary file used to make the edits as the second argument. So the script should be able
   to be called like
   ```
   ./script infile outfile
   ```
-- Setting an `edit_script` refreshes the view. For example, if you provide a custom script to apply
+- Setting an `edit script` refreshes the view. For example, if you provide a custom script to apply
   a filter on an image (e.g. monochrome).
+- Rotation is a special case of `edit script` already included with the program. What that means
+  is that rotated images can be saved, and rolled back and forward with the undo and
+  redo actions respectively.
