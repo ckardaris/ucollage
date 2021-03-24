@@ -715,7 +715,7 @@ create_suggestions() {
 ######################################################################
 get_input() {
     show_cursor
-    printf "%s \e7" "$input_prompt"
+    printf "%s\e7" "$input_prompt"
     while true
     do
         printf "\e8\e[K"
@@ -829,7 +829,7 @@ give_dimensions() {
     old_fit_horizontal="$fit_horizontal"
     new_fit_vertical="$fit_vertical"
     new_fit_horizontal="$fit_horizontal"
-    input_prompt="Grid dimensions #"
+    input_prompt="Grid dimensions # "
     ! get_input && return
     local fit
     IFS=" " read -r -a fit <<< "$input"
@@ -997,6 +997,9 @@ set_info() {
         "normal")
             info=" NORMAL "
             ;;
+        "command")
+            info=" C-MODE "
+            ;;
         *)
             ;;
     esac
@@ -1029,6 +1032,9 @@ set_info() {
     case "$mode" in
         "tag")
             info="\e[44m\e[30m$info"
+            ;;
+        "command")
+            info="\e[42m\e[30m$info"
             ;;
         *)
             ;;
@@ -1260,10 +1266,20 @@ update_status() {
         status="$new_status"
         printf "$status"
     fi
-    [[ ${#prefix} -gt 30 ]] && 
-        prefix_status=${prefix: -30} || 
-        prefix_status="$prefix"
-    [[ ! "$prefix" =~ ^(;)$ ]] && \
+    if [[ -n "$prefix" ]] && [[ -n "$mapping" ]]
+    then
+        prefix_status="($prefix)$mapping"
+    elif [[ -n "$mapping" ]] 
+    then
+        prefix_status="$mapping"
+    elif [[ -n "$prefix" ]]
+    then
+        prefix_status="($prefix)"
+    else
+        prefix_status=
+    fi
+    [[ ${#prefix_status} -gt 30 ]] && prefix_status=${prefix_status: -30}
+    [[ ! "$mapping" =~ ^(;)$ ]] && \
         printf "\e[H\e[B\e[2K\e[%sC%s" $((columns - 20)) "$prefix_status"
     new_status=""
     if [[ -n "$success" ]]
@@ -1373,7 +1389,7 @@ save_edits() {
     local se_i
     local saved=0
     local no_pending=0
-    input_prompt="Save edits for #"
+    input_prompt="Save edits for # "
     ! get_image_index && return 1
     local local_changes=0
     for (( se_i = 0; se_i < index_count; se_i++))
@@ -1420,9 +1436,9 @@ execute() {
     local ex_i
     local action="$1"
     local executed=0
-    if [[ "$action" == "split" ]] # each image on its own
+    if [[ "$action" == "image" ]] # each image on its own
     then
-        input_prompt="Execute individually #"
+        input_prompt="Execute image # "
         ! get_image_index && return 1
         for (( ex_i = 0; ex_i < index_count; ex_i++))
         do
@@ -1431,7 +1447,7 @@ execute() {
             printf "%%s: %s\n" "${image_names[$ind]}"
             [[ "${edits[$ind]}" -gt 0 ]] && printf "%%e: %s" "{edited file}"
             printf "\e[H"
-            input_prompt="Command:"
+            input_prompt="Command: "
             input_autocomplete="command"
             ! get_input && continue
             cmd=${input//%s/\"${image_names[$ind]}\"}
@@ -1440,7 +1456,7 @@ execute() {
             eval_cmd && ((executed += 1))
         done
     else # bundle images
-        input_prompt="Execute bundled #"
+        input_prompt="Execute as group # "
         ! get_image_index && return 1
         local args=""
         for (( i = 0; i < index_count; i++))
@@ -1451,7 +1467,7 @@ execute() {
         printf "\e[1J\e[H\n"
         printf "%%S: %s\n" "$args"
         printf "\e[H"
-        input_prompt="Command:"
+        input_prompt="Command: "
         input_autocomplete="command"
         ! get_input && return
         cmd=${input//%S/${args[@]}}
@@ -1472,14 +1488,14 @@ execute() {
 rename() {
     local update=0
     local mv_i
-    input_prompt="Rename #"
+    input_prompt="Rename # "
     ! get_image_index && return 1
     local renamed=0
     for (( mv_i = 0; mv_i < index_count; mv_i++))
     do
         ind=${image_index[$mv_i]}
         printf "\e[1J\e[HOld name: %s\n" "${image_names[$ind]}"
-        input_prompt="New name:"
+        input_prompt="New name: "
         input_left="${image_names[$ind]}"
         ! get_input && continue
         if [[ "${image_names[$ind]}" == "$input" ]]
@@ -1518,7 +1534,7 @@ rename() {
 }
 
 goto_image() {
-    input_prompt="Go to #"
+    input_prompt="Go to # "
     ! get_image_index && return
     new_start="$image_index"
     old_fit_vertical="$fit_vertical"
@@ -1531,7 +1547,7 @@ goto_image() {
 delete_image() {
     local update=0
     local del_i
-    input_prompt="Delete #"
+    input_prompt="Delete # "
     ! get_image_index && return 1
     local deleted=0
     for (( del_i = 0; del_i < index_count; del_i++))
@@ -1568,7 +1584,7 @@ tag_image() {
     local i
     case $1 in
         tag)
-            input_prompt="Tag #"
+            input_prompt="Tag # "
             ! get_image_index && return 1
             for (( i = 0; i < index_count; i++))
             do
@@ -1577,7 +1593,7 @@ tag_image() {
             done
             ;;
         untag)
-            input_prompt="Untag #"
+            input_prompt="Untag # "
             ! get_image_index && return 1
             for (( i = 0; i < index_count; i++))
             do
@@ -1595,7 +1611,7 @@ edit_history() {
     if [[ "$1" == "--undo" ]]
     then
         local undone=0
-        input_prompt="Undo #"
+        input_prompt="Undo # "
         local undo_i
         ! get_image_index && exec_prompt="$old_exec_prompt" && return 1
         for (( undo_i = 0; undo_i < index_count; undo_i++))
@@ -1632,7 +1648,7 @@ edit_history() {
         fi
     elif [[ "$1" == "--redo" ]]
     then
-        input_prompt="Redo #"
+        input_prompt="Redo # "
         local redo_i
         ! get_image_index && exec_prompt="$old_exec_prompt" && return 1
         local redone=0
@@ -1673,7 +1689,7 @@ change_sort() {
         [[ "$sort_by" == "$opt" ]] && input_prompt+="*"
         input_prompt+="$opt, "
     done
-    input_prompt="${input_prompt:0: -2}):"
+    input_prompt="${input_prompt:0: -2}): "
     input_autocomplete="sort"
     ! get_input && return 1
     if [[ ! "$input" =~ ^(name|time|size|extension)$ ]]
@@ -1722,7 +1738,7 @@ change_scaler() {
         [[ "$scaler" == "$opt" ]] && input_prompt+="*"
         input_prompt+="$opt, "
     done
-    input_prompt="${input_prompt:0: -2}):"
+    input_prompt="${input_prompt:0: -2}): "
     input_autocomplete="scaler"
     ! get_input && return 1
     if [[ ! "$input" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]]
@@ -1797,35 +1813,82 @@ read_key() {
         read -rsN1 -t 0.0001 k5
         read -rsN1 -t 0.0001 k6
         key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
-        if [[ -n "$key" ]] && [[ -n "${use_script[$key]}" ]]
+        case $key in
+            [0-9]|" ")
+                [[ -z "$mapping" ]] && prefix+="$key"
+                mode=normal
+                update_status
+                ;;
+            "*")
+                if [[ "$prefix" =~ ^\*+$ ]]
+                then
+                    [[ -z "$mapping" ]] && prefix="**"
+                else
+                    [[ -z "$mapping" ]] && prefix="*"
+                fi
+                mode=normal
+                update_status
+                ;;
+            $'\b'|$'\x7F')
+                if [[ -n "$mapping" ]]
+                then
+                    mapping=${mapping:0:-1}
+                elif [[ -n "$prefix" ]]
+                then
+                    prefix=${prefix:0:-1}
+                elif [[ "$batch" -eq 1 ]]
+                then
+                    old_fit_vertical="$fit_vertical"
+                    old_fit_horizontal="$fit_horizontal"
+                    fit_vertical="$wide_vertical"
+                    fit_horizontal="$wide_horizontal"
+                    start="$wide_start"
+                    redraw
+                    prefix=
+                    mapping=
+                fi
+                update_status
+                ;;
+            $'\e'|$'\n')
+                prefix=
+                mapping=
+                mode=normal
+                update_status
+                ;;
+            *)
+                mapping+="$key"
+                ;;
+        esac
+        if [[ -n "$mapping" ]] && [[ -n "${use_script[$mapping]}" ]]
         then
             clear_status
-            entry="${use_script[$key]}"
+            entry="${use_script[$mapping]}"
             script=${entry%%*([[:space:]]);*}
-            input_prompt="${entry##*;*([[:space:]])} #"
+            input_prompt="${entry##*;*([[:space:]])} # "
             cmd_prompt="${entry##*;*([[:space:]])}"
             run_use_script
             prefix=
+            mapping=
             update_status
             continue
         fi
-        if [[ -n "$key" ]] && [[ -n "${edit_script[$key]}" ]]
+        if [[ -n "$mapping" ]] && [[ -n "${edit_script[$mapping]}" ]]
         then
             clear_status
-            entry="${edit_script[$key]}"
+            entry="${edit_script[$mapping]}"
             script=${entry%%*([[:space:]]);*}
-            input_prompt="${entry##*;*([[:space:]])} #"
+            input_prompt="${entry##*;*([[:space:]])} # "
             run_edit_script
             prefix=
+            mapping=
             update_status
             continue
         fi
-        case $key in
+        case $mapping in
             q)
                 stop_daemon
                 ;;
             n|N|p|P|$'\e[C'|$'\e[D'|$'\e[1;2C'|$'\e[1;2D')
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 case $key in
                     n|$'\e[C')
                         keyword=next
@@ -1846,10 +1909,11 @@ read_key() {
                 new_fit_horizontal="$fit_horizontal"
                 compute_batch "$keyword" && maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
-            s)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
+            sg)
+                [[ "$prefix" =~ ^(\*+)$ ]] && prefix=
                 clear_status
                 if [[ -z "$prefix" ]]
                 then
@@ -1862,6 +1926,7 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
             +|=)
@@ -1878,6 +1943,7 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
             -)
@@ -1894,29 +1960,15 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
-            m)
+            gi)
                 clear_status
                 [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
                 goto_image
                 prefix=
-                update_status
-                ;;
-            $'\b'|$'\x7F')
-                if [[ -n "$prefix" ]]
-                then
-                    prefix=${prefix:0:-1}
-                elif [[ "$batch" -eq 1 ]]
-                then
-                    old_fit_vertical="$fit_vertical"
-                    old_fit_horizontal="$fit_horizontal"
-                    fit_vertical="$wide_vertical"
-                    fit_horizontal="$wide_horizontal"
-                    start="$wide_start"
-                    redraw
-                    prefix=
-                fi
+                mapping=
                 update_status
                 ;;
             k)
@@ -1932,6 +1984,7 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
             j)
@@ -1947,6 +2000,7 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
             l)
@@ -1962,6 +2016,7 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
             h)
@@ -1977,6 +2032,7 @@ read_key() {
                 new_start="$start"
                 maybe_redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
             r|R)
@@ -1988,100 +2044,104 @@ read_key() {
                     read
                     continue
                 fi
-                case $key in
+                case $mapping in
                     r)
                         script="convert -rotate 90"
-                        input_prompt="Rotate clockwise #"
+                        input_prompt="Rotate clockwise # "
                         run_edit_script
                         ;;
                     R)
                         degrees="-90"
                         script="convert -rotate -90"
-                        input_prompt="Rotate counter-clockwise #"
+                        input_prompt="Rotate counter-clockwise # "
                         run_edit_script
                         ;;
                 esac
                 prefix=
+                mapping=
                 update_status
                 ;;
-            x|b)
+            xi)
                 clear_status
-                case $key in
-                    x|X)
-                        action="split"
-                        ;;
-                    b|B)
-                        action="bundle"
-                        ;;
-                esac
-                execute "$action"
+                execute image
                 prefix=
+                mapping=
                 update_status
                 ;;
-            c)
+            xg)
+                clear_status
+                execute group
+                prefix=
+                mapping=
+                update_status
+                ;;
+            ci)
                 clear_status
                 rename && update_names
                 prefix=
+                mapping=
                 update_status
                 ;;
-            d)
+            di)
                 clear_status
                 delete_image && redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
-            g)
+            dt)
+                clear_status
+                tag_image untag && update_names
+                prefix=
+                mapping=
+                update_status
+                ;;
+            ti)
+                clear_status
+                tag_image tag && update_names
+                prefix=
+                mapping=
+                update_status
+                ;;
+            u)
                 clear_status
                 edit_history --undo
                 prefix=
+                mapping=
                 update_status
                 ;;
             $'')
                 clear_status
                 edit_history --redo
                 prefix=
-                update_status
-                ;;
-            u|t)
-                case $key in
-                    t)
-                        action=tag
-                        ;;
-                    u)
-                        action=untag
-                        ;;
-                esac
-                tag_image "$action" && update_names
-                prefix=
-                update_status
-                ;;
-            [0-9]|" ")
-                prefix+="$key"
-                mode=normal
-                update_status
-                ;;
-            "*")
-                if [[ "$prefix" =~ ^\*+$ ]]
-                then
-                    prefix="**"
-                else
-                    prefix="*"
-                fi
-                mode=normal
+                mapping=
                 update_status
                 ;;
             ";")
                 prefix=
+                mapping=
                 [[ "${#tags}" -gt 0 ]] && mode=tag || warning="No tagged images"
                 update_status
                 ;;
-            o)
+            ":")
+                prefix=
+                mapping=
+                mode=command
+                update_status
+                printf "\e[H\e[B"
+                input_prompt=":"
+                get_input
+                clear_status
+                update_status
+                ;;
+            ss)
                 clear_status
                 change_sort && break
                 prefix=
+                mapping=
                 update_status
                 ;;
-            O)
+            tr)
                 toggle_sort_reverse
                 if [[ "$done_reading" -eq 1 ]]
                 then
@@ -2092,36 +2152,37 @@ read_key() {
                     break
                 fi
                 prefix=
+                mapping=
                 update_status
                 ;;
-            F)
+            tn)
                 toggle_names && redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
-            S)
+            ss)
                 clear_status
                 change_scaler && redraw
                 prefix=
+                mapping=
                 update_status
                 ;;
-            E)
+            sp)
                 toggle_exec_prompt
                 prefix=
+                mapping=
                 update_status
                 ;;
-            $'\e'|$'\n')
-                prefix=
-                mode=normal
-                update_status
-                ;;
-            w)
+            wi)
                 clear_status
                 save_edits
                 prefix=
+                mapping=
                 update_status
                 ;;
             *)
+                update_status
                 ;;
         esac
         if [[ ! "$done_reading" -eq 1 ]]
