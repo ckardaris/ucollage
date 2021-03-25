@@ -17,6 +17,10 @@ detail.
 - general command execution
 - vim-like movements and prefix arguments
 
+### Active Development
+To checkout the newest changes you have to run the script residing in the
+`dev` branch.
+
 ## Dependencies
 - `Überzug` 
 
