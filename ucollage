@@ -1439,7 +1439,7 @@ run_use_script() {
 
 run_edit_script() {
     clear_status --cmdline
-    if [[ ! "$mapping" == ":" ]]
+    if [[ ! "$mode" == "command" ]]
     then
         entry="${edit_script[$mapping]}"
         IFS=';' read -r -a entry_arr <<< "$entry"
@@ -2114,7 +2114,6 @@ read_key() {
                         echo "$save_input" >> "$cache_dir/cmd_history"
                         if [[ -n ${colon_cmd["$cmd"]} ]]
                         then
-                            mode="normal"
                             eval "${colon_cmd["$cmd"]}"
                         elif [[ "$cmd" =~ ^!% ]] # this is the same as execute group
                         then
@@ -2134,12 +2133,14 @@ read_key() {
                             change_sort
                         else
                             error="Command not found: $cmd"
+                            mode="normal"
                             prefix=
                             mapping=
                             update_status
                         fi
                     fi
                 else
+                    mode="normal"
                     prefix=
                     mapping=
                     update_status --force
