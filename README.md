@@ -237,3 +237,29 @@ confirmations since they come equiped with the undo action internally.
 - Rotation is a special case of `edit script` already included with the program. What that means
   is that rotated images can be saved, and rolled back and forward with the undo and
   redo actions respectively.
+
+#### Command mode
+Pressing `:` puts `ucollage` in command mode.
+Tab autocomplete works in this mode.
+In order to provide a prefix to the various commands you have two options:
+- writing the prefix between parentheses `(prefix)` and then writing your command
+- input the prefix as usual before pressing `:`. This will automatically put the necessary info on
+  your input line and will only wait for the command.
+
+##### Examples
+In order to tag images 1 and 4 you can do one of the following:
+- `1` `└─┘` `4` `:`  `t` `a` `g` `Enter`
+- ':' `(` `1` `└─┘` `4` `)` `└─┘` `t` `a` `g` `Enter`
+
+##### Special case
+You can type `!` in order to run the same command on the images given (much like `xs`).
+Much in the same way you can type `!%` to run a command on all images as a group (much like `xg`).
+Your command should have the necessary placeholders.
+
+For example in order to run the command `feh` for each image you can do:
+- `(` `prefix` `)` `└─┘`  `!` `feh %s`
+
+And as a group
+- `(` `prefix` `)` `└─┘` `!%` `feh %S`
+
+If the prefix is not given it will be asked as usual.
