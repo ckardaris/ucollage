@@ -22,6 +22,7 @@ check out the newest changes.
 - keybindings to custom scripts
 - undo/redo of editing commands
 - vim-like movements and prefix arguments
+- command mode (smart command history, autocomplete)
 
 ### Active Development
 To checkout the newest changes you have to run the script residing in the
@@ -85,51 +86,54 @@ the README or the help page if something is not working as expected in regard to
 Key          | Action
 -------------|-------
 `Backspace`  | exit monocle mode
-`;`          | enter tag mode
+`:`          | enter command mode
 `n/right arrow`      | get next batch of images
 `N/shift+right arrow`| get last batch of images
 `p/left arrow`      | get previous batch of images
 `P/shift+left arrow`| get first batch of images
-`E`          | toggle exec prompt
-`F`          | toggle filenames on screen
-`o`          | change sort type
-`O`          | sort reverse
-`S`          | change scaler
+`tp`         | toggle exec prompt
+`tn`         | toggle filenames on screen
+`ss`         | set sort type
+`tr`         | toggle reverse sort
+`su`         | set ueberzug scaler
 `q`          | exit
 
 #### Controls with vim-like prefix counters
 
 Key     | Action                                                      | No-Prefix Default
 --------|-------------------------------------------------------------|------------------
-`(N)s`  | input exact number for lines and columns                    | ask for input  *
+`(N)sg` | set grid size                                               | ask for input  *
 `(N)-`  | decrease both the numbers of columns and lines by N         | 1
 `(N)+/=`| increase both the numbers of columns and lines by N         | 1
 `(N)h`  | decrease number of columns by N                             | 1
 `(N)j`  | decrease number of lines by N                               | 1
 `(N)k`  | increase number of lines by N                               | 1
 `(N)l`  | increase number of columns by N                             | 1
-`(N)c`  | rename image with index N                                   | ask for input  *
-`(N)d`  | move image with index N to Trash                            | ask for input  *
-`(N)g`  | undo edits of image with index N                           | ask for input  *
+`(N)ci` | rename image with index N                                   | ask for input  *
+`(N)di` | move image with index N to Trash                            | ask for input  *
+`(N)u`  | undo edits of image with index N                           | ask for input  *
 `(N)Ctrl+r`  | redo edits of image with index N                            | ask for input  *
-`(N)m`  | enter monocle mode; go to image with index N                                    | ask for input  *
-`(N)t`  | tag image with index N                                      | ask for input  *
-`(N)w`  | save edits of image with index N                            | ask for input  *
-`(N)u`  | untag image with index N                                    | ask for input  *
-`(N)x`  | execute different commands for each image with index N   ** | ask for input  *
-`(N)b`  | execute one command for all images with index N  \*\*\*     | ask for input  *
+`(N)gi` | enter monocle mode; go to image with index N                                    | ask for input  *
+`(N)ti` | tag image with index N                                      | ask for input  *
+`(N)wi` | save edits of image with index N                            | ask for input  *
+`(N)dt` | untag image with index N                                    | ask for input  *
+`(N)xi` | execute different commands for each image with index N   ** | ask for input  *
+`(N)xs` | execute one commands for each image with index N   **       | ask for input  *
+`(N)xg` | execute one command for all images with index N  \*\*\*     | ask for input  *
 
 Prefix (N) is a space-separated list of values. <br>
 `*` selects all available indices in the current view.<br>
 `**` selects all available indices currently open by ucollage.<br>
+`;` selects all tagged indices.<br>
 The current value of the prefix can be seen on the second line of the screen.
-- `s` uses only the first 2 values of (N)
+- `sg` uses only the first 2 values of (N)
 - `h`, `j`, `k`, `l`, `+/=`, `-` use only the first value of (N)
 - the rest of the commands use the whole prefix according to their definition
 
 \* The input behaves exactly like the prefix list. It accepts multiple space-separated values. Write
-`*` to select all indices of the current view and `**` to select the indices of all images.
-
+`*` to select all indices of the current view, `**` to select the indices of all images and `;` to
+select the tagged indices.
+g
 \*\* placeholders are available for common substitutions<br>
 - `%s` image filename
 - `%e` edited image filename
@@ -137,33 +141,13 @@ The current value of the prefix can be seen on the second line of the screen.
 \*\*\* placeholders
 - `%S` all image filenames side by side
 
-#### Tag mode controls
-Key| Action
----|-------
-`b`| execute one command for all tagged images **
-`c`| rename tagged images one by one
-`d`| move tagged images to Trash
-`g`| undo edits for tagged images
-`Ctrl+r`| redo edits for tagged images
-`m`| go to first tagged image
-`u`| untag tagged images
-`w`| save edits for tagged images
-`x`| execute different command for every tagged image *
-
-\* placeholders
-- `%s` image filename
-- `%e` edited image filename
-
-\*\* placeholders
-- `%S` all tagged images filenames side by side
-
 #### Control examples
-- `1` `└─┘` `2` `└─┘` `4` `d`: delete images with indices 1,2 and 4 (same as `d` `1` `└─┘` `2` `└─┘` `4` `Enter`)
-- `*` `t`: tag all images in the current view<br>
-- `*` `*` `t`: tag all images available<br>
-- `;` `d`: delete all tagged images
-- `*` `c` : rename all tagged images
-- `2` `└─┘` `3` `s`: set 2x3 grid
+- `1` `└─┘` `2` `└─┘` `4` `d` `i`: delete images with indices 1,2 and 4 (same as `d` `i` `1` `└─┘` `2` `└─┘` `4` `Enter`)
+- `*` `t` `i`: tag all images in the current view<br>
+- `*` `*` `t` `i`: tag all images available<br>
+- `;` `d` `i`: delete all tagged images
+- `*` `c` `i`: rename all tagged images
+- `2` `└─┘` `3` `s` `g`: set 2x3 grid
 - `2` `l` : increase number of columns by 2
 
 ### Default values
@@ -222,13 +206,13 @@ also providing support for undo and redo actions.
 
 In order to set these user scripts you have to add lines in your `config` file like the following:
 ```
-edit_script[key]="path/to/script; description"
-use_script[key]="path/to/script; description"
+edit_script[key]="path/to/script; description; command mode shortcut"
+use_script[key]="path/to/script; description; command mode shortcut"
 ```
 
 For example you could have: <br>
 ```
-use_script[z]="feh --bg-fill; Change background"
+use_script[z]="feh --bg-fill; Change background; Change_background"
 ```
 That would provide the option to set your background from within `ucollage`. The `description` is
 there to provide an informational message on the status bar, when the user does not input a prefix
