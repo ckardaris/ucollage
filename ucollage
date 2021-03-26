@@ -13,15 +13,14 @@ declare -A colon_cmd=([delete]="delete_image"
                       [goto]="goto_image" 
                       [undo]="edit_history --undo"
                       [redo]="edit_history --redo"
-                      [toggle_names]="toggle_names"
                       [write]="save_edits"
-                      [toggle_exec_prompt]="toggle_exec_prompt"
                       [rename]="rename"
                       [quit]="stop_daemon"
                       [sort]="change_sort"
                       [scaler]="change_scaler"
-                      [sort_reverse]="toggle_sort_reverse"
-                      [grid_dimensions]="change_dimensions"
+                      [toggle]="toggle"
+                      [setgrid]="change_dimensions"
+                      [batch]="compute_batch"
                       [!]="execute same"
                       [!%]="execute group"
                      )
@@ -567,7 +566,19 @@ show_batch() {
 #   1               new batch is the same as the current
 ######################################################################
 compute_batch() {
-    case $1 in
+    old_fit_vertical="$fit_vertical"
+    old_fit_horizontal="$fit_horizontal"
+    new_fit_vertical="$fit_vertical"
+    new_fit_horizontal="$fit_horizontal"
+    input="$1"
+    if [[ -z "$input" ]]
+    then
+        input_autocomplete="batch"
+        input_prompt="Batch # "
+        clear_status --cmdline
+        get_input
+    fi
+    case $input in
         next)
             # There exists an edge case here when $show is less that
             # $batch, but we are not in the last batch of images
@@ -585,7 +596,7 @@ compute_batch() {
             (( new_start = total - ((total - 1) % batch + 1) ))
             [[ "$new_start" -le "$start" ]] && warning="End of files"
             ;;
-        prev)
+        previous)
             [[ "$start" -eq 0 ]] && warning="Start of files"
             (( new_start = start - batch))
             # The below is useful in case of resizing
@@ -597,8 +608,14 @@ compute_batch() {
             [[ "$start" -eq 0 ]] && warning="Start of files"
             new_start=0
             ;;
+        *)
+            [[ -n "$input" ]] && error="Unknown option: $input"
+            ;;
     esac
-    [[ -z "$warning" ]] && return 0 || return 1
+    [[ -z "$warning" ]] && [[ -z "$error" ]] && maybe_redraw
+    prefix=
+    mapping=
+    update_status
 }
 
 ######################################################################
@@ -642,6 +659,7 @@ clear_suggestions() {
     suggestion=""
     suggestion_count=0
     unset autocomplete
+    unset subinput_autocomplete
 }
 
 clear_history() {
@@ -701,9 +719,24 @@ create_suggestions() {
     else
         local word="${split_left[-1]}"
     fi
-    [[ "${split_left[0]}" == "scaler" ]] && input_autocomplete="scaler"
-    [[ "${split_left[0]}" == "sort" ]] && input_autocomplete="sort"
-    if [[ "$input_autocomplete" == "command" ]]
+    case "${split_left[0]}" in
+        "scaler")
+            subinput_autocomplete="scaler"
+            ;;
+        "sort")
+            subinput_autocomplete="sort"
+            ;;
+        "toggle")
+            subinput_autocomplete="toggle"
+            ;;
+        "batch")
+            subinput_autocomplete="batch"
+            ;;
+        *)
+            subinput_autocomplete="$input_autocomplete"
+            ;;
+    esac
+    if [[ "$subinput_autocomplete" == "command" ]]
     then
         if [[ "${#split_left[@]}" -gt 1 ]]
         then
@@ -712,22 +745,30 @@ create_suggestions() {
         else
             mapfile -t autocomplete < <(compgen -c "$word" | sort)
         fi
-    elif [[ "$input_autocomplete" == "file" ]]
+    elif [[ "$subinput_autocomplete" == "file" ]]
     then
         mapfile -t autocomplete < <(compgen -f "$word" | sort)
         files=1
-    elif [[ "$input_autocomplete" == "scaler" ]]
+    elif [[ "$subinput_autocomplete" == "scaler" ]]
     then 
         wordlist="crop distort fit_contain contain forced_cover cover"
         mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
-    elif [[ "$input_autocomplete" == "sort" ]]
+    elif [[ "$subinput_autocomplete" == "sort" ]]
     then 
         wordlist="name time size extension"
         mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
-    elif [[ "$input_autocomplete" == "ucollage" ]]
+    elif [[ "$subinput_autocomplete" == "ucollage" ]]
     then
         wordlist=${!colon_cmd[*]}
         mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word" | sort)
+    elif [[ "$subinput_autocomplete" == "toggle" ]]
+    then 
+        wordlist="names prompt reverse"
+        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
+    elif [[ "$subinput_autocomplete" == "batch" ]]
+    then 
+        wordlist="previous next first last"
+        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
     fi
 
     autocomplete=("$input_left" "${autocomplete[@]}")
@@ -852,7 +893,7 @@ get_input() {
                 input=
                 break
                 ;;
-            $'\b'|$'\x7F'|$'')
+            $'\b'|$'\x7F'|$'')
                 clear_suggestions
                 clear_history --force
                 [[ -n "$input_left" ]] && input_left="${input_left:0:-1}"
@@ -1403,7 +1444,7 @@ update_status() {
 
 run_use_script() {
     clear_status --cmdline
-    if [[ ! "$mapping" == ":" ]]
+    if [[ ! "$mode" == "command" ]]
     then
         entry="${use_script[$mapping]}"
         IFS=';' read -r -a entry_arr <<< "$entry"
@@ -1944,19 +1985,42 @@ change_sort() {
     update_status
 }
 
-toggle_sort_reverse() {
-    [[ "$sort_reverse" -eq 1 ]] && sort_reverse=0 || sort_reverse=1
+toggle() {
+    clear_status --cmdline
+    input="$1"
+    if [[ -z "$input" ]]
+    then
+        input_prompt="Toggle setting # "
+        input_autocomplete="toggle"
+        get_input
+    fi
+    if [[ "$input" == "names" ]]
+    then
+        [[ "$show_names" -eq 1 ]] && show_names=0 || show_names=1
+        redraw
+    elif [[ "$input" == "prompt" ]]
+    then
+        [[ "$exec_prompt" -eq 1 ]] && exec_prompt=0 || exec_prompt=1
+        [[ "$exec_prompt" -eq 1 ]] && success="Confirm command execution" \
+            || warning="Don't confirm command execution"
+    elif [[ "$input" == "reverse" ]]
+    then
+        [[ "$sort_reverse" -eq 1 ]] && sort_reverse=0 || sort_reverse=1
+        if [[ "$done_reading" -eq 1 ]]
+        then
+            reverse_images
+            start=0
+            redraw
+        else # we have not read all images so we need to go from the start
+            break_flag=1
+        fi
+    elif [[ -n "$input" ]]
+    then
+        error="Unknown toggle setting: $input"
+    fi
     prefix=
     mapping=
-    if [[ "$done_reading" -eq 1 ]]
-    then
-        reverse_images
-        start=0
-        redraw
-    else # we have not read all images so we need to go from the start
-        break_flag=1 && return
-    fi
-    update_status
+    update_status --force
 }
 
 reverse_images(){
@@ -1976,14 +2040,6 @@ reverse_images(){
         (( min += 1 ))
         (( max -= 1 ))
     done
-}
-
-toggle_names() {
-    [[ "$show_names" -eq 1 ]] && show_names=0 || show_names=1
-    redraw
-    prefix=
-    mapping=
-    update_status
 }
 
 change_scaler() {
@@ -2019,15 +2075,6 @@ change_scaler() {
     prefix=
     mapping=
     new_scaler=
-    update_status
-}
-
-toggle_exec_prompt() {
-    [[ "$exec_prompt" -eq 1 ]] && exec_prompt=0 || exec_prompt=1
-    [[ "$exec_prompt" -eq 1 ]] && success="Confirm command execution" \
-        || warning="Don't confirm command execution"
-    prefix=
-    mapping=
     update_status
 }
 
@@ -2142,6 +2189,16 @@ read_key() {
                         then
                             new_sort="${cmd##sort*( )}"
                             change_sort
+                        elif [[ "$cmd" =~ ^toggle ]]
+                        then
+                            setting="${cmd##toggle*( )}"
+                            setting="${setting//*( )/}"
+                            toggle "$setting"
+                        elif [[ "$cmd" =~ ^batch ]]
+                        then
+                            setting="${cmd##batch*( )}"
+                            setting="${setting//*( )/}"
+                            compute_batch "$setting"
                         else
                             error="Command not found: $cmd"
                             mode="normal"
@@ -2201,7 +2258,7 @@ read_key() {
                 stop_daemon
                 ;;
             n|N|p|P|$'\e[C'|$'\e[D'|$'\e[1;2C'|$'\e[1;2D')
-                case $key in
+                case $mapping in
                     n|$'\e[C')
                         keyword=next
                         ;;
@@ -2209,20 +2266,13 @@ read_key() {
                         keyword=last
                         ;;
                     p|$'\e[D')
-                        keyword=prev
+                        keyword=previous
                         ;;
                     P|$'\e[1;2D')
                         keyword=first
                         ;;
                 esac
-                old_fit_vertical="$fit_vertical"
-                old_fit_horizontal="$fit_horizontal"
-                new_fit_vertical="$fit_vertical"
-                new_fit_horizontal="$fit_horizontal"
-                compute_batch "$keyword" && maybe_redraw
-                prefix=
-                mapping=
-                update_status
+                compute_batch "$keyword"
                 ;;
             sg)
                 change_dimensions
@@ -2369,16 +2419,16 @@ read_key() {
                 change_sort
                 ;;
             tr)
-                toggle_sort_reverse
+                toggle reverse
                 ;;
             tn)
-                toggle_names
+                toggle names
                 ;;
             su)
                 change_scaler
                 ;;
             tp)
-                toggle_exec_prompt
+                toggle prompt
                 ;;
             wi)
                 save_edits
