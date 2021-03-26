@@ -14,7 +14,7 @@ declare -A colon_cmd=([delete]="delete_image"
                       [undo]="edit_history --undo"
                       [redo]="edit_history --redo"
                       [toggle_names]="toggle_names"
-                      [save_edits]="save_edits"
+                      [write]="save_edits"
                       [toggle_exec_prompt]="toggle_exec_prompt"
                       [rename]="rename"
                       [quit]="stop_daemon"
@@ -1243,6 +1243,8 @@ get_image_index() {
             ((tag_index = i - 1)) # indices start from 0 in tag array
             [[ -n ${tags[$tag_index]} ]] && image_index+=("$i")
         done
+        [[ "${#image_index[@]}" -eq 0 ]] && \
+            error="No tagged images" && return 1
     elif [[ "$prefix" =~ ^\*\* ]]
     then
         all_indices --global
@@ -1270,6 +1272,15 @@ get_image_index() {
         then
             all_indices --local 
             star=1
+        elif [[ "$input" =~ ^\; ]] 
+        then
+            for (( i = 1; i <= total; i++ ))
+            do
+                ((tag_index = i - 1)) # indices start from 0 in tag array
+                [[ -n ${tags[$tag_index]} ]] && image_index+=("$i")
+                [[ "${#image_index[@]}" -eq 0 ]] && \
+                    error="No tagged images" && return 1
+            done
         else
             IFS=" " read -r -a image_index <<< "$input"
             index_count=${#image_index[@]}
