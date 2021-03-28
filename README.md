@@ -87,6 +87,7 @@ Key          | Action
 -------------|-------
 `Backspace`  | exit monocle mode
 `:`          | enter command mode
+`.`          | repeat last action (new prefix must be given)
 `n/right arrow`      | get next batch of images
 `N/shift+right arrow`| get last batch of images
 `p/left arrow`      | get previous batch of images
@@ -125,6 +126,7 @@ Prefix (N) is a space-separated list of values. <br>
 `*` selects all available indices in the current view.<br>
 `**` selects all available indices currently open by ucollage.<br>
 `;` selects all tagged indices.<br>
+`#` selects last selected indices.<br>
 The current value of the prefix can be seen on the second line of the screen.
 - `sg` uses only the first 2 values of (N)
 - `h`, `j`, `k`, `l`, `+/=`, `-` use only the first value of (N)

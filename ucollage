@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 shopt -s extglob
+
+trim_spaces() {
+    local -n str="$1"
+    str="${str##*( )}"
+    str="${str%%*( )}"
+    str="${str//+( )/ }"
+    case "$2" in
+        "--colon")
+            str="${str//*( );*( )/;}"
+            ;;
+    esac
+}
+
 declare -A use_script
-declare -A edit_script=([r]="convert -rotate 90; Rotate clockwise; rotate"
-                        [R]="convert -rotate -90; Rotate counter-clockwise; rotate-rev"
+declare -A edit_script=([r]="convert -rotate 90 %in% %out%; Rotate clockwise; rotate"
+                        [R]="convert -rotate -90 %in% %out%; Rotate counter-clockwise; rotate-rev"
                        )
 declare -A filehash
 CONFIG_FILE="$HOME/.config/ucollage/config.sh"
@@ -27,17 +40,19 @@ declare -A colon_cmd=([delete]="delete_image"
 for i in "${!edit_script[@]}"
 do
     entry="${edit_script[$i]}"
+    trim_spaces entry --colon
+    edit_script[$i]="$entry"
     IFS=';' read -r -a entry_arr <<< "$entry"
-    cmd=${entry_arr[2]##*( )}
-    cmd=${cmd%%*( )}
+    cmd="${entry_arr[2]}"
     colon_cmd[$cmd]="run_edit_script"
 done
 for i in "${!use_script[@]}"
 do
     entry="${use_script[$i]}"
+    trim_spaces entry --colon
+    use_script[$i]="$entry"
     IFS=';' read -r -a entry_arr <<< "$entry"
-    cmd=${entry_arr[2]##*( )}
-    cmd=${cmd%%*( )}
+    cmd="${entry_arr[2]}"
     colon_cmd[$cmd]="run_use_script"
 done
 
@@ -152,6 +167,7 @@ help(){
     echo "Controls:"
     echo "  Backspace            exit monocle mode"
     echo "  :                    enter command mode"
+    echo "  .                    repeat last action (a new prefix must be given)"
     echo "  n/right arrow        get next batch of images"
     echo "  N/shift+right arrow  get last batch of images"
     echo "  p/left arrow         get previous batch of images"
@@ -613,8 +629,7 @@ compute_batch() {
             ;;
     esac
     [[ -z "$warning" ]] && [[ -z "$error" ]] && maybe_redraw
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -929,7 +944,7 @@ get_input() {
     input_left=
     input_right=
     input_autocomplete=
-    input=${input//+( )/ }
+    trim_spaces input
     [[ -z "$input" ]] && return 1 || return 0
 }
 
@@ -982,8 +997,7 @@ change_dimensions() {
     fi
     new_start="$start"
     maybe_redraw
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1277,6 +1291,7 @@ get_image_index() {
     unset image_index
     local i
     local star=0
+    [[ "$prefix" == "#" ]] && prefix="$old_prefix"
     if [[ "$prefix" == ";" ]]
     then
         for (( i = 1; i <= total; i++ ))
@@ -1453,15 +1468,12 @@ run_use_script() {
         do
             entry="${use_script[$i]}"
             IFS=';' read -r -a entry_arr <<< "$entry"
-            cmd=${entry_arr[2]##*( )}
-            cmd=${cmd%%*( )}
+            cmd=${entry_arr[2]}
             [[ "$cmd" == "$input" ]] && break
         done
     fi
-    script=${entry_arr[0]##*( )}
-    script=${script%%*( )}
-    input_prompt=${entry_arr[1]##*( )}
-    input_prompt="${input_prompt%%*( )} # "
+    script=${entry_arr[0]}
+    input_prompt="${entry_arr[1]} # "
     local sc_i
     local executed=0
     if get_image_index
@@ -1470,7 +1482,7 @@ run_use_script() {
         do
             ind=${image_index[$sc_i]}
             printf "\e[H"
-            cmd="${script} \"${image_names[$ind]}\""
+            cmd="${script//%in%/\"${image_names[$ind]}\"}"
             cmd_prompt="${input_prompt/\#/:}\"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
             eval_cmd && ((executed += 1))
         done
@@ -1484,8 +1496,7 @@ run_use_script() {
             success="Success"
         fi
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1500,15 +1511,12 @@ run_edit_script() {
         do
             entry="${edit_script[$i]}"
             IFS=';' read -r -a entry_arr <<< "$entry"
-            cmd=${entry_arr[2]##*( )}
-            cmd=${cmd%%*( )}
+            cmd=${entry_arr[2]}
             [[ "$cmd" == "$input" ]] && break
         done
     fi
-    script=${entry_arr[0]##*( )}
-    script=${script%%*( )}
-    input_prompt=${entry_arr[1]##*( )}
-    input_prompt="${input_prompt%%*( )} # "
+    script=${entry_arr[0]}
+    input_prompt="${entry_arr[1]} # "
     old_exec_prompt="$exec_prompt"
     exec_prompt=0
     local edited=0
@@ -1530,7 +1538,8 @@ run_edit_script() {
             ! is_image && ((non_image += 1)) && continue
             filehash[$hash]=${image_names[$ind]}
             tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
-            cmd="${script} \"${images[$ind]}\" \"${tmpfile}\""
+            cmd=${script//%in%/\"${images[$ind]}\"}
+            cmd=${cmd//%out%/\"${tmpfile}\"}
             if eval_cmd
             then
                 ((edited += 1))
@@ -1562,8 +1571,7 @@ run_edit_script() {
         fi
     fi
     exec_prompt="$old_exec_prompt"
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1619,8 +1627,7 @@ save_edits() {
             fi
         fi
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1713,8 +1720,7 @@ execute() {
     else
         success="Success"
     fi
-    prefix=
-    mapping=
+    clear_sequence
     execute_cmd=
     update_status
 }
@@ -1770,8 +1776,7 @@ rename() {
         fi
         [[ "$update" -eq 1 ]] && update_names
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1788,8 +1793,7 @@ goto_image() {
         new_fit_horizontal=1
         maybe_redraw
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1829,8 +1833,7 @@ delete_image() {
         fi
         [[ "$update" -eq 1 ]] && redraw
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1863,8 +1866,7 @@ tag_image() {
             ;;
     esac
     [[ "$update" -eq 1 ]] && update_names
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1948,8 +1950,7 @@ edit_history() {
         fi
     fi
     exec_prompt="$old_exec_prompt"
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -1980,8 +1981,7 @@ change_sort() {
                 break_flag=1
         fi
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status
 }
 
@@ -2018,8 +2018,7 @@ toggle() {
     then
         error="Unknown toggle setting: $input"
     fi
-    prefix=
-    mapping=
+    clear_sequence
     update_status --force
 }
 
@@ -2072,10 +2071,15 @@ change_scaler() {
             fi
         fi
     fi
-    prefix=
-    mapping=
+    clear_sequence
     new_scaler=
     update_status
+}
+
+clear_sequence() {
+    [[ "$1" != "--keep-old" ]] && old_prefix="$prefix" && old_mapping="$mapping"
+    prefix=
+    mapping=
 }
 
 ######################################################################
@@ -2149,6 +2153,11 @@ read_key() {
                 mode=normal
                 update_status
                 ;;
+            "#")
+                [[ -z "$mapping" ]] && prefix="#"
+                mode=normal
+                update_status
+                ;;
             ":")
                 mode="command"
                 update_status
@@ -2159,13 +2168,13 @@ read_key() {
                 if get_input
                 then
                     save_input=
-                    prefix=${input##*( )(*( )}
-                    prefix=${prefix%%*( ))*}
+                    prefix=${input#*\(}
+                    prefix=${prefix%%)*}
+                    trim_spaces prefix
                     [[ "$prefix" == "$input" ]] && prefix=
                     [[ -n "$prefix" ]] && save_input+="($prefix) "
                     cmd=${input#*)}
-                    cmd=${cmd##*( )}
-                    cmd=${cmd%%*( )}
+                    trim_spaces cmd
                     save_input+="$cmd"
                     if [[ -n "$cmd" ]]
                     then
@@ -2203,14 +2212,12 @@ read_key() {
                             error="Command not found: $cmd"
                             mode="normal"
                             prefix=
-                            mapping=
-                            update_status
+                            clear_sequence
                         fi
                     fi
                 else
                     mode="normal"
-                    prefix=
-                    mapping=
+                    clear_sequence
                     update_status --force
                 fi
                 continue
@@ -2230,14 +2237,12 @@ read_key() {
                     fit_horizontal="$wide_horizontal"
                     start="$wide_start"
                     redraw
-                    prefix=
-                    mapping=
+                    clear_sequence
                 fi
                 update_status
                 ;;
             $'\e'|$'\n')
-                prefix=
-                mapping=
+                clear_sequence --keep-old
                 mode="normal"
                 update_status
                 ;;
@@ -2253,6 +2258,7 @@ read_key() {
         then
             run_edit_script
         fi
+        [[ "$mapping" == "." ]] && mapping="$old_mapping"
         case $mapping in
             q)
                 stop_daemon
@@ -2290,8 +2296,7 @@ read_key() {
                 fi
                 new_start="$start"
                 maybe_redraw
-                prefix=
-                mapping=
+                clear_sequence
                 update_status
                 ;;
             -)
@@ -2307,8 +2312,7 @@ read_key() {
                 fi
                 new_start="$start"
                 maybe_redraw
-                prefix=
-                mapping=
+                clear_sequence
                 update_status
                 ;;
             gi)
@@ -2326,8 +2330,7 @@ read_key() {
                 (( new_fit_horizontal = fit_horizontal ))
                 new_start="$start"
                 maybe_redraw
-                prefix=
-                mapping=
+                clear_sequence
                 update_status
                 ;;
             j)
@@ -2342,8 +2345,7 @@ read_key() {
                 (( new_fit_horizontal = fit_horizontal ))
                 new_start="$start"
                 maybe_redraw
-                prefix=
-                mapping=
+                clear_sequence
                 update_status
                 ;;
             l)
@@ -2358,8 +2360,7 @@ read_key() {
                 (( new_fit_vertical = fit_vertical ))
                 new_start="$start"
                 maybe_redraw
-                prefix=
-                mapping=
+                clear_sequence
                 update_status
                 ;;
             h)
@@ -2374,8 +2375,7 @@ read_key() {
                 (( new_fit_vertical = fit_vertical ))
                 new_start="$start"
                 maybe_redraw
-                prefix=
-                mapping=
+                clear_sequence
                 update_status
                 ;;
             r|R)
