@@ -14,8 +14,8 @@ trim_spaces() {
 }
 
 declare -A use_script
-declare -A edit_script=([r]="convert -rotate 90 %in% %out%; Rotate clockwise; rotate"
-                        [R]="convert -rotate -90 %in% %out%; Rotate counter-clockwise; rotate-rev"
+declare -A edit_script=([r]="convert -rotate 90 %in% %out%; Rotate clockwise; rotateright"
+                        [R]="convert -rotate -90 %in% %out%; Rotate counter-clockwise; rotateleft"
                        )
 declare -A filehash
 CONFIG_FILE="$HOME/.config/ucollage/config.sh"
