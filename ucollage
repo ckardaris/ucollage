@@ -734,57 +734,69 @@ create_suggestions() {
     else
         local word="${split_left[-1]}"
     fi
-    case "${split_left[0]}" in
-        "scaler")
-            subinput_autocomplete="scaler"
-            ;;
-        "sort")
-            subinput_autocomplete="sort"
-            ;;
-        "toggle")
-            subinput_autocomplete="toggle"
-            ;;
-        "batch")
-            subinput_autocomplete="batch"
-            ;;
-        *)
-            subinput_autocomplete="$input_autocomplete"
-            ;;
-    esac
-    if [[ "$subinput_autocomplete" == "command" ]]
+    subinput_autocomplete="$input_autocomplete"
+    if [[ "$input_autocomplete" == "ucollage" ]] && [[ "${#split_left[@]}" -gt 1 ]]
     then
-        if [[ "${#split_left[@]}" -gt 1 ]]
-        then
+        case "${split_left[-2]}" in
+            "scaler")
+                subinput_autocomplete="scaler"
+                ;;
+            "sort")
+                subinput_autocomplete="sort"
+                ;;
+            "toggle")
+                subinput_autocomplete="toggle"
+                ;;
+            "batch")
+                subinput_autocomplete="batch"
+                ;;
+            !|!%)
+                subinput_autocomplete="command"
+                ;;
+        esac
+    fi
+
+    if [[ "$input_autocomplete" == "ucollage" ]] || \
+        [[ "$input_autocomplete" == "command" ]]
+    then
+        local passed=0 # this checks that I have already written a command
+        for ((i = 0; i < ${#split_left[@]} - 1; i++))
+        do
+            command -v ${split_left[$i]} &>/dev/null && \
+                [[ ${split_left[$i]} != "!" ]] && passed=1
+        done
+        [[ "$passed" -eq 1 ]] && subinput_autocomplete="file"
+    fi
+
+    case "$subinput_autocomplete" in
+        "command")
+            mapfile -t autocomplete < <(compgen -c "$word" | sort)
+            ;;
+        "file")
             mapfile -t autocomplete < <(compgen -f "$word" | sort)
             files=1
-        else
-            mapfile -t autocomplete < <(compgen -c "$word" | sort)
-        fi
-    elif [[ "$subinput_autocomplete" == "file" ]]
-    then
-        mapfile -t autocomplete < <(compgen -f "$word" | sort)
-        files=1
-    elif [[ "$subinput_autocomplete" == "scaler" ]]
-    then 
-        wordlist="crop distort fit_contain contain forced_cover cover"
-        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
-    elif [[ "$subinput_autocomplete" == "sort" ]]
-    then 
-        wordlist="name time size extension"
-        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
-    elif [[ "$subinput_autocomplete" == "ucollage" ]]
-    then
-        wordlist=${!colon_cmd[*]}
-        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word" | sort)
-    elif [[ "$subinput_autocomplete" == "toggle" ]]
-    then 
-        wordlist="names prompt reverse"
-        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
-    elif [[ "$subinput_autocomplete" == "batch" ]]
-    then 
-        wordlist="previous next first last"
-        mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
-    fi
+            ;;
+        "scaler")
+            wordlist="crop distort fit_contain contain forced_cover cover"
+            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
+            ;;
+        "sort")
+            wordlist="name time size extension"
+            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
+            ;;
+        "ucollage")
+            wordlist=${!colon_cmd[*]}
+            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word" | sort)
+            ;;
+        "toggle")
+            wordlist="names prompt reverse"
+            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
+            ;;
+        "batch")
+            wordlist="previous next first last"
+            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
+            ;;
+    esac
 
     autocomplete=("$input_left" "${autocomplete[@]}")
     [[ "${#split_left[@]}" -gt 0 ]] && unset "split_left[-1]"
