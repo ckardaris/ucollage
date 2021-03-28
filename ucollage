@@ -820,7 +820,7 @@ create_suggestions() {
 get_input() {
     show_cursor
     printf "%s\e7" "$input_prompt"
-    while true
+    while [[ "$exit_flag" -eq 0 ]]
     do
         printf "\e8\e[K"
         move=""
@@ -834,7 +834,7 @@ get_input() {
         else
             printf "%s%s$move" "$input_left" "$input_right"
         fi
-        read -rsN1 char &>/dev/null
+        read -rsN1 -t 0.01 char &>/dev/null
         read -rsN1 -t 0.0001 k1 &>/dev/null
         read -rsN1 -t 0.0001 k2 &>/dev/null
         read -rsN1 -t 0.0001 k3 &>/dev/null
@@ -842,6 +842,7 @@ get_input() {
         read -rsN1 -t 0.0001 k5 &>/dev/null
         read -rsN1 -t 0.0001 k6 &>/dev/null
         key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
+        [[ -z "$key" ]] && continue
         case "$key" in
             $'\e[A') #up arrow press
                 if [[ "$mode" == "command" ]]
