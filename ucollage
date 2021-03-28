@@ -220,7 +220,7 @@ check_dependencies() {
     do
         if ! command -v "$dependency" &>/dev/null
         then
-            echo "Required dependency not installed: ${dep[$dependency]}" && exit_clear=0 && exit
+            echo "Required dependency not installed: ${dep[$dependency]}" && exit
         fi
     done
 }
@@ -467,7 +467,6 @@ stop_daemon() {
     rm -rf "$tmp_dir"
     show_cursor
     stty echo
-    exit
 }
 
 ######################################################################
@@ -2122,6 +2121,7 @@ read_key() {
     while true
     do
         [[ "$break_flag" -eq 1 ]] && break
+        [[ "$exit_flag" -eq 1 ]] && break
         [[ "$total" -eq 0 ]] && stop_daemon
         read -rsN1 -t 0.01 char &>/dev/null
         read -rsN1 -t 0.0001 k1 &>/dev/null
@@ -2261,7 +2261,8 @@ read_key() {
         [[ "$mapping" == "." ]] && mapping="$old_mapping"
         case $mapping in
             q)
-                stop_daemon
+                exit_flag=1
+                break
                 ;;
             n|N|p|P|$'\e[C'|$'\e[D'|$'\e[1;2C'|$'\e[1;2D')
                 case $mapping in
@@ -2466,10 +2467,11 @@ set_defaults
 [[ ! -d "${cache_dir}/thumbnails" ]] && mkdir -p "${cache_dir}/thumbnails"
 [[ ! -f "${cache_dir}/cmd_history" ]] && touch "${cache_dir}/cmd_history"
 [[ "$1" =~ ^-h$|^--help$ ]] && help && exit
-trap "stop_daemon" EXIT #handles stty echo better than SIGINT
+trap "exit_flag=1" SIGINT SIGTERM
 trap "redraw; update_status --force" SIGWINCH
 start_daemon
-while true
+exit_flag=0
+while [[ "$exit_flag" -eq 0 ]]
 do
     read_filenames "$@"
     stty -echo
@@ -2487,10 +2489,11 @@ do
         wide_horizontal=1
     fi
     unset read_target && read_images --remaining &
-    [[ "$total" -eq 0 ]] && echo "No images to show" && stty echo && exit_clear=0 && exit
+    [[ "$total" -eq 0 ]] && printf "No images to show" && stty echo && exit_clear=0 && break
     start=0
     declare -A assoc
     mode="normal"
     break_flag=0
     init
 done
+stop_daemon
