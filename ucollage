@@ -208,6 +208,7 @@ help(){
     echo "  (N)xg       execute one command for all images with index N"
     echo "              placeholders"
     echo "                  %S - all image filenames side by side"
+    echo "                  %E - all edited image filenames side by side"
 }
 
 check_dependencies() {
@@ -1691,10 +1692,12 @@ execute() {
         if get_image_index
         then
             local args=""
+            local edit_args=""
             for (( i = 0; i < index_count; i++))
             do
                 ind=${image_index[$i]}
                 args+="\"${image_names[$ind]}\" "
+                edit_args+="\"${images[$ind]}\" "
             done
             clear_status --cmdline
             if [[ -n "$execute_cmd" ]]
@@ -1706,6 +1709,7 @@ execute() {
                 ! get_input && return
             fi
             cmd=${input//%S/${args[@]}}
+            cmd=${cmd//%E/${edit_args[@]}}
             cmd_prompt="$ ${cmd}"
             eval_cmd && ((executed += index_count))
         fi
