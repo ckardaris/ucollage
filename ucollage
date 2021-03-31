@@ -38,24 +38,50 @@ declare -A colon_cmd=([delete]="delete_image"
                       [!]="execute same"
                       [!%]="execute group"
                      )
-for i in "${!edit_script[@]}"
-do
-    entry="${edit_script[$i]}"
-    trim_spaces entry --colon
-    edit_script[$i]="$entry"
-    IFS=';' read -r -a entry_arr <<< "$entry"
-    cmd="${entry_arr[2]}"
-    colon_cmd[$cmd]="run_edit_script"
-done
-for i in "${!use_script[@]}"
-do
-    entry="${use_script[$i]}"
-    trim_spaces entry --colon
-    use_script[$i]="$entry"
-    IFS=';' read -r -a entry_arr <<< "$entry"
-    cmd="${entry_arr[2]}"
-    colon_cmd[$cmd]="run_use_script"
-done
+
+parse_scripts() {
+    errors=0
+    for i in "${!edit_script[@]}"
+    do
+        entry="${edit_script[$i]}"
+        trim_spaces entry --colon
+        edit_script[$i]="$entry"
+        IFS=';' read -r -a entry_arr <<< "$entry"
+        script="${entry_arr[0]}"
+        if [[ ! "$script" =~ %in% ]]
+        then
+            echo "Error: configuration"
+            echo "--------------------"
+            echo "Value: $script"
+            echo "Valid: %in% placeholder missing"
+            echo "--------------------"
+            errors=1
+            unset edit_script[$i]
+        elif [[ ! "$script" =~ %out% ]]
+        then
+            echo "Error: configuration"
+            echo "--------------------"
+            echo "Value: $script"
+            echo "Valid: %out% placeholder missing"
+            echo "--------------------"
+            errors=1
+            unset edit_script[$i]
+        else
+            cmd="${entry_arr[2]}"
+            colon_cmd[$cmd]="run_edit_script"
+        fi
+    done
+    [[ "$errors" -eq 1 ]] && read -rsN1 -p "Unsetting erroneous scripts..." && echo
+    for i in "${!use_script[@]}"
+    do
+        entry="${use_script[$i]}"
+        trim_spaces entry --colon
+        use_script[$i]="$entry"
+        IFS=';' read -r -a entry_arr <<< "$entry"
+        cmd="${entry_arr[2]}"
+        colon_cmd[$cmd]="run_use_script"
+    done
+}
 
 check_config_variable() {
     [[ -z "${!variable_name}" ]] && return
@@ -2561,6 +2587,7 @@ init() {
 
 check_dependencies
 parse_config
+parse_scripts
 set_defaults
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 [[ ! -d "$cache_dir" ]] && mkdir -p "$cache_dir"
