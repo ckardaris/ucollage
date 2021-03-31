@@ -33,6 +33,7 @@ declare -A colon_cmd=([delete]="delete_image"
                       [scaler]="change_scaler"
                       [toggle]="toggle"
                       [setgrid]="change_dimensions"
+                      [grid]="grid"
                       [batch]="compute_batch"
                       [!]="execute same"
                       [!%]="execute group"
@@ -140,6 +141,7 @@ set_defaults() {
     max_fit_horizontal="${UCOLLAGE_MAX_COLUMNS:-20}"
     wide_vertical="$fit_vertical"
     wide_horizontal="$fit_horizontal"
+    wide_current=1
     old_fit_vertical="$fit_vertical"
     old_fit_horizontal="$fit_horizontal"
     tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
@@ -465,6 +467,7 @@ start_daemon() {
 stop_daemon() {
     exec {ueberzug}>&-
     [[ "$exit_clear" == 1 ]] && clear_screen
+    kill "$background_pid" &>/dev/null
     rm -rf "$tmp_dir"
     printf "\e[?25h"
     stty echo
@@ -484,11 +487,18 @@ stop_daemon() {
 ######################################################################
 calculate_dimensions() {
     read -r lines columns < <(stty size)
-    (( photo_columns = (columns - 2) / fit_horizontal ))
-    (( photo_lines = (lines - 4) / fit_vertical ))
     (( batch = fit_horizontal * fit_vertical ))
+    if [[ "$show_names" -eq 1 ]] && [[ "$batch" -gt 1 ]]
+    then
+        (( photo_columns = (columns - 2) / fit_horizontal ))
+        (( photo_lines = (lines - 4) / fit_vertical ))
+    else
+        (( photo_columns = columns / fit_horizontal ))
+        (( photo_lines = (lines - 3) / fit_vertical ))
+    fi
     (( show = total - start ))
     [[ "$show" -gt "$batch" ]] && show="$batch"
+    [[ "$current" -gt "$show" ]] && current="$show"
 }
 
 ######################################################################
@@ -500,10 +510,8 @@ calculate_dimensions() {
 #   current_name
 ######################################################################
 pad_sides() {
-    length="${#current_name}"
-    (( pads = photo_columns - length ))
-    (( leftpad = pads / 2 ))
-    (( rightpad = pads - leftpad ))
+    (( leftpad = $1 / 2 ))
+    (( rightpad = $1 - leftpad ))
     local p
     for (( p = 0; p < leftpad; p++))
     do
@@ -550,8 +558,14 @@ show_batch() {
             if (( i < fit_vertical && j < fit_horizontal))
             then
                 (( index = start + i * fit_horizontal + j))
-                (( posx = 1 + j * photo_columns))
-                (( posy = 4 + i * photo_lines))
+                if [[ "$show_names" -eq 1 ]] && [[ "$batch" -gt 1 ]]
+                then
+                    (( posx = 1 + j * photo_columns))
+                    (( posy = 4 + i * photo_lines))
+                else
+                    (( posx = j * photo_columns))
+                    (( posy = 3 + i * photo_lines))
+                fi
                 assoc=( [action]=add \
                         [identifier]="${fifo}${i}${j}" \
                         [path]="${images[$index]}" \
@@ -735,6 +749,21 @@ create_suggestions() {
         local word="${split_left[-1]}"
     fi
     subinput_autocomplete="$input_autocomplete"
+    
+    if [[ "$input_autocomplete" == "ucollage" ]] || \
+        [[ "$input_autocomplete" == "command" ]]
+    then
+        local passed=0 # this checks that I have already written a command
+        for ((i = 0; i < ${#split_left[@]} - 1; i++))
+        do
+            command -v ${split_left[$i]} &>/dev/null && \
+                [[ ${split_left[$i]} != "!" ]] && passed=1
+        done
+        [[ "$passed" -eq 1 ]] && subinput_autocomplete="file"
+    fi
+    
+    # It is important that this overrides the above loop check because it
+    # is possible that a keyword exists as a system command (e.g sort)
     if [[ "$input_autocomplete" == "ucollage" ]] && [[ "${#split_left[@]}" -gt 1 ]]
     then
         case "${split_left[-2]}" in
@@ -753,19 +782,9 @@ create_suggestions() {
             !|!%)
                 subinput_autocomplete="command"
                 ;;
+            "grid")
+                subinput_autocomplete="grid"
         esac
-    fi
-
-    if [[ "$input_autocomplete" == "ucollage" ]] || \
-        [[ "$input_autocomplete" == "command" ]]
-    then
-        local passed=0 # this checks that I have already written a command
-        for ((i = 0; i < ${#split_left[@]} - 1; i++))
-        do
-            command -v ${split_left[$i]} &>/dev/null && \
-                [[ ${split_left[$i]} != "!" ]] && passed=1
-        done
-        [[ "$passed" -eq 1 ]] && subinput_autocomplete="file"
     fi
 
     case "$subinput_autocomplete" in
@@ -794,6 +813,10 @@ create_suggestions() {
             ;;
         "batch")
             wordlist="previous next first last"
+            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
+            ;;
+        "grid")
+            wordlist="increase decrease lines columns both"
             mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word")
             ;;
     esac
@@ -964,10 +987,6 @@ is_natural() {
     [[ "$1" =~ ^([1-9][0-9]*|0+[1-9][0-9]*)$ ]]
 }
 
-set_error() {
-    error="Invalid value for $1: $2"
-}
-
 ######################################################################
 # Ask the user to set the grid size
 # Uses:
@@ -1023,7 +1042,8 @@ print_names() {
     for ((i = 4; i <= lines; i++))
     do
         printf "\e[B\e[%s;1H" "$i"
-        printf "%s" "${line_names[$((i - 4))]}"
+        # not using %s because I want to parse the escape characters
+        printf "${line_names[$((i - 4))]}"
     done
 }
 
@@ -1044,7 +1064,7 @@ print_names() {
 #   1               if the function is unnecessary in a context
 ######################################################################
 modify_names() {
-    [[ "$batch" -eq 1 ]] && return 1
+    [[ "$show_names" -eq 0 ]] || [[ "$batch" -eq 1 ]] && return 1
     read -r lines columns < <(stty size)
     line_names=()
     local i
@@ -1064,6 +1084,7 @@ modify_names() {
     cnt=0
     for ((i = 1; i < total_lines * photo_lines; i++))
     do
+        local current_in_line=0
         if ((i % photo_lines == 0))
         then
             line_names[$i]="├"
@@ -1086,11 +1107,20 @@ modify_names() {
                     [[ -n ${tags[$index]} ]] && current_name="* ${current_name}"
                     (( max_length = photo_columns - 2 ))
                     current_name=${current_name:0:$max_length}
-                    pad_sides
+                    namelength="${#current_name}"
+                    if (( index + 1 - start == current))
+                    then
+                        current_name="\e[7m$current_name\e[m"
+                        current_in_line=1
+                    fi
+                    pad_sides $((photo_columns - namelength))
                     line_names[$i]+="$current_name"
                 fi
             done
-            for ((j = ${#line_names[$i]}; j < columns - 1; j++))
+            linelength=${#line_names[$i]}
+            # substract the inversion escape chars
+            [[ "$current_in_line" -eq 1 ]] && ((linelength -= 9)) 
+            for ((j = linelength; j < columns - 1; j++))
             do
                 line_names[$i]+=" "
             done
@@ -1162,6 +1192,7 @@ maybe_redraw() {
             wide_vertical="$fit_vertical"
             wide_horizontal="$fit_horizontal"
             wide_start="$start"
+            wide_current="$current"
         fi
         (( wide_batch = wide_vertical * wide_horizontal ))
         if [[ "$wide_batch" -gt 0 ]]
@@ -1363,29 +1394,7 @@ get_image_index() {
     then
         image_index[0]=1
     else
-        ! get_input && return 1
-        if [[ "$input" =~ ^\*\* ]] 
-        then
-            all_indices --global
-            star=2
-        elif [[ "$input" =~ ^\* ]] 
-        then
-            all_indices --local 
-            star=1
-        elif [[ "$input" =~ ^\; ]] 
-        then
-            for (( i = 1; i <= total; i++ ))
-            do
-                ((tag_index = i - 1)) # indices start from 0 in tag array
-                [[ -n ${tags[$tag_index]} ]] && image_index+=("$i")
-                [[ "${#image_index[@]}" -eq 0 ]] && \
-                    error="No tagged images" && return 1
-            done
-        else
-            IFS=" " read -r -a image_index <<< "$input"
-            index_count=${#image_index[@]}
-            ! valid_indices && return 1
-        fi
+        image_index[0]="$current"
     fi
 
     index_count=${#image_index[@]}
@@ -1517,7 +1526,6 @@ run_use_script() {
         done
     fi
     script=${entry_arr[0]}
-    input_prompt="${entry_arr[1]} # "
     local sc_i
     local executed=0
     if get_image_index
@@ -1560,7 +1568,6 @@ run_edit_script() {
         done
     fi
     script=${entry_arr[0]}
-    input_prompt="${entry_arr[1]} # "
     old_exec_prompt="$exec_prompt"
     exec_prompt=0
     local edited=0
@@ -1624,7 +1631,6 @@ save_edits() {
     local se_i
     local saved=0
     local no_pending=0
-    input_prompt="Save edits for # "
     if get_image_index
     then
         local local_changes=0
@@ -1682,7 +1688,6 @@ execute() {
     local executed=0
     if [[ "$action" == "image" ]] # each image on its own
     then
-        input_prompt="Execute different command for each image # "
         if get_image_index
         then
             for (( ex_i = 0; ex_i < index_count; ex_i++))
@@ -1707,7 +1712,6 @@ execute() {
         fi
     elif [[ "$action" == "same" ]]
     then
-        input_prompt="Execute command for each image # "
         if get_image_index
         then
             if [[ -n "$execute_cmd" ]]
@@ -1732,7 +1736,6 @@ execute() {
             fi
         fi
     else # bundle images
-        input_prompt="Execute command for image group # "
         if get_image_index
         then
             local args=""
@@ -1776,7 +1779,6 @@ rename() {
     clear_status --cmdline
     local update=0
     local mv_i
-    input_prompt="Rename # "
     if get_image_index
     then
         local renamed=0
@@ -1830,9 +1832,9 @@ rename() {
 goto_image() {
     clear_status --cmdline
     [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-    input_prompt="Go to # "
     if get_image_index
     then
+        ((current = image_index[0] + 1))
         new_start="$image_index"
         old_fit_vertical="$fit_vertical"
         old_fit_horizontal="$fit_horizontal"
@@ -1848,7 +1850,6 @@ delete_image() {
     clear_status --cmdline
     local update=0
     local del_i
-    input_prompt="Delete # "
     if get_image_index
     then
         local deleted=0
@@ -1890,7 +1891,6 @@ tag_image() {
     local i
     case $1 in
         tag)
-            input_prompt="Tag # "
             if get_image_index
             then
                 for (( i = 0; i < index_count; i++))
@@ -1901,7 +1901,6 @@ tag_image() {
             fi
             ;;
         untag)
-            input_prompt="Untag # "
             if get_image_index
             then
                 for (( i = 0; i < index_count; i++))
@@ -1924,7 +1923,6 @@ edit_history() {
     if [[ "$1" == "--undo" ]]
     then
         local undone=0
-        input_prompt="Undo # "
         local undo_i
         if get_image_index
         then
@@ -1963,7 +1961,6 @@ edit_history() {
         fi
     elif [[ "$1" == "--redo" ]]
     then
-        input_prompt="Redo # "
         local redo_i
         if get_image_index 
         then
@@ -2003,9 +2000,10 @@ edit_history() {
 
 change_sort() {
     clear_status --cmdline
-    if [[ -n "$new_sort" ]]
+    local input
+    if [[ -n "$1" ]]
     then
-        input="$new_sort"
+        input="$1"
     else
         input_prompt="New sort (options: "
         for opt in name time size extension
@@ -2016,11 +2014,11 @@ change_sort() {
         input_prompt="${input_prompt:0: -2}): "
         input_autocomplete="sort"
     fi
-    if [[ -n "$new_sort" ]] || get_input
+    if [[ -n "$input" ]] || get_input
     then
         if [[ ! "$input" =~ ^(name|time|size|extension)$ ]]
         then
-            set_error "sort" "$input"
+            error="Invalid value for sort: $input"
         else
             local new_sort_by="$input"
             [[ ! "$new_sort_by" == "$sort_by" ]] && \
@@ -2090,9 +2088,10 @@ reverse_images(){
 
 change_scaler() {
     clear_status --cmdline
-    if [[ -n "$new_scaler" ]]
+    local input
+    if [[ -n "$1" ]]
     then
-        input="$new_scaler"
+        input="$1"
     else
         input_prompt="New scaler (options: "
         for opt in crop distort fit_contain contain forced_cover cover
@@ -2103,11 +2102,11 @@ change_scaler() {
         input_prompt="${input_prompt:0: -2}): "
         input_autocomplete="scaler"
     fi
-    if [[ -n "$new_scaler" ]] || get_input
+    if [[ -n "$input" ]] || get_input
     then
         if [[ ! "$input" =~ ^(crop|distort|fit_contain|contain|forced_cover|cover)$ ]]
         then
-            set_error "scaler" "$input"
+            error="Invalid value for scaler: $input"
         else
             local new_scaler="$input"
             if [[ ! "$new_scaler" == "$scaler" ]]
@@ -2120,6 +2119,115 @@ change_scaler() {
     fi
     clear_sequence
     new_scaler=
+    update_status
+}
+
+grid() {
+    [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
+    [[ -z "$prefix" ]] && prefix="1"
+    IFS=" " read -r -a prefix_args <<< "$prefix"
+    local type=
+    local element=
+    while [[ -n "$1" ]] 
+    do
+        case "$1" in
+            decrease|increase)
+                type="$1"
+                ;;
+            lines|columns|both)
+                element="$1"
+                ;;
+            *)
+                error="Uknown parameter: $1"
+                ;;
+        esac
+        shift
+    done
+    if [[ -z "$error" ]] && [[ -z "$type" ]]
+    then
+        clear_status --cmdline
+        input_prompt="Set type (increase, decrease): "
+        get_input
+        case "$input" in
+            decrease|increase)
+                type="$input"
+                ;;
+            increase)
+                increase=1
+                ;;
+            "")
+                ;;
+            *)
+                error="Uknown parameter: $1"
+                ;;
+        esac
+        
+    fi
+    if [[ -z "$error" ]] && [[ -z "$element" ]]
+    then
+        clear_status --cmdline
+        input_prompt="Set element (lines, columns, both): "
+        get_input
+        case "$input" in
+            lines|columns|both)
+                element="$input"
+                ;;
+            "")
+                ;;
+            *)
+                error="Uknown parameter: $1"
+                ;;
+        esac
+        
+    fi
+    offset=0
+    if [[ "$type" == "decrease" ]]
+    then
+        ((offset = -prefix_args[0]))
+    elif [[ "$type" == "increase" ]]
+    then
+        ((offset = prefix_args[0]))
+    fi
+    new_fit_horizontal="$fit_horizontal"
+    new_fit_vertical="$fit_vertical"
+    case "$element" in 
+        "lines")
+            ((new_fit_vertical += offset))
+            ;;
+        "columns")
+            ((new_fit_horizontal += offset))
+            ;;
+        "both")
+            ((new_fit_vertical += offset))
+            ((new_fit_horizontal += offset))
+            ;;
+    esac
+    new_start="$start"
+    maybe_redraw
+    clear_sequence --keep-old
+    update_status --force
+}
+
+set_current() {
+    case "$1" in
+        left)
+            (( current % fit_horizontal != 1)) && ((current -= 1))
+            ;;
+        down)
+            (( current + fit_horizontal <= show )) && ((current += fit_horizontal))
+            ;;
+        up)
+            (( current - fit_horizontal >= 1 )) && ((current -= fit_horizontal))
+            ;;
+        right)
+            ((current % fit_horizontal != 0 )) && ((current += 1))
+            ;;
+        "")
+            get_image_index && ((current = image_index[0] + 1))
+            ;;
+    esac
+    update_names
+    clear_sequence --keep-old
     update_status
 }
 
@@ -2240,22 +2348,24 @@ read_key() {
                             execute same
                         elif [[ "$cmd" =~ ^scaler ]]
                         then
-                            new_scaler="${cmd##scaler*( )}"
-                            change_scaler
+                            eval_param=scaler
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^sort ]]
                         then
-                            new_sort="${cmd##sort*( )}"
-                            change_sort
+                            eval_param=sort
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^toggle ]]
                         then
-                            setting="${cmd##toggle*( )}"
-                            setting="${setting//*( )/}"
-                            toggle "$setting"
+                            eval_param=toggle
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^batch ]]
                         then
-                            setting="${cmd##batch*( )}"
-                            setting="${setting//*( )/}"
-                            compute_batch "$setting"
+                            eval_param=batch
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
+                        elif [[ "$cmd" =~ ^grid ]]
+                        then
+                            eval_param=grid
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         else
                             error="Command not found: $cmd"
                             mode="normal"
@@ -2284,12 +2394,13 @@ read_key() {
                     fit_vertical="$wide_vertical"
                     fit_horizontal="$wide_horizontal"
                     start="$wide_start"
+                    current="$wide_current"
                     redraw
                     clear_sequence
                 fi
                 update_status
                 ;;
-            $'\e'|$'\n')
+            $'\e')
                 clear_sequence --keep-old
                 mode="normal"
                 update_status
@@ -2310,20 +2421,36 @@ read_key() {
         case $mapping in
             q)
                 exit_flag=1
-                break
                 ;;
-            n|N|p|P|$'\e[C'|$'\e[D'|$'\e[1;2C'|$'\e[1;2D')
+            h|j|k|l|$'\e[A'|$'\e[B'|$'\e[C'|$'\e[D')
+                case "$mapping" in
+                    h|$'\e[D')
+                        keyword=left
+                        ;;
+                    j|$'\e[B')
+                        keyword=down
+                        ;;
+                    k|$'\e[A')
+                        keyword=up
+                        ;;
+                    l|$'\e[C')
+                        keyword=right
+                        ;;
+                esac
+                set_current "$keyword"
+                ;;
+            n|N|p|P|$'\e[1;5C'|$'\e[1;5D'|$'\e[1;6C'|$'\e[1;6D')
                 case $mapping in
-                    n|$'\e[C')
+                    n|$'\e[1;5C')
                         keyword=next
                         ;;
-                    N|$'\e[1;2C')
+                    N|$'\e[1;6C')
                         keyword=last
                         ;;
-                    p|$'\e[D')
+                    p|$'\e[1;5D')
                         keyword=previous
                         ;;
-                    P|$'\e[1;2D')
+                    P|$'\e[1;6D')
                         keyword=first
                         ;;
                 esac
@@ -2332,100 +2459,23 @@ read_key() {
             sg)
                 change_dimensions
                 ;;
-            +|=)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-                if [[ -z "$prefix" ]]
-                then
-                    (( new_fit_vertical = fit_vertical + 1 ))
-                    (( new_fit_horizontal = fit_horizontal + 1 ))
-                else
-                    IFS=" " read -r -a prefix_args <<< "$prefix"
-                    (( new_fit_vertical = fit_vertical + prefix_args[0] ))
-                    (( new_fit_horizontal = fit_horizontal + prefix_args[0] ))
-                fi
-                new_start="$start"
-                maybe_redraw
-                clear_sequence
-                update_status
+            ++)
+                grid increase both
                 ;;
-            -)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-                if [[ -z "$prefix" ]]
-                then
-                    (( new_fit_vertical = fit_vertical - 1 ))
-                    (( new_fit_horizontal = fit_horizontal - 1 ))
-                else
-                    IFS=" " read -r -a prefix_args <<< "$prefix"
-                    (( new_fit_vertical = fit_vertical - prefix_args[0] ))
-                    (( new_fit_horizontal = fit_horizontal - prefix_args[0] ))
-                fi
-                new_start="$start"
-                maybe_redraw
-                clear_sequence
-                update_status
+            --)
+                grid decrease both
                 ;;
-            gi)
-                goto_image
+            +_)
+                grid increase lines
                 ;;
-            k)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-                if [[ -z "$prefix" ]]
-                then
-                    (( new_fit_vertical = fit_vertical + 1 ))
-                else
-                    IFS=" " read -r -a prefix_args <<< "$prefix"
-                    (( new_fit_vertical = fit_vertical + prefix_args[0] ))
-                fi
-                (( new_fit_horizontal = fit_horizontal ))
-                new_start="$start"
-                maybe_redraw
-                clear_sequence
-                update_status
+            -_)
+                grid decrease lines
                 ;;
-            j)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-                if [[ -z "$prefix" ]]
-                then
-                    (( new_fit_vertical = fit_vertical - 1 ))
-                else
-                    IFS=" " read -r -a prefix_args <<< "$prefix"
-                    (( new_fit_vertical = fit_vertical - prefix_args[0] ))
-                fi
-                (( new_fit_horizontal = fit_horizontal ))
-                new_start="$start"
-                maybe_redraw
-                clear_sequence
-                update_status
+            +\|)
+                grid increase columns
                 ;;
-            l)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-                if [[ -z "$prefix" ]]
-                then
-                    (( new_fit_horizontal = fit_horizontal + 1 ))
-                else
-                    IFS=" " read -r -a prefix_args <<< "$prefix"
-                    (( new_fit_horizontal = fit_horizontal + prefix_args[0] ))
-                fi
-                (( new_fit_vertical = fit_vertical ))
-                new_start="$start"
-                maybe_redraw
-                clear_sequence
-                update_status
-                ;;
-            h)
-                [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-                if [[ -z "$prefix" ]]
-                then
-                    (( new_fit_horizontal = fit_horizontal - 1 ))
-                else
-                    IFS=" " read -r -a prefix_args <<< "$prefix"
-                    (( new_fit_horizontal = fit_horizontal - prefix_args[0] ))
-                fi
-                (( new_fit_vertical = fit_vertical ))
-                new_start="$start"
-                maybe_redraw
-                clear_sequence
-                update_status
+            -\|)
+                grid decrease columns
                 ;;
             r|R)
                 if ! command -v convert &> /dev/null
@@ -2458,6 +2508,9 @@ read_key() {
             ti)
                 tag_image tag
                 ;;
+            si)
+                set_current
+                ;;
             u)
                 edit_history --undo
                 ;;
@@ -2482,11 +2535,14 @@ read_key() {
             wi)
                 save_edits
                 ;;
+            $'\n')
+                goto_image
+                ;;
             *)
                 [[ -n "$mapping" ]] && update_status
                 ;;
         esac
-        if [[ ! "$done_reading" -eq 1 ]]
+        if [[ ! "$done_reading" -eq 1 ]] && [[ ! "$exit_flag" -eq 1 ]]
         then
             populate_arrays
             update_status
@@ -2537,11 +2593,13 @@ do
         wide_horizontal=1
     fi
     unset read_target && read_images --remaining &
+    background_pid="$!"
     [[ "$total" -eq 0 ]] && printf "No images to show" && stty echo && exit_clear=0 && break
     start=0
     declare -A assoc
     mode="normal"
     break_flag=0
+    current=1
     init
 done
 stop_daemon
