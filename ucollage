@@ -245,13 +245,26 @@ check_dependencies() {
     dep[ueberzug]="ueberzug"
     dep[file]="file"
     dep[xxh128sum]="xxhash"
-    for dependency in ueberzug file xxh128sum
+    for dependency in "${!dep[@]}"
     do
         if ! command -v "$dependency" &>/dev/null
         then
             echo "Required dependency not installed: ${dep[$dependency]}" && exit
         fi
     done
+    dep=()
+    local errors=0
+    dep[convert]="imagemagick"
+    dep[ffmpeg]="ffmpeg"
+    for dependency in "${!dep[@]}"
+    do
+        if ! command -v "$dependency" &>/dev/null
+        then
+            errors=1
+            echo "Optional dependency not installed: ${dep[$dependency]}"
+        fi
+    done
+    [[ "$errors" -eq 1 ]] && read -sN1
 }
 
 ######################################################################
@@ -2502,16 +2515,6 @@ read_key() {
                 ;;
             -\|)
                 grid decrease columns
-                ;;
-            r|R)
-                if ! command -v convert &> /dev/null
-                then
-                    error="imagemagick not installed: required for rotation of images"
-                    update_status
-                    read -N1
-                    continue
-                fi
-                run_edit_script
                 ;;
             xs)
                 execute same
