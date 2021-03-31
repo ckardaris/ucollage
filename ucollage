@@ -1564,7 +1564,8 @@ run_use_script() {
             [[ "$cmd" == "$input" ]] && break
         done
     fi
-    script=${entry_arr[0]}
+    script="${entry_arr[0]}"
+    cmd_prompt_base="${entry_arr[1]}"
     local sc_i
     local executed=0
     if get_image_index
@@ -1574,7 +1575,7 @@ run_use_script() {
             ind=${image_index[$sc_i]}
             printf "\e[H"
             cmd="${script//%in%/\"${image_names[$ind]}\"}"
-            cmd_prompt="${input_prompt/\#/:}\"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
+            cmd_prompt="${cmd_prompt_base}: \"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
             eval_cmd && ((executed += 1))
         done
         if [[ "$executed" -eq 0 ]]
