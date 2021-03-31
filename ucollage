@@ -14,9 +14,7 @@ trim_spaces() {
 }
 
 declare -A use_script
-declare -A edit_script=([r]="convert -rotate 90 %in% %out%; Rotate clockwise; rotateright"
-                        [R]="convert -rotate -90 %in% %out%; Rotate counter-clockwise; rotateleft"
-                       )
+declare -A edit_script
 declare -A filehash
 CONFIG_FILE="$HOME/.config/ucollage/config.sh"
 [[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
@@ -35,6 +33,8 @@ declare -A colon_cmd=([delete]="delete_image"
                       [setgrid]="change_dimensions"
                       [grid]="grid"
                       [batch]="compute_batch"
+                      [rotateright]="rotate_image --degrees"
+                      [rotateleft]="rotate_image --counter --degrees"
                       [!]="execute same"
                       [!%]="execute group"
                      )
@@ -68,7 +68,7 @@ parse_scripts() {
             unset edit_script[$i]
         else
             cmd="${entry_arr[2]}"
-            colon_cmd[$cmd]="run_edit_script"
+            colon_cmd[$cmd]="run_edit_script ${entry_arr[0]}"
         fi
     done
     [[ "$errors" -eq 1 ]] && read -rsN1 -p "Unsetting erroneous scripts..." && echo
@@ -1593,20 +1593,7 @@ run_use_script() {
 
 run_edit_script() {
     clear_status --cmdline
-    if [[ ! "$mode" == "command" ]]
-    then
-        entry="${edit_script[$mapping]}"
-        IFS=';' read -r -a entry_arr <<< "$entry"
-    else
-        for i in "${!edit_script[@]}"
-        do
-            entry="${edit_script[$i]}"
-            IFS=';' read -r -a entry_arr <<< "$entry"
-            cmd=${entry_arr[2]}
-            [[ "$cmd" == "$input" ]] && break
-        done
-    fi
-    script=${entry_arr[0]}
+    script="$1"
     old_exec_prompt="$exec_prompt"
     exec_prompt=0
     local edited=0
@@ -2270,6 +2257,26 @@ set_current() {
     update_status
 }
 
+rotate_image() {
+    local counter=0
+    local degrees
+    while [[ -n "$1" ]]
+    do
+        case "$1" in
+            "--degrees")
+                degrees="$2"
+                shift
+                ;;
+            "--counter")
+                counter=1
+        esac
+        shift
+    done
+    [[ -z "$degrees" ]] && degrees=90
+    [[ "$counter" -eq 1 ]] && ((degrees = -degrees))
+    run_edit_script "convert -rotate $degrees %in% %out%"
+}
+
 clear_sequence() {
     [[ "$1" != "--keep-old" ]] && old_prefix="$prefix" && old_mapping="$mapping"
     prefix=
@@ -2405,6 +2412,14 @@ read_key() {
                         then
                             eval_param=grid
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
+                        elif [[ "$cmd" =~ ^rotateright ]]
+                        then
+                            eval_param=rotateright
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
+                        elif [[ "$cmd" =~ ^rotateleft ]]
+                        then
+                            eval_param=rotateleft
+                            eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         else
                             error="Command not found: $cmd"
                             mode="normal"
@@ -2454,7 +2469,9 @@ read_key() {
         fi
         if [[ -n "$mapping" ]] && [[ -n "${edit_script[$mapping]}" ]]
         then
-            run_edit_script
+            entry="${edit_script[$mapping]}"
+            IFS=';' read -r -a entry_arr <<< "$entry"
+            run_edit_script "${entry_arr[0]}"
         fi
         [[ "$mapping" == "." ]] && mapping="$old_mapping"
         case $mapping in
@@ -2548,6 +2565,12 @@ read_key() {
                 ;;
             ss)
                 change_sort
+                ;;
+            r)
+                rotate_image --degrees 90
+                ;;
+            R)
+                rotate_image --counter --degrees 90
                 ;;
             tr)
                 toggle reverse
