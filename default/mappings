@@ -1,0 +1,214 @@
+# This file should not be modified
+# If you want to change any mappings add the relevant info
+# in the script config file
+[]
+type    builtin
+map     di
+script  delete_image
+command delete
+
+[]
+type    builtin
+map     ti
+script  tag_image tag
+command tag
+
+[]
+type    builtin
+map     u
+script  edit_history --undo
+command undo
+
+[]
+type    builtin
+map     h <Left>
+script  set_current left
+command <NONE>
+
+[]
+type    builtin
+map     j <Down>
+script  set_current down
+command <NONE>
+
+[]
+type    builtin
+map     k <Up>
+script  set_current up
+command <NONE>
+
+[]
+type    builtin
+map     l <Right>
+script  set_current right
+command <NONE>
+
+[]
+type    builtin
+map     q
+script  exit_flag=1
+command quit
+
+[]
+type    builtin
+map     dt
+script  tag_image untag
+command untag
+
+[]
+type    builtin
+map     <Return>
+script  goto_image
+command goto
+
+[]
+type    builtin
+map     <Ctrl-R>
+script  edit_history --redo
+command redo
+
+[]
+type    builtin
+map     wi
+script  save_edits
+command write
+
+[]
+type    builtin
+map     ci
+script  rename
+command rename
+
+[]
+type    builtin
+map     ss
+script  change_sort
+command sort
+
+[]
+type    builtin
+map     su
+script  change_scaler
+command scaler
+
+[]
+type    builtin
+map     tn
+script  toggle---names
+command toggle
+
+[]
+type    builtin
+map     tr
+script  toggle---reverse
+command toggle
+
+[]
+type    builtin
+map     tp
+script  toggle---prompt
+command toggle
+
+[]
+type    builtin
+map     sg
+script  change_dimensions
+command setgrid
+
+[]
+type    builtin
+map     ++
+script  grid---increase both
+command grid
+
+[]
+type    builtin
+map     --
+script  grid---decrease both
+command grid
+
+[]
+type    builtin
+map     +|
+script  grid---increase columns
+command grid
+
+[]
+type    builtin
+map     -|
+script  grid---decrease columns
+command grid
+
+[]
+type    builtin
+map     +_
+script  grid---increase lines
+command grid
+
+[]
+type    builtin
+map     -_
+script  grid---decrease lines
+command grid
+
+[]
+type    builtin
+map     n <Ctrl-Right>
+script  compute_batch---next
+command batch
+
+[]
+type    builtin
+map     N <Ctrl-Shift-Right>
+script  compute_batch---last
+command batch
+
+[]
+type    builtin
+map     p <Ctrl-Left>
+script  compute_batch---previous
+command batch
+
+[]
+type    builtin
+map     P <Ctrl-Shift-Left>
+script  compute_batch---first
+command batch
+
+[]
+type    builtin
+map     r
+script  rotate_image --degrees---90
+command rotateright
+
+[]
+type    builtin
+map     R
+script  rotate_image --counter --degrees---90
+command rotateleft
+
+[]
+type    builtin
+map     xi
+script  execute image
+command <NONE>
+
+[]
+type    builtin
+map     xs
+script  execute same
+command !
+
+[]
+type    builtin
+map     xg
+script  execute group
+command !%
+
+[]
+type    builtin
+map     si
+script  set_current
+command setcurrent
+
+# vim: ft=config

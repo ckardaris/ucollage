@@ -6,7 +6,7 @@ declare -A colon_cmd
 
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
 CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
-CONFIG_DEFAULT="$HOME/.config/ucollage/default"
+CONFIG_DEFAULT="/etc/ucollage/mappings"
 
 trim_spaces() {
     local -n str="$1"
@@ -114,7 +114,19 @@ translate_map() {
 set_scripts(){
     # First we map the builtin commands and then the user defined. The order is
     # that way so that the user can override the defaults.
-    mapfile -t file_data < <(cat "$CONFIG_DEFAULT" "$CONFIG_SCRIPTS_FILE")
+    if [[ -f "$CONFIG_DEFAULT" ]] && [[ -f "$CONFIG_SCRIPTS_FILE" ]]
+    then
+        mapfile -t file_data < <(cat "$CONFIG_DEFAULT" "$CONFIG_SCRIPTS_FILE")
+    elif [[ ! -f "$CONFIG_DEFAULT" ]]
+    then
+        echo "Error: Default mappings and commands not found"
+        echo "Location: $CONFIG_DEFAULT"
+        echo "--------------------"
+        read
+        mapfile -t file_data < "$CONFIG_SCRIPTS_FILE"
+    else
+        mapfile -t file_data < "$CONFIG_DEFAULT"
+    fi
     local errors=0
     for ((i = 0; i < ${#file_data[@]}; i++))
     do
