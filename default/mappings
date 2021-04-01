@@ -22,9 +22,14 @@ command undo
 []
 type    builtin
 map     h <Left>
-script  set_current left
+script  set_current left --nowrap
 command <NONE>
 
+[]
+type    builtin
+map     <Backspace>
+script  set_current left
+command <NONE>
 []
 type    builtin
 map     j <Down>
@@ -40,6 +45,12 @@ command <NONE>
 []
 type    builtin
 map     l <Right>
+script  set_current right --nowrap
+command <NONE>
+
+[]
+type    builtin
+map     <Space>
 script  set_current right
 command <NONE>
 

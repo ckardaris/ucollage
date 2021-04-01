@@ -170,6 +170,9 @@ set_scripts(){
                 else
                     for mi in $map
                     do
+                        # <Space> has to be substituted here or else it is split by the for
+                        # expansion
+                        mi=${mi//<Space>/ }
                         map_cmd[$mi]="run_edit_script \"${script}\""
                     done
                     [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="run_edit_script \"${script}\""
@@ -178,6 +181,9 @@ set_scripts(){
             then
                 for mi in $map
                 do
+                    # <Space> has to be substituted here or else it is split by the for
+                    # expansion
+                    mi=${mi//<Space>/ }
                     map_cmd[$mi]="run_use_script \"${script}\" \"${info}\""
                 done
                 [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="run_use_script \"${script}\" \"${info}\""
@@ -190,6 +196,9 @@ set_scripts(){
                 #     toggle (command mode - shared also by tp and tr) 
                 for mi in $map
                 do
+                    # <Space> has to be substituted here or else it is split by the for
+                    # expansion
+                    mi=${mi//<Space>/ }
                     map_cmd[$mi]="${script/---/ }"
                 done
                 [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="${script%%---*}"
@@ -1454,13 +1463,17 @@ set_info() {
     local elen=${#edits[@]}
     [[ "$tlen" -gt 0 ]] && info+=" │ * ${tlen}"
     [[ "$elen" -gt 0 ]] && info+=" │ ~ ${elen}"
+    local sel_info=
+    [[ "$show_names" -eq 0 ]] && ! in_monocle && sel_info=" | $ $current "
     local length=${#info}
+    ((length += ${#sel_info}))
     local padding
     (( padding = columns - length))
     for ((i = 0; i < padding; i++))
     do
         info+=" "
     done
+    info+="$sel_info"
 }
 
 ######################################################################
@@ -2402,18 +2415,45 @@ grid() {
 }
 
 set_current() {
+    [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
+    [[ -z "$prefix" ]] && prefix="1"
+    local prefix_args
+    local limit
+    IFS=" " read -r -a prefix_args <<< "$prefix"
     case "$1" in
         left)
-            (( current % fit_horizontal != 1)) && ((current -= 1))
+            ((limit = ((current - 1) / fit_horizontal) * fit_horizontal + 1)) 
+            ((current -= prefix_args[0]))
+            if [[ "$2" == "--nowrap" ]]
+            then
+                ((current < limit )) && ((current = limit))
+            else
+                ((current < 1)) && current=1
+            fi
             ;;
         down)
-            (( current + fit_horizontal <= show )) && ((current += fit_horizontal))
+            ((current += prefix_args[0] * fit_horizontal))
+            while ((current > show))
+            do
+                ((current -= fit_horizontal))
+            done
             ;;
         up)
-            (( current - fit_horizontal >= 1 )) && ((current -= fit_horizontal))
+            ((current -= prefix_args[0] * fit_horizontal))
+            while ((current < 1))
+            do
+                ((current += fit_horizontal))
+            done
             ;;
         right)
-            ((current % fit_horizontal != 0 )) && ((current += 1))
+            ((limit = ((current - 1) / fit_horizontal) * fit_horizontal + fit_horizontal)) 
+            ((current += prefix_args[0]))
+            if [[ "$2" == "--nowrap" ]]
+            then
+                ((current > limit )) && ((current = limit))
+            else
+                ((current > show)) && current="$show"
+            fi
             ;;
         "")
             get_image_index && ((current = image_index[0] + 1))
@@ -2511,9 +2551,19 @@ read_key() {
                 mode="normal"
                 update_status
                 ;;
-            [0-9]|" ")
+            [0-9])
                 prefix+="$key"
                 mode="normal"
+                update_status
+                ;;
+            " ")
+                mode="normal"
+                if [[ -n "$prefix" ]]
+                then
+                    prefix+="$key"
+                else
+                    mapping="$key"
+                fi
                 update_status
                 ;;
             "*")
@@ -2626,6 +2676,9 @@ read_key() {
                     current="$wide_current"
                     redraw
                     clear_sequence
+                elif [[ -z "$prefix" ]]
+                then
+                    mapping="$key"
                 fi
                 update_status
                 ;;
