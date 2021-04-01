@@ -1,86 +1,193 @@
 #!/usr/bin/env bash
 shopt -s extglob
+declare -A map_cmd
+declare -A filehash
+declare -A colon_cmd
+
+CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
+CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
+CONFIG_DEFAULT="$HOME/.config/ucollage/default"
 
 trim_spaces() {
     local -n str="$1"
-    str="${str##*( )}"
-    str="${str%%*( )}"
-    str="${str//+( )/ }"
-    case "$2" in
-        "--colon")
-            str="${str//*( );*( )/;}"
-            ;;
-    esac
+    if [[ "$2" == "--force" ]]
+    then
+        str="${str//*([[:space:]])}"
+    else
+        str="${str##+([[:space:]])}"
+        str="${str%%*([[:space:]])}"
+        str="${str//+([[:space:]])/ }"
+        for char in $2
+        do
+            str="${str//*([[:space:]])${char}*([[:space:]])/${char}}"
+        done
+    fi
 }
 
-declare -A use_script
-declare -A edit_script
-declare -A filehash
-CONFIG_FILE="$HOME/.config/ucollage/config.sh"
-[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
-declare -A colon_cmd=([delete]="delete_image"
-                      [tag]="tag_image tag"
-                      [untag]="tag_image untag"
-                      [goto]="goto_image" 
-                      [undo]="edit_history --undo"
-                      [redo]="edit_history --redo"
-                      [write]="save_edits"
-                      [rename]="rename"
-                      [quit]="stop_daemon"
-                      [sort]="change_sort"
-                      [scaler]="change_scaler"
-                      [toggle]="toggle"
-                      [setgrid]="change_dimensions"
-                      [grid]="grid"
-                      [batch]="compute_batch"
-                      [rotateright]="rotate_image --degrees"
-                      [rotateleft]="rotate_image --counter --degrees"
-                      [!]="execute same"
-                      [!%]="execute group"
-                     )
+split() {
+    IFS=$'\n' read -d "" -ra arr <<< "${1//$2/$'\n'}"
+    printf '%s\n' "${arr[@]}"
+}
 
-parse_scripts() {
-    errors=0
-    for i in "${!edit_script[@]}"
+translate_map() {
+    local -n str="$1"
+    str=${str//<Leader>/$leader}
+    str=${str//<Ctrl-A>/$'\x1'}
+    str=${str//<Ctrl-B>/$'\x2'}
+    str=${str//<Ctrl-C>/$'\x3'}
+    str=${str//<Ctrl-D>/$'\x4'}
+    str=${str//<Ctrl-E>/$'\x5'}
+    str=${str//<Ctrl-F>/$'\x6'}
+    str=${str//<Ctrl-G>/$'\x7'}
+    str=${str//<Ctrl-H>/$'\x8'}
+    str=${str//<Backspace>/$'\x8'}
+    str=${str//<Ctrl-I>/$'\x9'}
+    str=${str//<Tab>/$'\x9'}
+    str=${str//<Shift-Tab>/$'\x1B'$'\x5B'$'\x5A'}
+    str=${str//<Ctrl-J>/$'\xA'}
+    str=${str//<Ctrl-K>/$'\xB'}
+    str=${str//<Ctrl-L>/$'\xC'}
+    str=${str//<Ctrl-M>/$'\xD'}
+    str=${str//<Return>/$'\xD'}
+    str=${str//<Enter>/$'\xD'}
+    str=${str//<Ctrl-N>/$'\xE'}
+    str=${str//<Ctrl-O>/$'\xF'}
+    str=${str//<Ctrl-P>/$'\x10'}
+    str=${str//<Ctrl-Q>/$'\x11'}
+    str=${str//<Ctrl-R>/$'\x12'}
+    str=${str//<Ctrl-S>/$'\x13'}
+    str=${str//<Ctrl-T>/$'\x14'}
+    str=${str//<Ctrl-U>/$'\x15'}
+    str=${str//<Ctrl-V>/$'\x16'}
+    str=${str//<Ctrl-W>/$'\x17'}
+    str=${str//<Ctrl-X>/$'\x18'}
+    str=${str//<Ctrl-Y>/$'\x19'}
+    str=${str//<Ctrl-Z>/$'\x1A'}
+    str=${str//<Insert>/$'\x1B'$'\x5B'$'\x32'$'\x7e'}
+    str=${str//<Ctrl-Insert>/$'\x1B'$'\x5B'$'\x32'$'\x3B'$'\x35'$'\x7e'}
+    str=${str//<Delete>/$'\x1B'$'\x5B'$'\x33'$'\x7e'}
+    str=${str//<Ctrl-Delete>/$'\x1B'$'\x5B'$'\x33'$'\x3B'$'\x35'$'\x7e'}
+    str=${str//<Shift-Delete>/$'\x1B'$'\x5B'$'\x33'$'\x3B'$'\x32'$'\x7e'}
+    str=${str//<Ctrl-Shift-Delete>/$'\x1B'$'\x5B'$'\x33'$'\x3b'$'\x36'$'\x7e'}
+    str=${str//<Home>/$'\x1B'$'\x5B'$'\x48'}
+    str=${str//<Ctrl-Home>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x35'$'\x48'}
+    str=${str//<Shift-Home>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x32'$'\x48'}
+    str=${str//<Ctrl-Shift-Home>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x36'$'\x48'}
+    str=${str//<End>/$'\x1B'$'\x5B'$'\x46'}
+    str=${str//<Ctrl-End>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x35'$'\x46'}
+    str=${str//<Shift-End>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x32'$'\x46'}
+    str=${str//<Ctrl-Shift-End>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x36'$'\x46'}
+    str=${str//<PageUp>/$'\x1B'$'\x5B'$'\x35'$'\x7e'}
+    str=${str//<Ctrl-PageUp>/$'\x1B'$'\x5B'$'\x35'$'\x3B'$'\x35'$'\x7e'}
+    str=${str//<PageDown>/$'\x1B'$'\x5B'$'\x36'$'\x7e'}
+    str=${str//<Ctrl-PageDown>/$'\x1B'$'\x5B'$'\x36'$'\x3B'$'\x35'$'\x7e'}
+    str=${str//<F1>/$'\x1B'$'\x4F'$'\x50'}
+    str=${str//<F2>/$'\x1B'$'\x4F'$'\x51'}
+    str=${str//<F3>/$'\x1B'$'\x4F'$'\x52'}
+    str=${str//<F4>/$'\x1B'$'\x4F'$'\x53'}
+    str=${str//<F5>/$'\x1B'$'\x5B'$'\x31'$'\x35'$'\x7e'}
+    str=${str//<F6>/$'\x1B'$'\x5B'$'\x31'$'\x37'$'\x7e'}
+    str=${str//<F7>/$'\x1B'$'\x5B'$'\x31'$'\x38'$'\x7e'}
+    str=${str//<F8>/$'\x1B'$'\x5B'$'\x31'$'\x39'$'\x7e'}
+    str=${str//<F9>/$'\x1B'$'\x5B'$'\x32'$'\x30'$'\x7e'}
+    str=${str//<F10>/$'\x1B'$'\x5B'$'\x32'$'\x31'$'\x7e'}
+    str=${str//<F11>/$'\x1B'$'\x5B'$'\x32'$'\x33'$'\x7e'}
+    str=${str//<F12>/$'\x1B'$'\x5B'$'\x32'$'\x34'$'\x7e'}
+    str=${str//<Up>/$'\x1B'$'\x5B'$'\x41'}
+    str=${str//<Down>/$'\x1B'$'\x5B'$'\x42'}
+    str=${str//<Right>/$'\x1B'$'\x5B'$'\x43'}
+    str=${str//<Left>/$'\x1B'$'\x5B'$'\x44'}
+    str=${str//<Ctrl-Up>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x35'$'\x41'}
+    str=${str//<Ctrl-Down>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x35'$'\x42'}
+    str=${str//<Ctrl-Right>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x35'$'\x43'}
+    str=${str//<Ctrl-Left>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x35'$'\x44'}
+    str=${str//<Shift-Up>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x32'$'\x41'}
+    str=${str//<Shift-Down>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x32'$'\x42'}
+    str=${str//<Shift-Right>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x32'$'\x43'}
+    str=${str//<Shift-Left>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x32'$'\x44'}
+    str=${str//<Ctrl-Shift-Up>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x36'$'\x41'}
+    str=${str//<Ctrl-Shift-Down>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x36'$'\x42'}
+    str=${str//<Ctrl-Shift-Right>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x36'$'\x43'}
+    str=${str//<Ctrl-Shift-Left>/$'\x1B'$'\x5B'$'\x31'$'\x3B'$'\x36'$'\x44'}
+}
+
+set_scripts(){
+    # First we map the builtin commands and then the user defined. The order is
+    # that way so that the user can override the defaults.
+    mapfile -t file_data < <(cat "$CONFIG_DEFAULT" "$CONFIG_SCRIPTS_FILE")
+    local errors=0
+    for ((i = 0; i < ${#file_data[@]}; i++))
     do
-        entry="${edit_script[$i]}"
-        trim_spaces entry --colon
-        edit_script[$i]="$entry"
-        IFS=';' read -r -a entry_arr <<< "$entry"
-        script="${entry_arr[0]}"
-        if [[ ! "$script" =~ %in% ]]
+        line=${file_data[$i]}
+        trim_spaces line "[ ]"
+        if [[ "$line" =~ ^\[.*\]$ ]]
         then
-            echo "Error: configuration"
-            echo "--------------------"
-            echo "Value: $script"
-            echo "Valid: %in% placeholder missing"
-            echo "--------------------"
-            errors=1
-            unset edit_script[$i]
-        elif [[ ! "$script" =~ %out% ]]
-        then
-            echo "Error: configuration"
-            echo "--------------------"
-            echo "Value: $script"
-            echo "Valid: %out% placeholder missing"
-            echo "--------------------"
-            errors=1
-            unset edit_script[$i]
-        else
-            cmd="${entry_arr[2]}"
-            colon_cmd[$cmd]="run_edit_script ${entry_arr[0]}"
+            info=${line#[}
+            info=${info%]}
+
+            type=${file_data[$((i + 1))]##type}
+            trim_spaces type --force
+
+            map=${file_data[$((i + 2))]##map}
+            trim_spaces map
+            translate_map map
+
+            script=${file_data[$((i + 3))]##script*([[:space:]])}
+            trim_spaces script
+
+            command=${file_data[$((i + 4))]##command}
+            command="${command//*([[:space:]])}"
+            trim_spaces command --force
+
+            if [[ "$type" == "edit" ]]
+            then
+                if [[ ! "$script" =~ %in% ]]
+                then
+                    echo "Error: configuration"
+                    echo "--------------------"
+                    echo "Value: $script"
+                    echo "Valid: %in% placeholder missing"
+                    echo "--------------------"
+                    errors=1
+                elif [[ ! "$script" =~ %out% ]]
+                then
+                    echo "Error: configuration"
+                    echo "--------------------"
+                    echo "Value: $script"
+                    echo "Valid: %out% placeholder missing"
+                    echo "--------------------"
+                    errors=1
+                else
+                    for m in $map
+                    do
+                        map_cmd[$m]="run_edit_script \"${script}\""
+                    done
+                    [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="run_edit_script \"${script}\""
+                fi
+            elif [[ "$type" == "use" ]]
+            then
+                for m in $map
+                do
+                    map_cmd[$m]="run_use_script \"${script}\" \"${info}\""
+                done
+                [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="run_use_script \"${script}\" \"${info}\""
+            elif [[ "$type" == "builtin" ]]
+            then
+                # Usage of the --- delimiter makes possible that some commands have a default value
+                # in map normal mode, but permit input in command mode
+                # e.g tn
+                #     toggle names (normal mode)
+                #     toggle (command mode - shared also by tp and tr) 
+                for m in $map
+                do
+                    map_cmd[$m]="${script/---/ }"
+                done
+                [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="${script%%---*}"
+            fi
+            ((i += 4))
         fi
     done
-    [[ "$errors" -eq 1 ]] && read -rsN1 -p "Unsetting erroneous scripts..." && echo
-    for i in "${!use_script[@]}"
-    do
-        entry="${use_script[$i]}"
-        trim_spaces entry --colon
-        use_script[$i]="$entry"
-        IFS=';' read -r -a entry_arr <<< "$entry"
-        cmd="${entry_arr[2]}"
-        colon_cmd[$cmd]="run_use_script"
-    done
+    [[ "$errors" -eq 1 ]] && read
 }
 
 check_config_variable() {
@@ -182,6 +289,7 @@ set_defaults() {
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
+    leader=${UCOLLAGE_LEADER:-\\}
     error=""
     warning=""
     success=""
@@ -1330,7 +1438,11 @@ eval_cmd() {
     then
         clear_status --cmdline
         printf "%s? (Press y/Y/Enter to confirm)" "$cmd_prompt"
-        read -rsN1 ans
+        ans=
+        while [[ -z "$ans" ]] && [[ "$exit_flag" -eq 0 ]]
+        do
+            read -rsN1 -t 0.01 ans &>/dev/null
+        done
         [[ ! "$ans" =~ ^(y|Y|$'\n')$ ]] && return 1
     fi
     error=$(eval "$cmd" 2>&1 >/dev/null)
@@ -1551,21 +1663,8 @@ update_status() {
 
 run_use_script() {
     clear_status --cmdline
-    if [[ ! "$mode" == "command" ]]
-    then
-        entry="${use_script[$mapping]}"
-        IFS=';' read -r -a entry_arr <<< "$entry"
-    else
-        for i in "${!use_script[@]}"
-        do
-            entry="${use_script[$i]}"
-            IFS=';' read -r -a entry_arr <<< "$entry"
-            cmd=${entry_arr[2]}
-            [[ "$cmd" == "$input" ]] && break
-        done
-    fi
-    script="${entry_arr[0]}"
-    cmd_prompt_base="${entry_arr[1]}"
+    script="$1"
+    cmd_prompt_base="$2"
     local sc_i
     local executed=0
     if get_image_index
@@ -1780,12 +1879,15 @@ execute() {
             else
                 input_prompt="Command: "
                 input_autocomplete="command"
-                ! get_input && return
+                get_input
             fi
-            cmd=${input//%S/${args[@]}}
-            cmd=${cmd//%E/${edit_args[@]}}
-            cmd_prompt="$ ${cmd}"
-            eval_cmd && ((executed += index_count))
+            if [[ -n "$input" ]]
+            then
+                cmd=${input//%S/${args[@]}}
+                cmd=${cmd//%E/${edit_args[@]}}
+                cmd_prompt="$ ${cmd}"
+                eval_cmd && ((executed += index_count))
+            fi
         fi
     fi
     if [[ "$executed" -eq 0 ]]
@@ -2179,18 +2281,15 @@ grid() {
             decrease|increase)
                 type="$input"
                 ;;
-            increase)
-                increase=1
-                ;;
             "")
                 ;;
             *)
-                error="Uknown parameter: $1"
+                error="Uknown parameter: $input"
                 ;;
         esac
         
     fi
-    if [[ -z "$error" ]] && [[ -z "$element" ]]
+    if [[ -z "$error" ]] && [[ -z "$element" ]] && [[ -n "$type" ]]
     then
         clear_status --cmdline
         input_prompt="Set element (lines, columns, both): "
@@ -2202,7 +2301,7 @@ grid() {
             "")
                 ;;
             *)
-                error="Uknown parameter: $1"
+                error="Uknown parameter: $input"
                 ;;
         esac
         
@@ -2279,7 +2378,7 @@ rotate_image() {
 }
 
 clear_sequence() {
-    [[ "$1" != "--keep-old" ]] && old_prefix="$prefix" && old_mapping="$mapping"
+    [[ "$1" != "--keep-old" ]] && old_prefix="$prefix" && last_cmd_mapping="$mapping"
     prefix=
     mapping=
 }
@@ -2336,28 +2435,33 @@ read_key() {
         key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
         [[ -z "$key" ]] && [[ "$done_reading" -eq 1 ]] && continue
         case $key in
+            $'\e')
+                clear_sequence --keep-old
+                mode="normal"
+                update_status
+                ;;
             [0-9]|" ")
-                [[ -z "$mapping" ]] && prefix+="$key"
+                prefix+="$key"
                 mode="normal"
                 update_status
                 ;;
             "*")
                 if [[ "$prefix" =~ ^\*+$ ]]
                 then
-                    [[ -z "$mapping" ]] && prefix="**"
+                    prefix="**"
                 else
-                    [[ -z "$mapping" ]] && prefix="*"
+                    prefix="*"
                 fi
                 mode="normal"
                 update_status
                 ;;
             ";")
-                [[ -z "$mapping" ]] && prefix=";"
+                prefix=";"
                 mode=normal
                 update_status
                 ;;
             "#")
-                [[ -z "$mapping" ]] && prefix="#"
+                prefix="#"
                 mode=normal
                 update_status
                 ;;
@@ -2395,31 +2499,31 @@ read_key() {
                             execute same
                         elif [[ "$cmd" =~ ^scaler ]]
                         then
-                            eval_param=scaler
+                            eval_param="scaler"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^sort ]]
                         then
-                            eval_param=sort
+                            eval_param="sort"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^toggle ]]
                         then
-                            eval_param=toggle
+                            eval_param="toggle"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^batch ]]
                         then
-                            eval_param=batch
+                            eval_param="batch"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^grid ]]
                         then
-                            eval_param=grid
+                            eval_param="grid"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^rotateright ]]
                         then
-                            eval_param=rotateright
+                            eval_param="rotateright"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         elif [[ "$cmd" =~ ^rotateleft ]]
                         then
-                            eval_param=rotateleft
+                            eval_param="rotateleft"
                             eval "${colon_cmd[$eval_param]} ${cmd##$eval_param*( )}"
                         else
                             error="Command not found: $cmd"
@@ -2455,146 +2559,29 @@ read_key() {
                 fi
                 update_status
                 ;;
-            $'\e')
-                clear_sequence --keep-old
-                mode="normal"
-                update_status
-                ;;
             *)
+                last_valid_mapping="$mapping"
+                # This is hack because $'\n' is not mapped correctly in map_cmd
+                [[ "$key" == $'\n' ]] && key=$'\xD'
                 mapping+="$key"
                 ;;
         esac
-        if [[ -n "$mapping" ]] && [[ -n "${use_script[$mapping]}" ]]
-        then
-            run_use_script
-        fi
-        if [[ -n "$mapping" ]] && [[ -n "${edit_script[$mapping]}" ]]
-        then
-            entry="${edit_script[$mapping]}"
-            IFS=';' read -r -a entry_arr <<< "$entry"
-            run_edit_script "${entry_arr[0]}"
-        fi
-        [[ "$mapping" == "." ]] && mapping="$old_mapping"
-        case $mapping in
-            q)
-                exit_flag=1
-                ;;
-            h|j|k|l|$'\e[A'|$'\e[B'|$'\e[C'|$'\e[D')
-                case "$mapping" in
-                    h|$'\e[D')
-                        keyword=left
-                        ;;
-                    j|$'\e[B')
-                        keyword=down
-                        ;;
-                    k|$'\e[A')
-                        keyword=up
-                        ;;
-                    l|$'\e[C')
-                        keyword=right
-                        ;;
-                esac
-                set_current "$keyword"
-                ;;
-            n|N|p|P|$'\e[1;5C'|$'\e[1;5D'|$'\e[1;6C'|$'\e[1;6D')
-                case $mapping in
-                    n|$'\e[1;5C')
-                        keyword=next
-                        ;;
-                    N|$'\e[1;6C')
-                        keyword=last
-                        ;;
-                    p|$'\e[1;5D')
-                        keyword=previous
-                        ;;
-                    P|$'\e[1;6D')
-                        keyword=first
-                        ;;
-                esac
-                compute_batch "$keyword"
-                ;;
-            sg)
-                change_dimensions
-                ;;
-            ++)
-                grid increase both
-                ;;
-            --)
-                grid decrease both
-                ;;
-            +_)
-                grid increase lines
-                ;;
-            -_)
-                grid decrease lines
-                ;;
-            +\|)
-                grid increase columns
-                ;;
-            -\|)
-                grid decrease columns
-                ;;
-            xs)
-                execute same
-                ;;
-            xi)
-                execute image
-                ;;
-            xg)
-                execute group
-                ;;
-            ci)
-                rename
-                ;;
-            di)
-                delete_image
-                ;;
-            dt)
-                tag_image untag
-                ;;
-            ti)
-                tag_image tag
-                ;;
-            si)
-                set_current
-                ;;
-            u)
-                edit_history --undo
-                ;;
-            $'')
-                edit_history --redo
-                ;;
-            ss)
-                change_sort
-                ;;
-            r)
-                rotate_image --degrees 90
-                ;;
-            R)
-                rotate_image --counter --degrees 90
-                ;;
-            tr)
-                toggle reverse
-                ;;
-            tn)
-                toggle names
-                ;;
-            su)
-                change_scaler
-                ;;
-            tp)
-                toggle prompt
-                ;;
-            wi)
-                save_edits
-                ;;
-            $'\n')
-                goto_image
-                ;;
-            *)
-                [[ -n "$mapping" ]] && update_status
-                ;;
-        esac
+        [[ "$mapping" == "." ]] && mapping="$last_cmd_mapping"
+        [[ -n "$mapping" ]] && eval "${map_cmd[$mapping]}"
+        # This is coded in order to not follow mappings that do not lead to any action
+        # It also prevents the program from hanging in case of pressing a not printable
+        # character (e.g Home, End) that does not map to any command
+        good=0
+        for m in "${!map_cmd[@]}"
+        do
+            if [[ "$mapping" == "${m:0:${#mapping}}" ]]
+            then
+                good=1
+                break
+            fi
+        done
+        [[ "$good" -eq 0 ]] && mapping="$last_valid_mapping"
+        [[ -n "$mapping" ]] && update_status
         if [[ ! "$done_reading" -eq 1 ]] && [[ ! "$exit_flag" -eq 1 ]]
         then
             populate_arrays
@@ -2613,9 +2600,10 @@ init() {
 }
 
 check_dependencies
-parse_config
-parse_scripts
+[[ -f "$CONFIG_VARIABLES_FILE" ]] && source "$CONFIG_VARIABLES_FILE"
 set_defaults
+parse_config
+set_scripts
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 [[ ! -d "$cache_dir" ]] && mkdir -p "$cache_dir"
 [[ ! -d "$trash_dir" ]] && mkdir -p "$trash_dir"
