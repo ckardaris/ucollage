@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 shopt -s extglob
 declare -A map_cmd
-declare -A filehash
 declare -A colon_cmd
 
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
@@ -443,8 +442,10 @@ read_filenames() {
     argc="${#filelist[@]}"
     image_names=()
     images=()
+    filehash=()
     rm -f "${tmp_dir}/image_names.txt*"
     rm -f "${tmp_dir}/images.txt*"
+    rm -f "${tmp_dir}/hash.txt*"
     read_iter=0
 }
 
@@ -537,6 +538,7 @@ read_images() {
         then
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$file" >> "${tmp_dir}/images.txt"
+            echo "$hash" >> "${tmp_dir}/hash.txt"
             (( readc += 1 ))
         elif is_video "$file" \
             && [[ "$video_thumbnails" -eq 1 ]] \
@@ -545,6 +547,7 @@ read_images() {
             ! find_thumbnail && create_thumbnail
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$thumbnail_file" >> "${tmp_dir}/images.txt"
+            echo "$hash" >> "${tmp_dir}/hash.txt"
             if [[ "$cache_thumbnails" -eq 1 ]] && [[ ! "$thumbnail_file" == "$cache_name" ]]
             then
                 cp -f "$thumbnail_file" "$cache_name"
@@ -1012,6 +1015,7 @@ create_suggestions() {
 #   1               if input is not meaningful
 ######################################################################
 get_input() {
+    clear_status --cmdline
     printf "\e[?25h%s\e7" "$input_prompt"
     while [[ "$exit_flag" -eq 0 ]]
     do
@@ -1684,7 +1688,6 @@ run_use_script() {
         for (( sc_i = 0; sc_i < index_count; sc_i++))
         do
             ind=${image_index[$sc_i]}
-            printf "\e[H"
             cmd="${script//%in%/\"${image_names[$ind]}\"}"
             cmd_prompt="${cmd_prompt_base}: \"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
             eval_cmd && ((executed += 1))
@@ -1717,16 +1720,14 @@ run_edit_script() {
         do
             ind=${image_index[$sc_i]}
             level=${edits[$ind]}
-            printf "\e[H"
             file="${image_names[$ind]}"
             case $file in
                 (*.*) extension=${file##*.};;
                 (*)   extension="";;
             esac
-            read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+            hash="${filehash[$ind]}"
             ! is_image && ((non_image += 1)) && continue
-            filehash[$hash]=${image_names[$ind]}
-            tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
+            local tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
             cmd=${script//%in%/\"${images[$ind]}\"}
             cmd=${cmd//%out%/\"${tmpfile}\"}
             if eval_cmd
@@ -1775,25 +1776,24 @@ save_edits() {
         for (( se_i = 0; se_i < index_count; se_i++))
         do
             ind=${image_index[$se_i]}
-            tmpfile=${images[$ind]}
+            local tmpfile=${images[$ind]}
             case $tmpfile in
                 (*.*) extension=${tmpfile##*.};;
                 (*)   extension="";;
             esac
             hash=${tmpfile%.*([[:digit:]]).${extension}}
             hash=${hash#${tmp_dir}/}
-            original=${filehash[$hash]}
-            [[ -z $original ]] && ((no_pending += 1)) && continue
-            printf "\e[H"
-            cmd="cp -f \"${tmpfile}\" \"${original}\""
-            cmd_prompt="Save edits for ${original}"
+            [[ -z ${edits[$ind]} ]] && ((no_pending += 1)) && continue
+            cmd="cp -f \"${tmpfile}\" \"${image_names[$ind]}\""
+            cmd_prompt="Save edits for ${image_names[$ind]}"
             if eval_cmd
             then
                 ((saved += 1))
-                images[$ind]="${original}"
+                images[$ind]="${image_names[$ind]}"
                 rm "${tmp_dir}/$hash".* # delete all history
                 unset edits["$ind"]
-                unset filehash["$hash"]
+                read -d ' ' hash < <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | xxh128sum)
+                filehash[$ind]="$hash"
                 is_index_local "$ind" && local_changes=1
             fi
         done
@@ -1950,6 +1950,7 @@ rename() {
             if eval_cmd
             then
                 ((renamed += 1))
+                # in case of video or edited images we only update the name
                 parallel_update "$ind" && images[$ind]="$input"
                 image_names[$ind]="$input"
                 is_index_local "$ind" && update=1
@@ -2077,12 +2078,12 @@ edit_history() {
                     (*.*) extension=${file##*.};;
                     (*)   extension="";;
                 esac
-                read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+                hash="${filehash[$ind]}"
                 if [[ "$level" -eq 1 ]]
                 then
-                    tmpfile="$file"
+                    local tmpfile="$file"
                 else
-                    tmpfile="${tmp_dir}/${hash}.$((level - 1)).${extension}"
+                    local tmpfile="${tmp_dir}/${hash}.$((level - 1)).${extension}"
                 fi
                 ((undone += 1))
                 ((edits[ind] -= 1))
@@ -2115,8 +2116,8 @@ edit_history() {
                     (*.*) extension=${file##*.};;
                     (*)   extension="";;
                 esac
-                read -r -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
-                tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
+                hash="${filehash[$ind]}"
+                local tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
                 [[ ! -f "$tmpfile" ]] && continue
                 ((redone += 1))
                 ((edits[ind] += 1))
@@ -2408,13 +2409,17 @@ clear_sequence() {
 ######################################################################
 populate_arrays() {
     # This is to read only new files in each iteration. Should scale well
-    [[ ! -f "${tmp_dir}/image_names.txt" ]] || [[ ! -f "${tmp_dir}/images.txt" ]] && return
+    [[ ! -f "${tmp_dir}/image_names.txt" ]] || [[ ! -f "${tmp_dir}/images.txt" ]] ||\
+        [[ ! -f "${tmp_dir}/hash.txt" ]] && return
     mv "${tmp_dir}/image_names.txt" "${tmp_dir}/image_names.txt.old"
     mv "${tmp_dir}/images.txt" "${tmp_dir}/images.txt.old"
+    mv "${tmp_dir}/hash.txt" "${tmp_dir}/hash.txt.old"
     mapfile -t temp_names < "${tmp_dir}/image_names.txt.old"
     mapfile -t temp < "${tmp_dir}/images.txt.old"
+    mapfile -t temp_hash < "${tmp_dir}/hash.txt.old"
     image_names+=("${temp_names[@]}")
     images+=("${temp[@]}")
+    filehash+=("${temp_hash[@]}")
     [[ -f "${tmp_dir}/done_reading" ]] && done_reading=1 || done_reading=0
     total="${#images[@]}"
 }
@@ -2480,7 +2485,6 @@ read_key() {
             ":")
                 mode="command"
                 update_status
-                printf "\e[H\e[B"
                 input_prompt=":"
                 [[ -n "$prefix" ]] && input_left="($prefix) "
                 input_autocomplete="ucollage"
