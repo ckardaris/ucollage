@@ -94,7 +94,7 @@ command rename
 type    builtin
 map     ss
 script  change_setting --- sort
-command sort
+command set
 
 []
 type    builtin
@@ -128,19 +128,19 @@ command set
 
 []
 type    builtin
-map     sf
+map     si
 script  change_setting --- fileinfo
 command set
 
 []
 type    builtin
-map     ]sf
+map     ]si
 script  change_setting --- fileinfo --cycle-next
 command set
 
 []
 type    builtin
-map     [sf
+map     [si
 script  change_setting --- fileinfo --cycle-previous
 command set
 
@@ -230,13 +230,13 @@ command batch
 
 []
 type    builtin
-map     r
+map     rc
 script  rotate_image --degrees --- 90
 command rotateright
 
 []
 type    builtin
-map     R
+map     rC
 script  rotate_image --counter --degrees --- 90
 command rotateleft
 
@@ -260,9 +260,9 @@ command !%
 
 []
 type    builtin
-map     si
+map     sc
 script  set_current
-command setcurrent
+command <NONE>
 
 []
 type    builtin
@@ -272,7 +272,7 @@ command loadfiles
 
 []
 type    builtin
-map     sr
+map     ri
 script  rate_image
 command rate
 

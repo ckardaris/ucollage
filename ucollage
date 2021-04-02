@@ -660,6 +660,7 @@ show_cursor() {
 ######################################################################
 start_daemon() {
     fifo="${tmp_dir}/fifo"
+    rm -f "$fifo"
     mkfifo "$fifo"
     ueberzug layer --parse bash --silent < "$fifo" &
     exec {ueberzug}> "$fifo"
@@ -1070,7 +1071,7 @@ get_input() {
     while [[ "$exit_flag" -eq 0 ]]
     do
         printf "\e8\e[K"
-        [[ -n "$input_right" ]] && move="\e[${#input_right}D"
+        [[ -n "$input_right" ]] && move="\e[${#input_right}D" || move=
         if [[ -n "$suggestion" ]]
         then
             printf "%s%s$move" "$suggestion" "$input_right"
