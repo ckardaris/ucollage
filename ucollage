@@ -286,6 +286,11 @@ parse_config() {
     valid_values="natural numbers"
     check_config_variable
 
+    variable_name="UCOLLAGE_MAX_LOAD"
+    accept_regexp="^([1-9][0-9]*|0+[1-9][0-9]*)$" # is natural
+    valid_values="natural numbers"
+    check_config_variable
+
     [[ "$errors" -eq 1 ]] && read -rsN1 -p "Using default variables..." && echo
 }
 
@@ -311,6 +316,7 @@ set_defaults() {
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
+    max_load=${UCOLLAGE_MAX_LOAD:-1000}
     leader=${UCOLLAGE_LEADER:-\\}
     error=""
     warning=""
@@ -407,7 +413,6 @@ check_dependencies() {
 #   filelist
 #   image_names
 #   images
-#   read_iter
 #   argc
 # Arguments:
 #   $@              command line arguments
@@ -458,7 +463,6 @@ read_filenames() {
     rm -f "${tmp_dir}/image_names.txt*"
     rm -f "${tmp_dir}/images.txt*"
     rm -f "${tmp_dir}/hash.txt*"
-    read_iter=0
 }
 
 ######################################################################
@@ -537,15 +541,15 @@ is_video() {
 # Outputs:
 #   appends file names into the file ${tmp_dir}/image_names.txt
 #   appends the image names corresponding to the above into the file ${tmp_dir}/images.txt
-#   touches file ${tmp_dir}/done_reading if all files are parsed
+#   writes file ${tmp_dir}/done_reading
 #   prints a dot for every file with unsupported type if the user interface is not yet up
-# Arguments:
-#   $1              if "--remaining" parse the rest of the files
 ######################################################################
 read_images() {
+    echo 1 > "${tmp_dir}/read_lock"
     local readc=0
+    local loadc=0
     local thumbnail_file
-    while [[ "$1" == "--remaining" ]] || (( readc < read_target )) && (( read_iter < argc ))
+    while (( readc < read_target )) && (( read_iter < argc )) && ((loadc < max_load))
     do
         local file=${filelist[$read_iter]}
         read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
@@ -570,14 +574,18 @@ read_images() {
             (( readc += 1 ))
         else
             touch "${cache_dir}/hash/other/${hash}"
-            [[ ! "$1" == "--remaining" ]] && printf "." # only print if ui is not started
         fi
         (( read_iter += 1 ))
+        (( loadc += 1 ))
+        echo "$read_iter" > "${tmp_dir}/read_iter"
     done
-    printf "\n"
-    [[ "$1" == "--remaining" ]] \
-        && true > "${tmp_dir}/done_reading" \
-        || rm -f "${tmp_dir}/done_reading"
+    if ((read_iter < argc))
+    then
+        echo 0 > "${tmp_dir}/done_reading"
+    else
+        echo 1 > "${tmp_dir}/done_reading"
+    fi
+    echo 0 > "${tmp_dir}/read_lock"
 }
 
 ######################################################################
@@ -785,10 +793,6 @@ show_batch() {
 ######################################################################
 compute_batch() {
     local input="$1"
-    old_fit_vertical="$fit_vertical"
-    old_fit_horizontal="$fit_horizontal"
-    new_fit_vertical="$fit_vertical"
-    new_fit_horizontal="$fit_horizontal"
     if [[ -z "$input" ]]
     then
         input_autocomplete="batch"
@@ -796,6 +800,8 @@ compute_batch() {
         clear_status --cmdline
         get_input
     fi
+    local read_iter
+    read -r read_iter < "${tmp_dir}/read_iter"
     case $input in
         next)
             # There exists an edge case here when $show is less that
@@ -803,34 +809,52 @@ compute_batch() {
             # This can happen when we are loading the images in the background
             # and the user has changes the batch size with the 's' option
             # right after starting up.
-            if (( start + show < total ))
+            if ((show < batch)) && ((start + show < total))
             then
-                (( new_start = start + show ))
+                : # start stays the same and we just load the rest of the images
+            elif (( start + show < total ))
+            then
+                (( start += show ))
             else
                 warning="End of files"
+                [[ "$read_iter" -lt "$argc" ]] && warning="End of loaded files"
             fi
             ;;
         last)
             (( new_start = total - ((total - 1) % batch + 1) ))
-            [[ "$new_start" -le "$start" ]] && warning="End of files"
+            if [[ "$new_start" -le "$start" ]]
+            then
+                warning="End of files"
+                [[ "$read_iter" -lt "$argc" ]] && warning="End of loaded files"
+            else
+                start="$new_start"
+            fi
             ;;
         previous)
-            [[ "$start" -eq 0 ]] && warning="Start of files"
-            (( new_start = start - batch))
-            # The below is useful in case of resizing
-            # If I am in the second of batches of 10 and the
-            # new window fits 20 then I don't want negative numbers
-            [[ "$new_start" -lt 0 ]] && new_start=0
+            if [[ "$start" -eq 0 ]]
+            then
+                warning="Start of files"
+            else
+                (( start -= batch))
+                # The below is useful in case of resizing
+                # If I am in the second of batches of 10 and the
+                # new window fits 20 then I don't want negative numbers
+                [[ "$start" -lt 0 ]] && start=0
+            fi
             ;;
         first)
-            [[ "$start" -eq 0 ]] && warning="Start of files"
-            new_start=0
+            if [[ "$start" -eq 0 ]]
+            then
+                warning="Start of files"
+            else
+                start=0
+            fi
             ;;
         *)
             [[ -n "$input" ]] && error="Unknown option: $input"
             ;;
     esac
-    [[ -z "$warning" ]] && [[ -z "$error" ]] && maybe_redraw
+    [[ -z "$warning" ]] && [[ -z "$error" ]] && redraw
     clear_sequence
     update_status
 }
@@ -1203,10 +1227,10 @@ is_natural() {
 change_dimensions() {
     [[ "$prefix" =~ ^(\*+)$ ]] && prefix=
     clear_status --cmdline
+    old_fit_vertical="$fit_vertical"
+    old_fit_horizontal="$fit_horizontal"
     if [[ -z "$prefix" ]]
     then
-        old_fit_vertical="$fit_vertical"
-        old_fit_horizontal="$fit_horizontal"
         new_fit_vertical="$fit_vertical"
         new_fit_horizontal="$fit_horizontal"
         input_prompt="Grid dimensions # "
@@ -1421,8 +1445,6 @@ maybe_redraw() {
                 (( wide_start = wide_start - wide_batch ))
             done
         fi
-        old_fit_vertical="$fit_vertical"
-        old_fit_horizontal="$fit_horizontal"
         fit_vertical="$new_fit_vertical"
         fit_horizontal="$new_fit_horizontal"
         start="$new_start"
@@ -1446,18 +1468,21 @@ set_info() {
     local lines
     local columns
     read -r lines columns < <(stty size)
+    read -r read_iter < "${tmp_dir}/read_iter"
     ((begin = start + 1))
     info=" $fit_vertical x $fit_horizontal"
+    info_total="$total"
+    ((read_iter < argc)) && info_total+=" ($((argc - read_iter)) unloaded)"
     if in_monocle
     then
         local photo_name=$(basename "${image_names[$start]}")
         [[ -n ${edits[$start]} ]] && photo_name="~ ${photo_name}"
         [[ -n ${tags[$start]} ]] && photo_name="* ${photo_name}"
-        info+=" │ $begin/$total │ ${photo_name}"
+        info+=" │ $begin/$info_total │ ${photo_name}"
     else
         local finish
         ((finish = begin + show - 1))
-        info+=" │ [$begin-$finish]/$total"
+        info+=" │ [$begin-$finish]/$info_total"
     fi
     local tlen=${#tags[@]}
     local elen=${#edits[@]}
@@ -2333,6 +2358,8 @@ change_scaler() {
 grid() {
     [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
     [[ -z "$prefix" ]] && prefix="1"
+    old_fit_vertical="$fit_vertical"
+    old_fit_horizontal="$fit_horizontal"
     local prefix_args
     IFS=" " read -r -a prefix_args <<< "$prefix"
     local type=
@@ -2484,6 +2511,26 @@ rotate_image() {
     run_edit_script "convert -rotate $degrees %in% %out%"
 }
 
+load_files() {
+    clear_status --cmdline
+    local read_lock
+    read -r read_lock < "${tmp_dir}/read_lock"
+    # Simple lock mechanism. If read_images is running then quit.
+    if [[ "$read_lock" -eq 0 ]]
+    then
+        local read_iter
+        read -r read_iter < "${tmp_dir}/read_iter"
+        if ((read_iter < argc))
+        then
+            read_target="$max_load" && read_images & # read the max possible
+        else
+            warning="All files are loaded"
+        fi
+    fi
+    clear_sequence --keep-old
+    update_status
+}
+
 clear_sequence() {
     [[ "$1" != "--keep-old" ]] && old_prefix="$prefix" && last_cmd_mapping="$mapping"
     prefix=
@@ -2514,8 +2561,14 @@ populate_arrays() {
     image_names+=("${temp_names[@]}")
     images+=("${temp[@]}")
     filehash+=("${temp_hash[@]}")
-    [[ -f "${tmp_dir}/done_reading" ]] && done_reading=1 || done_reading=0
-    total="${#images[@]}"
+    if [[ -f "${tmp_dir}/done_reading" ]]
+    then
+        read -r done_reading < "${tmp_dir}/done_reading"
+    else
+        done_reading=0
+    fi
+    local new_total="${#images[@]}"
+    [[ "$new_total" -ne "$total" ]] && total="$new_total" && update_status
 }
 
 ######################################################################
@@ -2708,17 +2761,14 @@ read_key() {
         if [[ ! "$done_reading" -eq 1 ]] && [[ ! "$exit_flag" -eq 1 ]]
         then
             populate_arrays
-            update_status
         fi
     done
 }
 
 init() {
-    calculate_dimensions
-    show_batch
     clear_screen
+    redraw
     update_status
-    update_names
     read_key
 }
 
@@ -2746,6 +2796,9 @@ do
     stty -echo
     unset start #make sure that start is not set, makes check in read_images
     (( first_batch = fit_vertical * fit_horizontal ))
+    echo 0 > "${tmp_dir}/read_iter"
+    echo 0 > "${tmp_dir}/read_lock"
+    read_iter=0
     read_target="$first_batch" && read_images
     populate_arrays
     if [[ "$total" -eq 1 ]]
@@ -2757,7 +2810,8 @@ do
         wide_vertical=1
         wide_horizontal=1
     fi
-    unset read_target && read_images --remaining &
+    read -r read_iter < "${tmp_dir}/read_iter"
+    read_target="$max_load" && read_images & # read the max possible
     background_pid="$!"
     [[ "$total" -eq 0 ]] && printf "No images to show" && stty echo && exit_clear=0 && break
     start=0

@@ -222,4 +222,10 @@ map     si
 script  set_current
 command setcurrent
 
+[]
+type    builtin
+map     <Ctrl-L>
+script  load_files
+command loadfiles
+
 # vim: ft=config
