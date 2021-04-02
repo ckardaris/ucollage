@@ -93,31 +93,73 @@ command rename
 []
 type    builtin
 map     ss
-script  change_sort
+script  change_setting --- sort
 command sort
 
 []
 type    builtin
-map     su
-script  change_scaler
-command scaler
+map     ]ss
+script  change_setting --- sort --cycle-next
+command set
 
 []
 type    builtin
-map     tn
-script  toggle---names
+map     [ss
+script  change_setting --- sort --cycle-previous
+command set
+
+[]
+type    builtin
+map     su
+script  change_setting --- scaler
+command set
+
+[]
+type    builtin
+map     ]su
+script  change_setting --- scaler --cycle-next
+command set
+
+[]
+type    builtin
+map     [su
+script  change_setting --- scaler --cycle-previous
+command set
+
+[]
+type    builtin
+map     sf
+script  change_setting --- fileinfo
+command set
+
+[]
+type    builtin
+map     ]sf
+script  change_setting --- fileinfo --cycle-next
+command set
+
+[]
+type    builtin
+map     [sf
+script  change_setting --- fileinfo --cycle-previous
+command set
+
+[]
+type    builtin
+map     tf
+script  toggle --- fileinfo
 command toggle
 
 []
 type    builtin
 map     tr
-script  toggle---reverse
+script  toggle --- reverse
 command toggle
 
 []
 type    builtin
 map     tp
-script  toggle---prompt
+script  toggle --- prompt
 command toggle
 
 []
@@ -129,73 +171,73 @@ command setgrid
 []
 type    builtin
 map     ++
-script  grid---increase both
+script  grid --- increase both
 command grid
 
 []
 type    builtin
 map     --
-script  grid---decrease both
+script  grid --- decrease both
 command grid
 
 []
 type    builtin
 map     +|
-script  grid---increase columns
+script  grid --- increase columns
 command grid
 
 []
 type    builtin
 map     -|
-script  grid---decrease columns
+script  grid --- decrease columns
 command grid
 
 []
 type    builtin
 map     +_
-script  grid---increase lines
+script  grid --- increase lines
 command grid
 
 []
 type    builtin
 map     -_
-script  grid---decrease lines
+script  grid --- decrease lines
 command grid
 
 []
 type    builtin
 map     n <Ctrl-Right>
-script  compute_batch---next
+script  compute_batch --- next
 command batch
 
 []
 type    builtin
 map     N <Ctrl-Shift-Right>
-script  compute_batch---last
+script  compute_batch --- last
 command batch
 
 []
 type    builtin
 map     p <Ctrl-Left>
-script  compute_batch---previous
+script  compute_batch --- previous
 command batch
 
 []
 type    builtin
 map     P <Ctrl-Shift-Left>
-script  compute_batch---first
+script  compute_batch --- first
 command batch
 
 []
 type    builtin
 map     r
-script  rotate_image --degrees---90
+script  rotate_image --degrees --- 90
 command rotateright
 
 []
 type    builtin
 map     R
-script  rotate_image --counter --degrees---90
+script  rotate_image --counter --degrees --- 90
 command rotateleft
 
 []
@@ -227,5 +269,11 @@ type    builtin
 map     <Ctrl-L>
 script  load_files
 command loadfiles
+
+[]
+type    builtin
+map     sr
+script  rate_image
+command rate
 
 # vim: ft=config
