@@ -1938,13 +1938,23 @@ rate_image() {
     rated=0
     if get_image_index
     then
+        if [[ -n "$*" ]]
+        then
+            local rating
+            IFS=" " read -r -a rating <<< "$*"
+        fi
+        for ((i = ${#rating[@]}; i < index_count; i++))
+        do
+            rating[$i]=${rating[$((${#rating[@]} - 1))]}
+        done
+
         for (( mi = 0; mi < index_count; mi++))
         do
             local ind=${image_index[$mi]}
             clear_status --cmdline
-            if [[ -n "$1" ]]
+            if [[ -n "${rating[$mi]}" ]]
             then
-                input="$1"
+                input="${rating[$mi]}"
             else
                 local input_prompt="Rating"
                 [[ "$index_count" -gt 1 ]] && input_prompt+=" for [$((ind + 1))]"
@@ -2091,11 +2101,16 @@ rename() {
         do
             local ind=${image_index[$mv_i]}
             clear_status --cmdline
+            local input=
             local input_prompt="New name"
             [[ "$index_count" -gt 1 ]] && input_prompt+=" for [$((ind + 1))]"
+            [[ "$index_count" -eq 1 ]] && local input="$1"
             input_prompt+=": "
             local input_left="${image_names[$ind]}"
-            ! get_input && continue
+            if [[ -z "$input" ]]
+            then
+                ! get_input && continue
+            fi
             if [[ "${image_names[$ind]}" == "$input" ]]
             then
                 error="New name has to be different"
