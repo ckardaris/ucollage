@@ -93,116 +93,80 @@ command rename
 []
 type    builtin
 map     ss
-script  change_setting --- sort
-command set
-
-[]
-type    builtin
-map     ]ss
-script  change_setting --- sort --cycle-next
-command set
-
-[]
-type    builtin
-map     [ss
-script  change_setting --- sort --cycle-previous
+script  command_mode "set sort="
 command set
 
 []
 type    builtin
 map     su
-script  change_setting --- scaler
+script  command_mode "1et scaler="
 command set
 
 []
 type    builtin
-map     ]su
-script  change_setting --- scaler --cycle-next
-command set
-
-[]
-type    builtin
-map     [su
-script  change_setting --- scaler --cycle-previous
-command set
-
-[]
-type    builtin
-map     si
-script  change_setting --- fileinfo
-command set
-
-[]
-type    builtin
-map     ]si
-script  change_setting --- fileinfo --cycle-next
-command set
-
-[]
-type    builtin
-map     [si
-script  change_setting --- fileinfo --cycle-previous
+map     sf
+script  command_mode "set fileinfo="
 command set
 
 []
 type    builtin
 map     tf
-script  toggle --- fileinfo
-command toggle
+script  _set --- showfileinfo!
+command set
 
 []
 type    builtin
 map     tr
-script  toggle --- reverse
-command toggle
+script  _set --- reverse!
+command set
 
 []
 type    builtin
 map     tp
-script  toggle --- prompt
-command toggle
+script  _set --- execprompt!
+command set
 
 []
 type    builtin
 map     sg
-script  change_dimensions
-command setgrid
+script  command_mode "set gridlines= gridcolumns="
+command set
 
 []
 type    builtin
 map     ++
-script  grid --- increase both
-command grid
+script  _set --- gridlines+=1 gridcolumns+=1
+command set
 
 []
 type    builtin
 map     --
-script  grid --- decrease both
-command grid
+script  _set --- gridlines-=1 gridcolumns-=1
+command set
 
 []
 type    builtin
 map     +|
-script  grid --- increase columns
-command grid
+script  _set --- gridcolumns+=1
+command set
 
 []
 type    builtin
 map     -|
-script  grid --- decrease columns
-command grid
+script  _set --- gridcolumns-=1
+command set
 
 []
 type    builtin
 map     +_
-script  grid --- increase lines
-command grid
+script  _set --- gridlines+=1
+command set
 
 []
 type    builtin
 map     -_
-script  grid --- decrease lines
-command grid
+script  _set --- gridlines-=1
+command set
 
 []
 type    builtin
@@ -260,7 +224,7 @@ command !%
 
 []
 type    builtin
-map     sc
+map     si
 script  set_current
 command <NONE>
 

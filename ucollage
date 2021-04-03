@@ -2,16 +2,67 @@
 shopt -s extglob
 declare -A map_cmd
 declare -A colon_cmd
+declare -A optiontype=(\
+    [execprompt]="boolean"
+    [showfileinfo]="boolean"
+    [reverse]="boolean"
+    [scaler]="enum"
+    [sort]="enum"
+    [fileinfo]="enum"
+    [gridcolumns]="number"
+    [gridlines]="number"
+    [maxload]="number"
+)
+
 declare -A wdlist=(\
+    [batch]="previous next first last"
+    [rate]="0 1 2 3 4 5"
+    [set]="${!optiontype[*]}"
+    [no]="showfileinfo execprompt reverse"
+    [inv]="showfileinfo execprompt reverse"
+)
+
+declare -A enumoptvalue=(\
     [scaler]="crop distort fit_contain contain forced_cover cover"
     [sort]="name time size extension"
-    [toggle]="fileinfo prompt reverse"
-    [batch]="previous next first last"
-    [grid]="increase decrease lines columns both"
-    [rate]="0 1 2 3 4 5"
     [fileinfo]="names ratings"
-    [set]="scaler sort fileinfo"
 )
+for key in ${!enumoptvalue[*]}
+do
+    wdlist[$key=]="${enumoptvalue[$key]}"
+done
+
+declare -A optdefault=(\
+    [execprompt]="execprompt"
+    [showfileinfo]="showfileinfo"
+    [reverse]="noreverse"
+    [scaler]="contain"
+    [sort]="time"
+    [fileinfo]="names"
+    [gridcolumns]=3
+    [gridlines]=3
+    [maxload]=1000
+)
+
+declare -A optupdate=(\
+    [execprompt]="message+=\${optcurrent[execprompt]}"
+    [showfileinfo]="redraw"
+    [reverse]="update_reverse"
+    [scaler]="show_batch"
+    [sort]="break_flag=1"
+    [fileinfo]="update_fileinfo"
+    [gridcolumns]="redraw"
+    [gridlines]="redraw"
+    [maxload]=""
+)
+declare -A optcurrent
+### copy default to current
+for key in "${!optdefault[@]}"
+do
+    optcurrent[$key]="${optdefault[$key]}"
+done
+unset key
+###
 
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
 CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
@@ -128,7 +179,7 @@ set_scripts(){
         echo "Error: Default mappings and commands not found"
         echo "Location: $CONFIG_DEFAULT"
         echo "--------------------"
-        read
+        read -rsN1
         mapfile -t file_data < "$CONFIG_SCRIPTS_FILE"
     else
         mapfile -t file_data < "$CONFIG_DEFAULT"
@@ -216,7 +267,7 @@ set_scripts(){
             ((i += 4))
         fi
     done
-    [[ "$errors" -eq 1 ]] && read
+    [[ "$errors" -eq 1 ]] && read -rsN1
 }
 
 check_config_variable() {
@@ -252,13 +303,13 @@ parse_config() {
     check_config_variable
 
     variable_name="UCOLLAGE_EXEC_PROMPT"
-    accept_regexp="^(0|1)$"
-    valid_values="0, 1"
+    accept_regexp="^(no|)execprompt$"
+    valid_values="noexecprompt, execprompt"
     check_config_variable
 
     variable_name="UCOLLAGE_SHOW_FILEINFO"
-    accept_regexp="^(0|1)$"
-    valid_values="0, 1"
+    accept_regexp="^(no|)showfileinfo$"
+    valid_values="noshowfileinfo, showfileinfo"
     check_config_variable
 
     variable_name="UCOLLAGE_FILEINFO"
@@ -277,8 +328,8 @@ parse_config() {
     check_config_variable
 
     variable_name="UCOLLAGE_SORT_REVERSE"
-    accept_regexp="^(0|1)$"
-    valid_values="0, 1"
+    accept_regexp="^(no|)reverse$"
+    valid_values="noreverse, reverse"
     check_config_variable
 
     variable_name="UCOLLAGE_SCALER"
@@ -310,35 +361,32 @@ parse_config() {
 }
 
 set_defaults() {
-    fit_vertical=${UCOLLAGE_LINES:-3}
-    fit_horizontal=${UCOLLAGE_COLUMNS:-4}
-    max_fit_vertical="${UCOLLAGE_MAX_LINES:-20}"
-    max_fit_horizontal="${UCOLLAGE_MAX_COLUMNS:-20}"
-    wide_vertical="$fit_vertical"
-    wide_horizontal="$fit_horizontal"
-    wide_current=1
-    old_fit_vertical="$fit_vertical"
-    old_fit_horizontal="$fit_horizontal"
+    optcurrent[gridlines]=${UCOLLAGE_LINES:-${optdefault[gridlines]}}
+    optcurrent[gridcolumns]=${UCOLLAGE_COLUMNS:-${optdefault[gridcolumns]}}
+    wide_vertical="${optcurrent[gridlines]}"
+    wide_horizontal="${optcurrent[gridcolumns]}"
     tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
     cache_dir=${UCOLLAGE_CACHE_DIR:-~/.local/share/ucollage}
     trash_dir=${UCOLLAGE_TRASH_DIR:-~/.local/share/Trash/ucollage}
-    exec_prompt=${UCOLLAGE_EXEC_PROMPT:-0}
-    show_fileinfo=${UCOLLAGE_SHOW_FILEINFO:-1}
-    fileinfo=${UCOLLAGE_FILEINFO:-names}
+    optcurrent[execprompt]=${UCOLLAGE_EXEC_PROMPT:-${optdefault[execprompt]}}
+    optcurrent[showfileinfo]=${UCOLLAGE_SHOW_FILEINFO:-${optdefault[showfileinfo]}}
+    optcurrent[fileinfo]=${UCOLLAGE_FILEINFO:-${optdefault[fileinfo]}}
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-ask}
-    sort=${UCOLLAGE_SORT:-name}
-    sort_reverse=${UCOLLAGE_SORT_REVERSE:-0}
-    scaler=${UCOLLAGE_SCALER:-contain}
+    optcurrent[sort]=${UCOLLAGE_SORT:-${optdefault[sort]}}
+    optcurrent[reverse]=${UCOLLAGE_SORT_REVERSE:-${optdefault[reverse]}}
+    optcurrent[scaler]=${UCOLLAGE_SCALER:-${optdefault[scaler]}}
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
-    max_load=${UCOLLAGE_MAX_LOAD:-1000}
+    optcurrent[maxload]=${UCOLLAGE_MAX_LOAD:-${optdefault[maxload]}}
     leader=${UCOLLAGE_LEADER:-\\}
     error=""
     warning=""
     success=""
+    message=""
     prefix=""
     exit_clear=1
+    previous_batch=0
 }
 
 help(){
@@ -416,27 +464,16 @@ check_dependencies() {
             echo "Optional dependency not installed: ${dep[$dependency]}"
         fi
     done
-    [[ "$errors" -eq 1 ]] && read -sN1
+    [[ "$errors" -eq 1 ]] && read -rsN1
 }
 
 ######################################################################
 # Create filelist
-# Uses:
-#   sort
-#   sort_reverse
-#   expand_dirs
-# Modifies:
-#   filelist
-#   image_names
-#   images
-#   argc
-# Arguments:
-#   $@              command line arguments
 ######################################################################
 read_filenames() {
     local ls_args="-d"
-    [[ "$sort_reverse" -eq 1 ]] && ls_args+=" -r"
-    case "$sort" in
+    [[ "${optcurrent[reverse]}" == "reverse" ]] && ls_args+=" -r"
+    case "${optcurrent[sort]}" in
         "time")
             ls_args+=" -t"
             ;;
@@ -483,15 +520,6 @@ read_filenames() {
 
 ######################################################################
 # Search for thumbnail of file in cache directory
-# Uses:
-#   file
-#   cache_dir
-# Modifies:
-#   thumbnail_file
-#   cache_name
-# Return:
-#   0 thumbnail file was found
-#   1 thumbnail file was not found
 ######################################################################
 find_thumbnail() {
     cache_name="${cache_dir}/thumbnails/${hash}.jpg"
@@ -501,12 +529,6 @@ find_thumbnail() {
 
 ######################################################################
 # Create thumbnail for file
-# Uses:
-#   file
-#   tmp_dir
-#   thumbnail_width
-# Modifies:
-#   thumbnail_file
 ######################################################################
 create_thumbnail() {
     local time_point
@@ -541,34 +563,16 @@ is_video() {
 }
 ######################################################################
 # Parses filelist and filters supported filetypes
-# Uses:
-#   filelist
-#   read_iter       number of files already parsed
-#   read_target     maximum number of files to parse
-#   argc            total number of files given as arguments
-#   tmp_dir
-#   thumbnail_file
-#   video_thumbnails
-#   cache_thumbnails
-#   cache_name
-#   start
-# Modifies:
-#   read_iter
-# Outputs:
-#   appends file names into the file ${tmp_dir}/image_names.txt
-#   appends the image names corresponding to the above into the file ${tmp_dir}/images.txt
-#   writes file ${tmp_dir}/done_reading
-#   prints a dot for every file with unsupported type if the user interface is not yet up
 ######################################################################
 read_images() {
     echo 1 > "${tmp_dir}/read_lock"
     local readc=0
     local loadc=0
     local thumbnail_file
-    while (( readc < read_target )) && (( read_iter < argc )) && ((loadc < max_load))
+    while (( readc < read_target )) && (( read_iter < argc )) && ((loadc < optcurrent[maxload]))
     do
         local file=${filelist[$read_iter]}
-        read -d ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+        read -rd ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
         if is_image "$file"
         then
             echo "$file" >> "${tmp_dir}/image_names.txt"
@@ -651,12 +655,6 @@ show_cursor() {
 
 ######################################################################
 # Starts the ueberzug daemon
-# Uses:
-#   tmp_dir
-# Modifies:
-#   fifo
-# Outputs:
-#   creates the fifo file
 ######################################################################
 start_daemon() {
     fifo="${tmp_dir}/fifo"
@@ -677,41 +675,27 @@ stop_daemon() {
 
 ######################################################################
 # Calculates the parameters for the current view
-# Uses:
-#   fit_vertical
-#   fit_horizontal
-#   start
-# Modifies:
-#   photo_columns
-#   photo_lines
-#   batch
-#   show
 ######################################################################
 calculate_dimensions() {
     local lines
     local columns
     read -r lines columns < <(stty size)
-    (( batch = fit_horizontal * fit_vertical ))
-    if [[ "$show_fileinfo" -eq 1 ]] && [[ "$batch" -gt 1 ]]
+    (( batch = optcurrent[gridcolumns] * optcurrent[gridlines] ))
+    if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$batch" -gt 1 ]]
     then
-        (( photo_columns = (columns - 2) / fit_horizontal ))
-        (( photo_lines = (lines - 4) / fit_vertical ))
+        (( photo_columns = (columns - 2) / optcurrent[gridcolumns] ))
+        (( photo_lines = (lines - 4) / optcurrent[gridlines] ))
     else
-        (( photo_columns = columns / fit_horizontal ))
-        (( photo_lines = (lines - 3) / fit_vertical ))
+        (( photo_columns = columns / optcurrent[gridcolumns] ))
+        (( photo_lines = (lines - 3) / optcurrent[gridlines] ))
     fi
     (( show = total - start ))
     [[ "$show" -gt "$batch" ]] && show="$batch"
-    [[ "$current" -gt "$show" ]] && current="$show"
+    [[ "$current" -ge "$show" ]] && ((current = show - 1))
 }
 
 ######################################################################
-# Pads strings with filenames to fit into the given column width
-# Uses:
-#   current_name
-#   photo_columns
-# Modifies:
-#   current_name
+# Pads strings with fileinfo to fit into the given column width
 ######################################################################
 pad_sides() {
     local leftpad
@@ -731,28 +715,17 @@ pad_sides() {
 
 ######################################################################
 # Draws the current batch of images on the screen
-# Uses:
-#   show
-#   show_fileinfo
-#   fit_vertical
-#   fit_horizontal
-#   start
-#   images
-#   scaler
-#   fifo
 ######################################################################
 show_batch() {
-    local cnt=0
+    local counter
     local draw_lines
     local i
     local j
-    local limit_i
-    local limit_j
     local index
     local posx
     local posy
     [[ "$show" -lt 1 ]] && return
-    if [[ "$show_fileinfo" -eq 1 ]] && [[ "$show" -gt 1 ]]
+    if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$show" -gt 1 ]]
     then
         # Substracting 3 lines is a hack. The names can be printed in
         # two lines, but ueberzug is not exact in its drawing on the
@@ -762,51 +735,43 @@ show_batch() {
     else
         draw_lines="$photo_lines"
     fi
-    (( limit_i = old_fit_vertical > fit_vertical ? old_fit_vertical : fit_vertical ))
-    (( limit_j = old_fit_horizontal > fit_horizontal ? old_fit_horizontal : fit_horizontal ))
-    for (( i = 0; i < limit_i; i++ ))
+
+    for ((i = optcurrent[gridlines] * optcurrent[gridcolumns]; i < previous_batch; i++))
     do
-        for (( j = 0; j < limit_j; j++))
+        assoc=([action]=remove [identifier]="ucollage$i")
+        declare -p assoc > "$fifo"
+    done
+    for ((i = 0; i < optcurrent[gridlines]; i++ ))
+
+    do
+        for ((j = 0; j < optcurrent[gridcolumns]; j++))
         do
-            if (( i < fit_vertical && j < fit_horizontal))
+            ((counter = i * optcurrent[gridcolumns] + j))
+            ((index = start + counter))
+            if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$batch" -gt 1 ]]
             then
-                (( index = start + i * fit_horizontal + j))
-                if [[ "$show_fileinfo" -eq 1 ]] && [[ "$batch" -gt 1 ]]
-                then
-                    (( posx = 1 + j * photo_columns))
-                    (( posy = 4 + i * photo_lines))
-                else
-                    (( posx = j * photo_columns))
-                    (( posy = 3 + i * photo_lines))
-                fi
-                assoc=( [action]=add \
-                        [identifier]="${fifo}${i}${j}" \
-                        [path]="${images[$index]}" \
-                        [width]="$photo_columns" \
-                        [height]="$draw_lines" \
-                        [x]="$posx" \
-                        [y]="$posy" \
-                        [scaler]="$scaler" )
+                (( posx = 1 + j * photo_columns))
+                (( posy = 4 + i * photo_lines))
             else
-                assoc=( [action]=remove \
-                        [identifier]="${fifo}${i}${j}" )
+                (( posx = j * photo_columns))
+                (( posy = 3 + i * photo_lines))
             fi
+            assoc=([action]=add
+                   [identifier]="ucollage$counter"
+                   [path]="${images[$index]}"
+                   [width]="$photo_columns"
+                   [height]="$draw_lines"
+                   [x]="$posx"
+                   [y]="$posy"
+                   [scaler]="${optcurrent[scaler]}")
             declare -p assoc > "$fifo"
         done
     done
+    (( previous_batch = optcurrent[gridlines] * optcurrent[gridcolumns]))
 }
 
 ######################################################################
 # Modifies the parameters needed to show another batch
-# Uses:
-#   start
-#   show
-# Modifies:
-#   new_start
-#   warning
-# Return:
-#   0               new batch is different than the current
-#   1               new batch is the same as the current
 ######################################################################
 compute_batch() {
     local input="$1"
@@ -878,14 +843,6 @@ compute_batch() {
 
 ######################################################################
 # Calculates the next suggestion from the autocomplete array
-# Uses:
-#   autocomplete
-#   suggestion_count
-# Modifies:
-#   suggestion_index
-#   suggestion
-# Arguments:
-#   $1              prev or next, depending on the direction we are cycling
 ######################################################################
 set_suggestion() {
     # if suggestion count is 2 then that means that there is only one suggestion
@@ -904,12 +861,6 @@ set_suggestion() {
 
 ######################################################################
 # Saves the suggestion as input and clears everything related to autocomplete
-# Uses:
-#   suggestion
-# Modifies:
-#   left
-#   suggestion
-#   autocomplete
 ######################################################################
 clear_suggestions() {
     [[ -z "$suggestion" ]] && return
@@ -932,32 +883,18 @@ clear_history() {
 ######################################################################
 # Escapes special characters in filenames in order to not have a problem
 # with command execution. Should be used like var=$(escape_name "$var")
-# Arguments:
-#   $1              The name we want to escape chars for
-# Outputs:
-#   $2              Prints the updated name
 ######################################################################
 escape_name() {
-    local name="$1"
+    local -n name="$1"
     name="${name// /\\ }"
     name="${name//\(/\\\(}"
     name="${name//\)/\\\)}"
     name="${name//\{/\\\{}"
     name="${name//\}/\\\}}"
-    printf "%s" "$name"
 }
 
 ######################################################################
 # Creates the automplete array based on the autocomplete type we want
-# Uses:
-#   left
-# Modifies:
-#   autocomplete
-# Arguments:
-#   $1              autocomplete type: command, file, etc.
-# Return:
-#   0               if autocomplete array was created
-#   1               if array was not created for any reason
 ######################################################################
 create_suggestions() {
     local files=0
@@ -969,8 +906,47 @@ create_suggestions() {
     IFS=" " read -r -a split_left <<< "$input_left"
     #this trick also determines the way i handle the prefix in command mode
     #i add a space after the parenthesis so that the command is its own word
-    [[ "${input_left: -1}" == " " ]] && split_left+=("") 
+    local last_word=${split_left[-1]}
+    local merge=0
     #we do that so that a space confirms a suggestion
+    [[ "${input_left: -1}" == " " ]] && split_left+=("") 
+    if [[ -n "${wdlist[$last_word]}" ]] && [[ ${last_word: -1} == "=" ]]
+    then
+        split_left+=("") 
+        merge=1
+    elif [[ ${split_left[$((len-1))]} =~ ^(no|inv)$ ]]
+    then
+        split_left+=("") 
+        merge=1
+    fi
+    if [[ "$last_word" =~ =.+ ]]
+    then
+        local possible="${last_word%%=*}="
+        if [[ -n "${wdlist[$possible]}" ]]
+        then
+            split_left[-1]="$possible"
+            split_left+=("${last_word#*=}")
+            merge=1
+        fi
+    elif [[ "$last_word" =~ ^no.+ ]]
+    then
+        possible="${last_word%%o*}o"
+        if [[ -n "${wdlist[$possible]}" ]]
+        then
+            split_left[-1]="$possible"
+            split_left+=("${last_word#no}")
+            merge=1
+        fi
+    elif [[ "$last_word" =~ ^inv.+ ]]
+    then
+        possible="${last_word%%v*}v"
+        if [[ -n "${wdlist[$possible]}" ]]
+        then
+            split_left[-1]="$possible"
+            split_left+=("${last_word#inv}")
+            merge=1
+        fi
+    fi
     if [[ "${#split_left[@]}" -eq 0 ]]
     then
         local word=
@@ -1027,9 +1003,19 @@ create_suggestions() {
     do
         if [[ "$files" -eq 1 ]] #only escape filenames
         then
-            autocomplete[$i]=$(escape_name "${autocomplete[$i]}")
+            escape_name autocomplete[$i]
         fi
-        [[ "${#split_left[@]}" -gt 0 ]] && autocomplete[$i]="${split_left[*]} ${autocomplete[$i]}"
+
+        local len="${#split_left[@]}"
+        if [[ "$len" -gt 0 ]]
+        then
+            if [[ "$merge" -eq 1 ]]
+            then
+                autocomplete[$i]="${split_left[*]}${autocomplete[$i]}"
+            else
+                autocomplete[$i]="${split_left[*]} ${autocomplete[$i]}"
+            fi
+        fi
         (( i += 1 ))
     done
     suggestion_index=0
@@ -1039,38 +1025,22 @@ create_suggestions() {
 
 ######################################################################
 # Gets input from the user
-# Modifies:
-#   input
-# Arguments:
-#   $1              text to show as prompt
-#   $2              text to have already in the input line
-#   $3              suggestion type (command, file, etc.)
-# Outputs:
-#   None
-# Return:
-#   0               if input is meaningful
-#   1               if input is not meaningful
 ######################################################################
 get_input() {
     local move=""
     local suggestion
     local suggestion_index
     local suggestion_count
-    local char
-    local k1
-    local k2
-    local k3
-    local k4
-    local k5
-    local k6
     local cmd_history=()
     local cmd_history_index
     local input_history
+    local stop
     clear_status --cmdline
     printf "\e[?25h%s\e7" "$input_prompt"
     while [[ "$exit_flag" -eq 0 ]]
     do
         printf "\e8\e[K"
+        input_right="${input_right%%*( )}"
         [[ -n "$input_right" ]] && move="\e[${#input_right}D" || move=
         if [[ -n "$suggestion" ]]
         then
@@ -1081,14 +1051,12 @@ get_input() {
         else
             printf "%s%s$move" "$input_left" "$input_right"
         fi
-        read -rsN1 -t 0.01 char &>/dev/null
-        read -rsN1 -t 0.0001 k1 &>/dev/null
-        read -rsN1 -t 0.0001 k2 &>/dev/null
-        read -rsN1 -t 0.0001 k3 &>/dev/null
-        read -rsN1 -t 0.0001 k4 &>/dev/null
-        read -rsN1 -t 0.0001 k5 &>/dev/null
-        read -rsN1 -t 0.0001 k6 &>/dev/null
-        local key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
+        local key=
+        local char
+        while read -rsN1 -t 0.01 char &>/dev/null
+        do
+            key+="$char"
+        done
         [[ -z "$key" ]] && continue
         case "$key" in
             $'\e[A') #up arrow press
@@ -1115,6 +1083,15 @@ get_input() {
                     input_history=${cmd_history[$cmd_history_index]}
                 fi
                 ;;
+            $'\e[C') #right arrow press
+                clear_suggestions
+                clear_history
+                if [[ -n "$input_right" ]]
+                then
+                    input_left="$input_left${input_right:0:1}"
+                    input_right="${input_right:1}"
+                fi
+                ;;
             $'\e[D') #left arrow press
                 clear_suggestions
                 clear_history
@@ -1124,14 +1101,27 @@ get_input() {
                     input_left="${input_left:0:-1}"
                 fi
                 ;;
-            $'\e[C') #right arrow press
+            $'\e[1;5C') #Ctrl + right arrow press
+                # we have to stop at next non-alnum character
                 clear_suggestions
                 clear_history
-                if [[ -n "$input_right" ]]
+                stop=${input_right##*([^[:alnum:]])*([[:alnum:]])}
+                if [[ -z "$stop" ]]
                 then
-                    input_left="$input_left${input_right:0:1}"
-                    input_right="${input_right:1}"
+                    input_left+="$input_right"
+                    input_right=
+                else
+                    input_left+="${input_right:0: -${#stop}}"
+                    input_right=${input_right: -${#stop}}
                 fi
+                ;;
+            $'\e[1;5D') #Ctrl + left arrow press
+                # we have at the first alnum of the last alnum sequence
+                clear_suggestions
+                clear_history
+                stop=${input_left%%*([[:alnum:]])*([^[:alnum:]])}
+                input_right="${input_left:${#stop}}${input_right}"
+                input_left="${stop}"
                 ;;
             $'\e[H'|$'\e[1~') #Home
                 clear_suggestions
@@ -1201,55 +1191,7 @@ is_natural() {
 }
 
 ######################################################################
-# Ask the user to set the grid size
-# Uses:
-#   fit_vertical
-#   fit_horizontal
-# Modifies:
-#   new_fit_vertical
-#   new_fit_horizontal
-######################################################################
-change_dimensions() {
-    [[ "$prefix" =~ ^(\*+)$ ]] && prefix=
-    clear_status --cmdline
-    old_fit_vertical="$fit_vertical"
-    old_fit_horizontal="$fit_horizontal"
-    if [[ -z "$prefix" ]]
-    then
-        new_fit_vertical="$fit_vertical"
-        new_fit_horizontal="$fit_horizontal"
-        input_prompt="Grid dimensions # "
-        if get_input
-        then
-            local fit
-            IFS=" " read -r -a fit <<< "$input"
-            if ! is_natural "${fit[0]}"
-            then
-                error="NaN: ${fit[0]}"
-            elif ! is_natural "${fit[1]}"
-            then
-                error="Nan: ${fit[1]}"
-            else
-                [[ ! "${fit[0]}" -eq "$fit_vertical" ]] && (( new_fit_vertical = fit[0] ))
-                [[ ! "${fit[1]}" -eq "$fit_horizontal" ]] && (( new_fit_horizontal = fit[1] ))
-            fi
-        fi
-    else
-        local prefix_args
-        IFS=" " read -r -a prefix_args <<< "$prefix"
-        (( new_fit_vertical = prefix_args[0] ))
-        (( new_fit_horizontal = prefix_args[1] ))
-    fi
-    new_start="$start"
-    maybe_redraw
-    clear_sequence
-    update_status
-}
-
-######################################################################
 # Draws filenames under the images on the screen
-# Uses:
-#   line_names
 ######################################################################
 print_names() {
     local lines
@@ -1292,23 +1234,10 @@ set_stars() {
 }
 
 ######################################################################
-# Update the filenames to account for batch changes or file renaming
-# Uses:
-#   show_fileinfo
-#   fit_vertical
-#   fit_horizontal
-#   start
-#   show
-#   image_names
-#   photo_columns
-# Modifies:
-#   line_names
-# Return:
-#   0               if fileinfo where modified
-#   1               if the function is unnecessary in a context
+# Update the fileinfo to account for batch changes, file renaming or rating
 ######################################################################
-modify_names() {
-    [[ "$show_fileinfo" -eq 0 ]] || [[ "$batch" -eq 1 ]] && return 1
+modify_fileinfo() {
+    [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] || [[ "$batch" -eq 1 ]] && return 1
     local lines
     local columns
     line_names=()
@@ -1317,7 +1246,7 @@ modify_names() {
     local total_lines
     read -r lines columns < <(stty size)
 
-    (( total_lines = (show - 1) / fit_horizontal + 1))
+    (( total_lines = (show - 1) / optcurrent[gridcolumns] + 1))
     line_names[0]="┌"
     line_names[$((total_lines * photo_lines))]="└"
     for ((j = 1; j < columns - 1; j++))
@@ -1345,13 +1274,13 @@ modify_names() {
             line_names[$i]="│"
             local row
             ((row = (i - 1) / photo_lines))
-            for ((j = 0; j < fit_horizontal; j++, cnt++))
+            for ((j = 0; j < optcurrent[gridcolumns]; j++, cnt++))
             do
-                (( index = start + row * fit_horizontal + j))
+                (( index = start + row * optcurrent[gridcolumns] + j))
                 if [[ "$cnt" -lt "$show" ]]
                 then
                     local current_name="$((index + 1 - start)): "
-                    case "$fileinfo" in
+                    case "${optcurrent[fileinfo]}" in
                         "ratings")
                             local stars
                             set_stars stars "$index"
@@ -1366,7 +1295,7 @@ modify_names() {
                     (( max_length = photo_columns - 2 ))
                     current_name=${current_name:0:$max_length}
                     local namelength="${#current_name}"
-                    if (( index + 1 - start == current))
+                    if (( index - start == current))
                     then
                         current_name="\e[7m$current_name\e[m"
                         current_in_line=1
@@ -1407,7 +1336,7 @@ modify_names() {
 
 update_fileinfo() {
     local line_names
-    modify_names && print_names || clear_names
+    modify_fileinfo && print_names || clear_names
 }
 
 redraw() {
@@ -1417,73 +1346,7 @@ redraw() {
 }
 
 ######################################################################
-# Checks whether a redraw is necessary
-# Uses:
-#   new_fit_vertical
-#   new_fit_horizontal
-#   new_start
-#   fit_vertical
-#   fit_horizontal
-#   start
-#   batch
-# Modifies:
-#   wide_vertical
-#   wide_horizontal
-#   wide_start
-#   fit_vertical
-#   fit_horizontal
-#   start
-######################################################################
-maybe_redraw() {
-    local lines
-    local columns
-    read -r lines columns < <(stty size)
-    if (( new_fit_vertical != fit_vertical )) \
-        || (( new_fit_horizontal != fit_horizontal )) \
-        || (( new_start != start ))
-    then
-        (( new_fit_vertical > max_fit_vertical )) && \
-            error="Maximum number of lines set to $max_fit_vertical" && return
-        (( new_fit_vertical < 1 )) && return
-        (( new_fit_horizontal > max_fit_horizontal )) && \
-            error="Maximum number of columns set to $max_fit_vertical" && return
-        (( new_fit_horizontal < 1 )) && return
-        if [[ "$new_fit_vertical" -eq 1 && "$new_fit_horizontal" -eq 1 && "$batch" -gt 1 ]]
-        then
-            wide_vertical="$fit_vertical"
-            wide_horizontal="$fit_horizontal"
-            wide_start="$start"
-            wide_current="$current"
-        fi
-        (( wide_batch = wide_vertical * wide_horizontal ))
-        if [[ "$wide_batch" -gt 0 ]]
-        then
-            while (( new_start >= wide_start + wide_batch ))
-            do
-                (( wide_start = wide_start + wide_batch ))
-            done
-            while (( new_start < wide_start ))
-            do
-                (( wide_start = wide_start - wide_batch ))
-            done
-        fi
-        fit_vertical="$new_fit_vertical"
-        fit_horizontal="$new_fit_horizontal"
-        start="$new_start"
-        redraw
-    fi
-}
-
-######################################################################
 # Set information relating to the current view
-# Uses:
-#   fit_vertical
-#   fit_horizontal
-#   start
-#   image_names
-#   prefix
-# Modifies:
-#   info
 ######################################################################
 set_info() {
     local begin
@@ -1492,12 +1355,13 @@ set_info() {
     read -r lines columns < <(stty size)
     read -r read_iter < "${tmp_dir}/read_iter"
     ((begin = start + 1))
-    info=" $fit_vertical x $fit_horizontal"
+    info=" ${optcurrent[gridlines]} x ${optcurrent[gridcolumns]}"
     info_total="$total"
     ((read_iter < argc)) && info_total+=" ($((argc - read_iter)) unloaded)"
     if in_monocle
     then
-        local photo_name=$(basename "${image_names[$start]}")
+        local photo_name
+        photo_name=$(basename "${image_names[$start]}")
         [[ -n ${edits[$start]} ]] && photo_name="~ ${photo_name}"
         [[ -n ${tags[$start]} ]] && photo_name="* ${photo_name}"
         info+=" │ $begin/$info_total │ ${photo_name}"
@@ -1514,7 +1378,8 @@ set_info() {
     [[ "$tlen" -gt 0 ]] && info+=" │ * ${tlen}"
     [[ "$elen" -gt 0 ]] && info+=" │ ~ ${elen}"
     local sel_info=
-    [[ "$show_fileinfo" -eq 0 ]] && ! in_monocle && sel_info=" | $ $current "
+    [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] && ! in_monocle && \
+        sel_info=" | ∙ $((current + 1)) "
     local length=${#info}
     ((length += ${#sel_info}))
     local padding
@@ -1528,15 +1393,6 @@ set_info() {
 
 ######################################################################
 # Checks whether we are in monocle mode
-# Uses:
-#   batch
-# Modifies:
-#   warning
-# Arguments:
-#   $1              string to set as the beginning of warning
-# Return:
-#   0               if we are in in monocle mode
-#   1               if we are not in monocle mode
 ######################################################################
 in_monocle() {
     [[ "$batch" -eq 1 ]] && return 0 || return 1
@@ -1544,21 +1400,10 @@ in_monocle() {
 
 ######################################################################
 # Evaluate a command
-# Uses:
-#   exec_prompt
-# Modifies:
-#   error
-# Arguments:
-#   $1              message to show if confirm prompt is enabled
-#   $2              command to execute
-#   $3              message to show on successful execution
-# Return:
-#   0               if command was executed successfully
-#   1               if command failed
 ######################################################################
 eval_cmd() {
     local error
-    if [[ "$exec_prompt" -eq 1 ]]
+    if [[ "${optcurrent[execprompt]}" == "execprompt" ]]
     then
         clear_status --cmdline
         printf "%s? (Press y/Y/Enter to confirm)" "$cmd_prompt"
@@ -1575,13 +1420,6 @@ eval_cmd() {
 
 ######################################################################
 # Checks if all indices given as input are valid
-# Uses:
-#   image_index
-#   total
-#   show
-# Return:
-#   0               if all indices are valid
-#   1               if any index invalid
 ######################################################################
 valid_indices() {
     local i
@@ -1601,11 +1439,6 @@ valid_indices() {
 
 ######################################################################
 # Selects all indices given the scope
-# Uses:
-#   show
-#   total
-# Modifies:
-#   image_index
 ######################################################################
 all_indices() {
     image_index=()
@@ -1626,16 +1459,6 @@ all_indices() {
 
 ######################################################################
 # Set the image_index to operate on (array of indices)
-# Uses:
-#   prefix
-#   batch
-#   start
-#   tags
-# Modifies:
-#   image_index
-# Returns:
-#   0               if indices are ok to be used
-#   1               if an error occured (escaped input,zero count, invalid indices)
 ######################################################################
 get_image_index() {
     unset image_index
@@ -1669,7 +1492,7 @@ get_image_index() {
     then
         image_index[0]=1
     else
-        image_index[0]="$current"
+        image_index[0]="$((current + 1))"
     fi
 
     index_count=${#image_index[@]}
@@ -1691,14 +1514,6 @@ get_image_index() {
 
 ######################################################################
 # Checks whether the provided index is local to the current view
-# Uses:
-#   start
-#   show
-# Arguments:
-#   $1              the index to check
-# Return:
-#   0               if the index is local
-#   1               if the index is not local
 ######################################################################
 is_index_local() {
     local end
@@ -1711,14 +1526,6 @@ is_index_local() {
 # Checks whether the provided index corresponds to an image and not
 # another filetype, thus image_names and images need to be updated
 # together
-# Uses:
-#   image_names
-#   images
-# Arguments:
-#   $1          the index to check
-# Return:
-#   0           if the index is an image
-#   1           if the index is not an image
 ######################################################################
 parallel_update() {
     [[ "${image_names[$1]}" == "${images[$1]}" ]] && return 0 || return 1
@@ -1726,14 +1533,6 @@ parallel_update() {
 
 ######################################################################
 # Update the status line
-# Uses:
-#   warning
-#   error
-#   success
-# Modifies:
-#   status
-# Outputs:
-#   prints the status on stdout
 ######################################################################
 update_status() {
     local lines
@@ -1775,6 +1574,9 @@ update_status() {
     elif [[ -n "$warning" ]]
     then
         new_cmd_status+="\e[33m${warning}\e[m"
+    elif [[ -n "$message" ]]
+    then
+        new_cmd_status+="${message}"
     fi
     [[ ${#prefix_status} -gt 30 ]] && prefix_status=${prefix_status: -30}
     [[ ! "$mapping" =~ ^(;)$ ]] && \
@@ -1785,9 +1587,10 @@ update_status() {
         cmd_status+="$new_cmd_status"
         printf "$new_cmd_status"
     fi
-    success=""
-    error=""
-    warning=""
+    success=
+    error=
+    warning=
+    message=
 }
 
 run_use_script() {
@@ -1802,7 +1605,8 @@ run_use_script() {
         do
             local ind=${image_index[$sc_i]}
             local cmd="${script//%in%/\"${image_names[$ind]}\"}"
-            local cmd_prompt="${cmd_prompt_base}: \"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
+            local cmd_prompt
+            cmd_prompt="${cmd_prompt_base}: \"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
             eval_cmd && ((executed += 1))
         done
         if [[ "$executed" -eq 0 ]]
@@ -1822,8 +1626,8 @@ run_use_script() {
 run_edit_script() {
     clear_status --cmdline
     local script="$1"
-    local old_exec_prompt="$exec_prompt"
-    exec_prompt=0
+    local old_exec_prompt="${optcurrent[execprompt]}"
+    optcurrent[execprompt]="noexecprompt"
     local edited=0
     local non_image=0
     local sc_i
@@ -1873,7 +1677,7 @@ run_edit_script() {
             fi
         fi
     fi
-    exec_prompt="$old_exec_prompt"
+    optcurrent[execprompt]="$old_exec_prompt"
     clear_sequence
     update_status
 }
@@ -1905,7 +1709,7 @@ save_edits() {
                 images[$ind]="${image_names[$ind]}"
                 rm "${tmp_dir}/$hash".* # delete all history
                 unset edits["$ind"]
-                read -d ' ' hash < <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | xxh128sum)
+                read -rd ' ' hash < <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | xxh128sum)
                 filehash[$ind]="$hash"
                 is_index_local "$ind" && local_changes=1
             fi
@@ -1941,21 +1745,21 @@ rate_image() {
     then
         if [[ -n "$*" ]]
         then
-            local rating
-            IFS=" " read -r -a rating <<< "$*"
+            local rating_arr
+            IFS=" " read -r -a rating_arr <<< "$*"
         fi
         for ((i = ${#rating[@]}; i < index_count; i++))
         do
-            rating[$i]=${rating[$((${#rating[@]} - 1))]}
+            rating_arr[$i]=${rating_arr[-1]}
         done
 
         for (( mi = 0; mi < index_count; mi++))
         do
             local ind=${image_index[$mi]}
             clear_status --cmdline
-            if [[ -n "${rating[$mi]}" ]]
+            if [[ -n "${rating_arr[$mi]}" ]]
             then
-                input="${rating[$mi]}"
+                input="${rating_arr[$mi]}"
             else
                 local input_prompt="Rating"
                 [[ "$index_count" -gt 1 ]] && input_prompt+=" for [$((ind + 1))]"
@@ -1989,7 +1793,7 @@ rate_image() {
                 error="Rating has to be in [0-5]"
             fi
         done
-        [[ "$update" -eq 1 ]] && [[ "$fileinfo" == "ratings" ]] && update_fileinfo
+        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "ratings" ]] && update_fileinfo
     fi
     clear_sequence
     update_status
@@ -2116,13 +1920,13 @@ rename() {
             then
                 error="New name has to be different"
                 update_status
-                read -N1
+                read -rsN1
                 continue
             elif [[ -f "$input" ]]
             then
                 error="Filename exists"
                 update_status
-                read -N1
+                read -rsN1
                 continue
             fi
             local cmd="mv \"${image_names[$ind]}\" \"$input\""
@@ -2145,7 +1949,7 @@ rename() {
         else
             success="Success"
         fi
-        [[ "$update" -eq 1 ]] && [[ "$fileinfo" == "names" ]] && update_fileinfo
+        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "names" ]] && update_fileinfo
     fi
     clear_sequence
     update_status
@@ -2156,13 +1960,15 @@ goto_image() {
     [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
     if get_image_index
     then
-        ((current = image_index[0] + 1))
-        new_start="$image_index"
-        old_fit_vertical="$fit_vertical"
-        old_fit_horizontal="$fit_horizontal"
-        new_fit_vertical=1
-        new_fit_horizontal=1
-        maybe_redraw
+        if [[ "$batch" -gt 1 ]]
+        then
+            wide_vertical=${optcurrent[gridlines]}
+            wide_horizontal=${optcurrent[gridcolumns]}
+        fi
+        start="$image_index"
+        optcurrent[gridlines]=1
+        optcurrent[gridcolumns]=1
+        redraw
     fi
     clear_sequence
     update_status
@@ -2240,8 +2046,8 @@ tag_image() {
 
 edit_history() {
     clear_status --cmdline
-    old_exec_prompt="$exec_prompt"
-    exec_prompt=0
+    old_exec_prompt="${optcurrent[execprompt]}"
+    optcurrent[execprompt]="noexecprompt"
     if [[ "$1" == "--undo" ]]
     then
         local undone=0
@@ -2315,47 +2121,20 @@ edit_history() {
             fi
         fi
     fi
-    exec_prompt="$old_exec_prompt"
+    optcurrent[execprompt]="$old_exec_prompt"
     clear_sequence
     update_status
 }
 
-toggle() {
-    clear_status --cmdline
-    local input="$1"
-    if [[ -z "$input" ]]
+update_reverse(){
+    if [[ "$done_reading" -eq 1 ]]
     then
-        local input_prompt="Toggle setting # "
-        local input_autocomplete="toggle"
-        get_input
+        reverse_images
+        start=0
+        redraw
+    else # we have not read all images so we need to go from the start
+        break_flag=1
     fi
-    case "$input" in
-        "fileinfo")
-            [[ "$show_fileinfo" -eq 1 ]] && show_fileinfo=0 || show_fileinfo=1
-            redraw
-            ;;
-        "prompt")
-            [[ "$exec_prompt" -eq 1 ]] && exec_prompt=0 || exec_prompt=1
-            [[ "$exec_prompt" -eq 1 ]] && success="Confirm command execution" \
-                || warning="Don't confirm command execution"
-            ;;
-        "reverse")
-            [[ "$sort_reverse" -eq 1 ]] && sort_reverse=0 || sort_reverse=1
-            if [[ "$done_reading" -eq 1 ]]
-            then
-                reverse_images
-                start=0
-                redraw
-            else # we have not read all images so we need to go from the start
-                break_flag=1
-            fi
-            ;;
-        *)
-            [[ -n "$input" ]] && error="Unknown toggle setting: $input"
-            ;;
-    esac
-    clear_sequence
-    update_status --force
 }
 
 reverse_images(){
@@ -2378,167 +2157,284 @@ reverse_images(){
     done
 }
 
-change_setting() {
+_set() {
+    split() {
+        local -n arr="$1"
+        IFS=$'\n' read -rd "" -ra arr <<< "${2/$3/$'\n'}"
+    }
     clear_status --cmdline
-    local setting="$1"
-    local scaler_options="crop distort fit_contain contain forced_cover cover"
-    local fileinfo_options="names ratings"
-    local sort_options="name time size extension"
-
-    local scaler_update_cmd="redraw"
-    local sort_update_cmd="break_flag=1"
-    local fileinfo_update_cmd="update_fileinfo"
-    
-    if [[ -z "$1" ]]
+    local args
+    # Giving prefixes overrides command line numbers
+    local prefix_args
+    split prefix_args "$prefix" " "
+    local prefix_count=0
+    local option type value
+    local settings="$*"
+    if [[ "$settings" =~ all@ ]]
     then
-        local input_prompt="Change setting (scaler, fileinfo, sort): "
-        local input_autocomplete="set"
-        get_input
-        setting="$input"
+        settings="${!optdefault[*]}@"
+        settings=${settings// /@ }
     fi
-        
-    if [[ "$setting" =~ ^(scaler|fileinfo|sort)$ ]]
-    then
-        local input="$2"
-        local input_prompt="New $setting (options: "
-        local opt
-        local nexti
-        local previousi
-        local previous
-        local next
-        local options="${setting}_options"
-        local options_arr
-        IFS=" " read -r -a options_arr <<< "${!options}"
-        for opt in ${!options_arr[@]}
-        do
-            if [[ "${!setting}" == "${options_arr[$opt]}" ]]
-            then 
-                input_prompt+="*"
-                ((nexti = (opt + 1) % ${#options_arr[@]}))
-                ((previousi = (opt - 1) % ${#options_arr[@]}))
-                previous="${options_arr[$nexti]}"
-                next="${options_arr[$previousi]}"
-            fi
-            input_prompt+="${options_arr[$opt]}, "
-        done
-        input_prompt="${input_prompt:0: -2}): "
-        local input_autocomplete="$setting"
-        local regexp="^(${!options// /|})$"
-
-        if [[ "$2" == "--cycle-next" ]]
-        then
-            input="$next"
-        elif [[ "$2" == "--cycle-previous" ]]
-        then
-            input="$previous"
-        fi
-        if [[ -n "$input" ]] || get_input
-        then
-            if [[ ! "$input" =~ $regexp ]]
-            then
-                error="Invalid value for $setting: $input"
-            else
-                local new="$input"
-                if [[ ! "$new" == "${!setting}" ]]
+    eval_cmd=
+    message=
+    for setting in $settings
+    do
+        case $setting in 
+            *"+="*)
+                split args "$setting" "+="
+                option="${args[0]}"
+                type="+="
+                value="${args[1]}"
+                if [[ -n "${prefix_args[$prefix_count]}" ]]
                 then
-                    eval "$setting=\"$new\""
-                    success="Change $setting to: $input"
-                    local update_cmd="${setting}_update_cmd"
-                    eval "${!update_cmd}"
+                    value="${prefix_args[$prefix_count]}"
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
                 fi
-            fi
+                ;;
+            *"-="*)
+                split args "$setting" "-="
+                option="${args[0]}"
+                type="-="
+                value="${args[1]}"
+                if [[ -n "${prefix_args[$prefix_count]}" ]]
+                then
+                    value="${prefix_args[$prefix_count]}"
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                fi
+                ;;
+            *"^="*)
+                split args "$setting" "^="
+                option="${args[0]}"
+                type="^="
+                value="${args[1]}"
+                if [[ -n "${prefix_args[$prefix_count]}" ]]
+                then
+                    value="${prefix_args[$prefix_count]}"
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                fi
+                ;;
+            *"="*)
+                split args "$setting" "="
+                option="${args[0]}"
+                type="="
+                value="${args[1]}"
+                if [[ -n "${prefix_args[$prefix_count]}" ]]
+                then
+                    value="${prefix_args[$prefix_count]}"
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                fi
+                ;;
+            *":"*)
+                split args "$setting" ":"
+                option="${args[0]}"
+                type="="
+                value="${args[1]}"
+                if [[ -n "${prefix_args[$prefix_count]}" ]]
+                then
+                    value="${prefix_args[$prefix_count]}"
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                fi
+                ;;
+            *"?")
+                option="${setting%?}"
+                type="ask"
+                value=
+                ;;
+            "no"*)
+                option="${setting#no}"
+                type="off"
+                value=
+                ;;
+            "inv"*)
+                option="${setting#inv}"
+                type="inv"
+                value=
+                ;;
+            *"!")
+                option="${setting%!}"
+                type="inv"
+                value=
+                ;;
+            *"@")
+                option="${setting%@}"
+                type="def"
+                value=
+                ;;
+            *)
+                option="$setting"
+                type="on"
+                value=
+                ;;
+        esac
+        local oldvalue="${optcurrent[$option]}"
+        case "$type" in
+            "+=")
+                case ${optiontype[$option]} in
+                    "number")
+                        if is_natural "$value" 
+                        then
+                            ((optcurrent[$option] += value))
+                        else
+                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                        fi
+                        ;;
+                    "string")
+                        optcurrent[$option]+="$value"
+                        ;;
+                    "enum"|"boolean")
+                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+            "-=")
+                case ${optiontype[$option]} in
+                    "number")
+                        if is_natural "$value" 
+                        then
+                            ((optcurrent[$option] -= value))
+                        else
+                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                        fi
+                        ;;
+                    "string")
+                        optcurrent[$option]=${optcurrent[$option]//"$value"}
+                        ;;
+                    "enum"|"boolean")
+                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+            "^=")
+                case ${optiontype[$option]} in
+                    "number")
+                        if is_natural "$value" 
+                        then
+                            ((optcurrent[$option] *= value))
+                        else
+                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                        fi
+                        ;;
+                    "string")
+                        optcurrent[$option]="${value}${optcurrent[$option]}"
+                        ;;
+                    "enum"|"boolean")
+                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+            "=")
+                case ${optiontype[$option]} in
+                    "number")
+                        if is_natural "$value" 
+                        then
+                            ((optcurrent[$option] = value))
+                        else
+                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                        fi
+                        ;;
+                    "string")
+                        optcurrent[$option]="${value}"
+                        ;;
+                    "enum")
+                        if [[ "$value" =~ ^(${enumoptvalue[$option]// /|})$ ]]
+                        then
+                            optcurrent[$option]="${value}"
+                        else
+                            message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        fi
+                        ;;
+                    "boolean")
+                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+            "ask")
+                if [[ -n "${optcurrent[$option]}" ]]
+                then
+                    case ${optiontype[$option]} in
+                        "number"|"string"|"enum")
+                            message+="${option}=${optcurrent[$option]} "
+                            ;;
+                        "boolean")
+                            message+="${optcurrent[$option]} "
+                            ;;
+                    esac
+                else
+                    message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                fi
+                ;;
+            "off")
+                case ${optiontype[$option]} in
+                    "number"|"string"|"enum")
+                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        ;;
+                    "boolean")
+                        optcurrent[$option]="$setting"
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+            "inv")
+                case ${optiontype[$option]} in
+                    "number"|"string"|"enum")
+                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        ;;
+                    "boolean")
+                        if [[ "${optcurrent[$option]}" == "no$option" ]]
+                        then
+                            optcurrent[$option]="$option"
+                        else
+                            optcurrent[$option]="no$option"
+                        fi
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+            "def")
+                if [[ -n "${optdefault[$option]}" ]]
+                then
+                    optcurrent[$option]="${optdefault[$option]}"
+                else
+                    message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                fi
+                ;;
+            "on")
+                case ${optiontype[$option]} in
+                    "number"|"string"|"enum")
+                        message+="${option}=${optcurrent[$option]} "
+                        ;;
+                    "boolean")
+                        optcurrent[$option]="$setting"
+                        ;;
+                    *)
+                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        ;;
+                esac
+                ;;
+        esac
+        if [[ "${optcurrent[$option]}" != "$oldvalue" ]]
+        then
+            eval "${optupdate[$option]}"
         fi
-    elif [[ -n "$setting" ]]
-    then
-        error="Unknown set option: $setting"
-    fi
+    done
     clear_sequence
     update_status
-}
-
-grid() {
-    [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-    [[ -z "$prefix" ]] && prefix="1"
-    old_fit_vertical="$fit_vertical"
-    old_fit_horizontal="$fit_horizontal"
-    local prefix_args
-    IFS=" " read -r -a prefix_args <<< "$prefix"
-    local type=
-    local element=
-    while [[ -n "$1" ]] 
-    do
-        case "$1" in
-            decrease|increase)
-                type="$1"
-                ;;
-            lines|columns|both)
-                element="$1"
-                ;;
-            *)
-                error="Uknown parameter: $1"
-                ;;
-        esac
-        shift
-    done
-    if [[ -z "$error" ]] && [[ -z "$type" ]]
-    then
-        clear_status --cmdline
-        local input_prompt="Set type (increase, decrease): "
-        get_input
-        case "$input" in
-            decrease|increase)
-                type="$input"
-                ;;
-            "")
-                ;;
-            *)
-                error="Uknown parameter: $input"
-                ;;
-        esac
-    fi
-    if [[ -z "$error" ]] && [[ -z "$element" ]] && [[ -n "$type" ]]
-    then
-        clear_status --cmdline
-        local input_prompt="Set element (lines, columns, both): "
-        get_input
-        case "$input" in
-            lines|columns|both)
-                element="$input"
-                ;;
-            "")
-                ;;
-            *)
-                error="Uknown parameter: $input"
-                ;;
-        esac
-        
-    fi
-    local offset=0
-    if [[ "$type" == "decrease" ]]
-    then
-        ((offset = -prefix_args[0]))
-    elif [[ "$type" == "increase" ]]
-    then
-        ((offset = prefix_args[0]))
-    fi
-    new_fit_horizontal="$fit_horizontal"
-    new_fit_vertical="$fit_vertical"
-    case "$element" in 
-        "lines")
-            ((new_fit_vertical += offset))
-            ;;
-        "columns")
-            ((new_fit_horizontal += offset))
-            ;;
-        "both")
-            ((new_fit_vertical += offset))
-            ((new_fit_horizontal += offset))
-            ;;
-    esac
-    new_start="$start"
-    maybe_redraw
-    clear_sequence --keep-old
-    update_status --force
 }
 
 set_current() {
@@ -2549,41 +2445,41 @@ set_current() {
     IFS=" " read -r -a prefix_args <<< "$prefix"
     case "$1" in
         left)
-            ((limit = ((current - 1) / fit_horizontal) * fit_horizontal + 1)) 
+            ((limit = (current / optcurrent[gridcolumns]) * optcurrent[gridcolumns])) 
             ((current -= prefix_args[0]))
             if [[ "$2" == "--nowrap" ]]
             then
                 ((current < limit )) && ((current = limit))
             else
-                ((current < 1)) && current=1
+                ((current < 0)) && current=0
             fi
             ;;
         down)
-            ((current += prefix_args[0] * fit_horizontal))
-            while ((current > show))
+            ((current += prefix_args[0] * optcurrent[gridcolumns]))
+            while ((current >= show))
             do
-                ((current -= fit_horizontal))
+                ((current -= optcurrent[gridcolumns]))
             done
             ;;
         up)
-            ((current -= prefix_args[0] * fit_horizontal))
-            while ((current < 1))
+            ((current -= prefix_args[0] * optcurrent[gridcolumns]))
+            while ((current < 0))
             do
-                ((current += fit_horizontal))
+                ((current += optcurrent[gridcolumns]))
             done
             ;;
         right)
-            ((limit = ((current - 1) / fit_horizontal) * fit_horizontal + fit_horizontal)) 
+            ((limit = (current / optcurrent[gridcolumns]) * optcurrent[gridcolumns] + optcurrent[gridcolumns] - 1)) 
             ((current += prefix_args[0]))
             if [[ "$2" == "--nowrap" ]]
             then
                 ((current > limit )) && ((current = limit))
             else
-                ((current > show)) && current="$show"
+                ((current >= show)) && ((current = show - 1))
             fi
             ;;
         "")
-            get_image_index && ((current = image_index[0] + 1))
+            get_image_index && ((current = image_index[0]))
             ;;
     esac
     update_fileinfo
@@ -2622,13 +2518,55 @@ load_files() {
         read -r read_iter < "${tmp_dir}/read_iter"
         if ((read_iter < argc))
         then
-            read_target="$max_load" && read_images & # read the max possible
+            read_target="${optcurrent[maxload]}" && read_images & # read the max possible
         else
             warning="All files are loaded"
         fi
     fi
     clear_sequence --keep-old
     update_status
+}
+
+command_mode() {
+        mode="command"
+        update_status
+        local input_prompt=":"
+        local input_left
+        [[ -n "$prefix" ]] && input_left="($prefix) "
+        input_autocomplete="ucollage"
+        local cleanup=1
+        input_left+="$1"
+        if get_input
+        then
+            save_input=
+            prefix=${input#*\(}
+            prefix=${prefix%%)*}
+            trim_spaces prefix
+            [[ "$prefix" == "$input" ]] && prefix=
+            [[ -n "$prefix" ]] && save_input+="($prefix) "
+            full_cmd=${input#*)}
+            trim_spaces full_cmd
+            save_input+="$full_cmd"
+            if [[ -n "$full_cmd" ]]
+            then
+                echo "$save_input" >> "$cache_dir/cmd_history"
+                read -r cmd _ <<< "$full_cmd" # we take only the first word
+                if [[ -n ${colon_cmd[$cmd]} ]]
+                then
+                    eval_cmd="${full_cmd//$cmd/${colon_cmd[$cmd]}}"
+                    eval "$eval_cmd"
+                    cleanup=0 # cleanup is being done by the executed function
+                else
+                    error="Command not found: $cmd"
+                fi
+            fi
+        fi
+        if [[ "$cleanup" -eq 1 ]]
+        then
+            clear_sequence
+            update_status --force
+        fi
+        mode=
 }
 
 clear_sequence() {
@@ -2638,15 +2576,8 @@ clear_sequence() {
 }
 
 ######################################################################
-# Populate the image_names and images arrays by reading the files
-# written by the background process
-# Uses:
-#   tmp_dir
-# Modifies:
-#   image_names
-#   images
-#   done_reading
-#   total
+# Populate the image_names, images and filehash arrays by reading the 
+# files written by the background process
 ######################################################################
 populate_arrays() {
     # This is to read only new files in each iteration. Should scale well
@@ -2673,15 +2604,6 @@ populate_arrays() {
 
 ######################################################################
 # Loop waiting for user input to execute actions
-# Uses:
-#   fit_vertical
-#   fit_horizontal
-#   prefix
-# Modifies:
-#   new_start
-#   new_fit_vertical
-#   new_fit_horizontal
-#   prefix
 ######################################################################
 read_key() {
     while true
@@ -2689,14 +2611,12 @@ read_key() {
         [[ "$break_flag" -eq 1 ]] && break
         [[ "$exit_flag" -eq 1 ]] && break
         [[ "$total" -eq 0 ]] && stop_daemon
-        read -rsN1 -t 0.01 char &>/dev/null
-        read -rsN1 -t 0.0001 k1 &>/dev/null
-        read -rsN1 -t 0.0001 k2 &>/dev/null
-        read -rsN1 -t 0.0001 k3 &>/dev/null
-        read -rsN1 -t 0.0001 k4 &>/dev/null
-        read -rsN1 -t 0.0001 k5 &>/dev/null
-        read -rsN1 -t 0.0001 k6 &>/dev/null
-        key="${char}${k1}${k2}${k3}${k4}${k5}${k6}"
+        local key=
+        local char
+        while read -rsN1 -t 0.01 char &>/dev/null
+        do
+            key+="$char"
+        done
         [[ -z "$key" ]] && [[ "$done_reading" -eq 1 ]] && continue
         case $key in
             $'\e')
@@ -2734,43 +2654,7 @@ read_key() {
                 update_status
                 ;;
             ":")
-                mode="command"
-                update_status
-                input_prompt=":"
-                [[ -n "$prefix" ]] && input_left="($prefix) "
-                input_autocomplete="ucollage"
-                local cleanup=1
-                if get_input
-                then
-                    save_input=
-                    prefix=${input#*\(}
-                    prefix=${prefix%%)*}
-                    trim_spaces prefix
-                    [[ "$prefix" == "$input" ]] && prefix=
-                    [[ -n "$prefix" ]] && save_input+="($prefix) "
-                    full_cmd=${input#*)}
-                    trim_spaces full_cmd
-                    save_input+="$full_cmd"
-                    if [[ -n "$full_cmd" ]]
-                    then
-                        echo "$save_input" >> "$cache_dir/cmd_history"
-                        read -r cmd _ <<< "$full_cmd" # we take only the first word
-                        if [[ -n ${colon_cmd[$cmd]} ]]
-                        then
-                            eval_cmd="${full_cmd//$cmd/${colon_cmd[$cmd]}}"
-                            eval "$eval_cmd"
-                            cleanup=0 # cleanup is being done by the executed function
-                        else
-                            error="Command not found: $cmd"
-                        fi
-                    fi
-                fi
-                if [[ "$cleanup" -eq 1 ]]
-                then
-                    clear_sequence
-                    update_status --force
-                fi
-                mode=
+                command_mode
                 continue
                 ;;
             $'\b'|$'\x7F')
@@ -2782,12 +2666,10 @@ read_key() {
                     prefix=${prefix:0:-1}
                 elif [[ "$batch" -eq 1 ]]
                 then
-                    old_fit_vertical="$fit_vertical"
-                    old_fit_horizontal="$fit_horizontal"
-                    fit_vertical="$wide_vertical"
-                    fit_horizontal="$wide_horizontal"
-                    start="$wide_start"
-                    current="$wide_current"
+                    optcurrent[gridlines]="$wide_vertical"
+                    optcurrent[gridcolumns]="$wide_horizontal"
+                    ((current = (start % (wide_horizontal * wide_vertical))))
+                    ((start = start - current))
                     redraw
                     clear_sequence
                 elif [[ -z "$prefix" ]]
@@ -2856,7 +2738,7 @@ do
     read_filenames "$@"
     stty -echo
     unset start #make sure that start is not set, makes check in read_images
-    (( first_batch = fit_vertical * fit_horizontal ))
+    ((first_batch = optcurrent[gridlines] * optcurrent[gridcolumns]))
     echo 0 > "${tmp_dir}/read_iter"
     echo 0 > "${tmp_dir}/read_lock"
     read_iter=0
@@ -2864,22 +2746,20 @@ do
     populate_arrays
     if [[ "$total" -eq 1 ]]
     then
-        fit_vertical=1
-        fit_horizontal=1
-        old_fit_vertical=1
-        old_fit_horizontal=1
+        optcurrent[gridlines]=1
+        optcurrent[gridcolumns]=1
         wide_vertical=1
         wide_horizontal=1
     fi
     read -r read_iter < "${tmp_dir}/read_iter"
-    read_target="$max_load" && read_images & # read the max possible
+    read_target="${optcurrent[maxload]}" && read_images & # read the max possible
     background_pid="$!"
     [[ "$total" -eq 0 ]] && printf "No images to show\n" && stty echo && exit_clear=0 && break
     start=0
     declare -A assoc
     mode=
     break_flag=0
-    current=1
+    current=0
     init
 done
 stop_daemon
