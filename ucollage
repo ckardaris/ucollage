@@ -231,34 +231,37 @@ set_scripts(){
                 else
                     for mi in $map
                     do
-                        # <Space> has to be substituted here or else it is split by the for
-                        # expansion
+                        # <Space> has to be substituted here or else it is split
+                        # by the 'for' expansion
                         mi=${mi//<Space>/ }
                         map_cmd[$mi]="run_edit_script \"${script}\""
                     done
-                    [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="run_edit_script \"${script}\""
+                    [[ "$command" != "<NONE>" ]] && \
+                        colon_cmd[$command]="run_edit_script \"${script}\""
                 fi
             elif [[ "$type" == "use" ]]
             then
                 for mi in $map
                 do
-                    # <Space> has to be substituted here or else it is split by the for
-                    # expansion
+                    # <Space> has to be substituted here or else it is split
+                    # by the 'for' expansion
                     mi=${mi//<Space>/ }
                     map_cmd[$mi]="run_use_script \"${script}\" \"${info}\""
                 done
-                [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="run_use_script \"${script}\" \"${info}\""
+                [[ "$command" != "<NONE>" ]] && \
+                    colon_cmd[$command]="run_use_script \"${script}\" \"${info}\""
             elif [[ "$type" == "builtin" ]]
             then
-                # Usage of the --- delimiter makes possible that some commands have a default value
-                # in map normal mode, but permit input in command mode
+                # Usage of the --- delimiter makes possible that some commands
+                # have a default value in map normal mode, but permit input
+                # in command mode
                 # e.g tp
                 #     toggle prompt (normal mode)
-                #     toggle (command mode - shared also by tf and tr) 
+                #     toggle (command mode - shared also by tf and tr)
                 for mi in $map
                 do
-                    # <Space> has to be substituted here or else it is split by the for
-                    # expansion
+                    # <Space> has to be substituted here or else it is split
+                    # by the for expansion
                     mi=${mi//<Space>/ }
                     map_cmd[$mi]="${script/---/ }"
                 done
@@ -534,12 +537,14 @@ create_thumbnail() {
     local time_point
     local format_duration
     thumbnail_file="${tmp_dir}/${hash}.jpg"
-    eval "$(ffprobe -i "$file" -show_entries format=duration -v quiet -of flat="s=_")"
+    eval "$(ffprobe -i "$file" -show_entries format=duration \
+        -v quiet -of flat="s=_")"
     format_duration=${format_duration/.*/}
     (( time_point = format_duration / 2 ))
     ffmpeg -ss "$time_point" -i "$file" -loglevel quiet -frames:v 1 \
         -filter:v scale="$thumbnail_width":-1 -y "$thumbnail_file"
-    montage -label "thumbnail" "$thumbnail_file" -geometry +0+0 -background Gold "$thumbnail_file"
+    montage -label "thumbnail" "$thumbnail_file" -geometry +0+0 \
+        -background Gold "$thumbnail_file"
 }
 
 is_image() {
@@ -569,7 +574,8 @@ read_images() {
     local readc=0
     local loadc=0
     local thumbnail_file
-    while (( readc < read_target )) && (( read_iter < argc )) && ((loadc < optcurrent[maxload]))
+    while (( readc < read_target )) && (( read_iter < argc )) && \
+        ((loadc < optcurrent[maxload]))
     do
         local file=${filelist[$read_iter]}
         read -rd ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
@@ -587,7 +593,8 @@ read_images() {
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$thumbnail_file" >> "${tmp_dir}/images.txt"
             echo "$hash" >> "${tmp_dir}/hash.txt"
-            if [[ "$cache_thumbnails" -eq 1 ]] && [[ ! "$thumbnail_file" == "$cache_name" ]]
+            if [[ "$cache_thumbnails" -eq 1 ]] && \
+                [[ ! "$thumbnail_file" == "$cache_name" ]]
             then
                 cp -f "$thumbnail_file" "$cache_name"
             fi
@@ -736,7 +743,8 @@ show_batch() {
         draw_lines="$photo_lines"
     fi
 
-    for ((i = optcurrent[gridlines] * optcurrent[gridcolumns]; i < previous_batch; i++))
+    for ((i = optcurrent[gridlines] * optcurrent[gridcolumns]; \
+        i < previous_batch; i++))
     do
         assoc=([action]=remove [identifier]="ucollage$i")
         declare -p assoc > "$fifo"
@@ -748,7 +756,8 @@ show_batch() {
         do
             ((counter = i * optcurrent[gridcolumns] + j))
             ((index = start + counter))
-            if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$batch" -gt 1 ]]
+            if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && \
+                [[ "$batch" -gt 1 ]]
             then
                 (( posx = 1 + j * photo_columns))
                 (( posy = 4 + i * photo_lines))
@@ -848,7 +857,8 @@ set_suggestion() {
     # if suggestion count is 2 then that means that there is only one suggestion
     # that along with the input makes the count 2. In that case the suggestion
     # should be selected.
-    [[ "$suggestion_count" -eq 2 ]] && suggestion="${autocomplete[1]}" && clear_suggestions && return
+    [[ "$suggestion_count" -eq 2 ]] && suggestion="${autocomplete[1]}" && \
+        clear_suggestions && return
     if [[ "$1" == "next" ]]
     then
         (( suggestion_index = (suggestion_index + 1) % suggestion_count ))
@@ -909,14 +919,14 @@ create_suggestions() {
     local last_word=${split_left[-1]}
     local merge=0
     #we do that so that a space confirms a suggestion
-    [[ "${input_left: -1}" == " " ]] && split_left+=("") 
+    [[ "${input_left: -1}" == " " ]] && split_left+=("")
     if [[ -n "${wdlist[$last_word]}" ]] && [[ ${last_word: -1} == "=" ]]
     then
-        split_left+=("") 
+        split_left+=("")
         merge=1
     elif [[ ${split_left[$((len-1))]} =~ ^(no|inv)$ ]]
     then
-        split_left+=("") 
+        split_left+=("")
         merge=1
     fi
     if [[ "$last_word" =~ =.+ ]]
@@ -954,8 +964,9 @@ create_suggestions() {
         local word="${split_left[-1]}"
     fi
     local subinput_autocomplete="$input_autocomplete"
-    
-    if [[ "$input_autocomplete" == "ucollage" ]] || [[ "$input_autocomplete" =~ ^(!|!%)$ ]]
+
+    if [[ "$input_autocomplete" == "ucollage" ]] || \
+        [[ "$input_autocomplete" =~ ^(!|!%)$ ]]
     then
         local passed=0 # this checks that I have already written a command
         local i
@@ -966,12 +977,13 @@ create_suggestions() {
         done
         [[ "$passed" -eq 1 ]] && subinput_autocomplete="file"
     fi
-    
+
     # It is important that this overrides the above loop check because it
     # is possible that a keyword exists as a system command (e.g sort)
     if [[ "$input_autocomplete" == "ucollage" ]] && [[ "${#split_left[@]}" -gt 1 ]]
     then
-        [[ -n ${wdlist[${split_left[-2]}]} ]] && subinput_autocomplete="${split_left[-2]}"
+        [[ -n ${wdlist[${split_left[-2]}]} ]] && \
+            subinput_autocomplete="${split_left[-2]}"
     fi
 
     local wordlist
@@ -988,11 +1000,13 @@ create_suggestions() {
             ;;
         "ucollage")
             wordlist=${!colon_cmd[*]}
-            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word" | sort)
+            mapfile -t autocomplete < \
+                <(IFS=" " compgen -W "$wordlist" "$word" | sort)
             ;;
         *)
             wordlist=${wdlist[$subinput_autocomplete]}
-            mapfile -t autocomplete < <(IFS=" " compgen -W "$wordlist" "$word" | sort)
+            mapfile -t autocomplete < \
+                <(IFS=" " compgen -W "$wordlist" "$word" | sort)
             ;;
     esac
 
@@ -1079,7 +1093,8 @@ get_input() {
                 then
                     [[ "${#cmd_history[@]}" -eq 0 ]] && continue
                     ((cmd_history_index += 1))
-                    [[ "$cmd_history_index" -gt ${#cmd_history[@]} ]] && cmd_history_index=${#cmd_history[@]}
+                    [[ "$cmd_history_index" -gt ${#cmd_history[@]} ]] && \
+                        cmd_history_index=${#cmd_history[@]}
                     input_history=${cmd_history[$cmd_history_index]}
                 fi
                 ;;
@@ -1237,7 +1252,8 @@ set_stars() {
 # Update the fileinfo to account for batch changes, file renaming or rating
 ######################################################################
 modify_fileinfo() {
-    [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] || [[ "$batch" -eq 1 ]] && return 1
+    [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] || \
+        [[ "$batch" -eq 1 ]] && return 1
     local lines
     local columns
     line_names=()
@@ -1288,8 +1304,10 @@ modify_fileinfo() {
                             ;;
                         "names")
                             current_name+="$(basename "${image_names[$index]}")"
-                            [[ -n ${edits[$index]} ]] && current_name="~ ${current_name}"
-                            [[ -n ${tags[$index]} ]] && current_name="* ${current_name}"
+                            [[ -n ${edits[$index]} ]] && \
+                                current_name="~ ${current_name}"
+                            [[ -n ${tags[$index]} ]] && \
+                                current_name="* ${current_name}"
                             ;;
                     esac
                     (( max_length = photo_columns - 2 ))
@@ -1306,7 +1324,7 @@ modify_fileinfo() {
             done
             local linelength=${#line_names[$i]}
             # substract the inversion escape chars
-            [[ "$current_in_line" -eq 1 ]] && ((linelength -= 9)) 
+            [[ "$current_in_line" -eq 1 ]] && ((linelength -= 9))
             for ((j = linelength; j < columns - 1; j++))
             do
                 line_names[$i]+=" "
@@ -1553,7 +1571,7 @@ update_status() {
     if [[ -n "$prefix" ]] && [[ -n "$mapping" ]]
     then
         prefix_status="($prefix)$mapping"
-    elif [[ -n "$mapping" ]] 
+    elif [[ -n "$mapping" ]]
     then
         prefix_status="$mapping"
     elif [[ -n "$prefix" ]]
@@ -1606,7 +1624,9 @@ run_use_script() {
             local ind=${image_index[$sc_i]}
             local cmd="${script//%in%/\"${image_names[$ind]}\"}"
             local cmd_prompt
-            cmd_prompt="${cmd_prompt_base}: \"$(basename -a "${image_names[$ind]}" | tr '\n' ' ' | head -c-1)\""
+            cmd_prompt="${cmd_prompt_base}: "
+            cmd_prompt+="\"$(basename -a "${image_names[$ind]}" | \
+                tr '\n' ' ' | head -c-1)\""
             eval_cmd && ((executed += 1))
         done
         if [[ "$executed" -eq 0 ]]
@@ -1709,7 +1729,8 @@ save_edits() {
                 images[$ind]="${image_names[$ind]}"
                 rm "${tmp_dir}/$hash".* # delete all history
                 unset edits["$ind"]
-                read -rd ' ' hash < <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | xxh128sum)
+                read -rd ' ' hash < \
+                    <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | xxh128sum)
                 filehash[$ind]="$hash"
                 is_index_local "$ind" && local_changes=1
             fi
@@ -1783,7 +1804,8 @@ rate_image() {
                 eval "$(cat "$file")"
                 if [[ -n "$rating" ]]
                 then
-                    sed -i "s/rating=./rating=${input}/" "${cache_dir}/hash/images/$hash"
+                    sed -i "s/rating=./rating=${input}/" \
+                        "${cache_dir}/hash/images/$hash"
                 else
                     echo "rating=$input" >> "${cache_dir}/hash/images/$hash"
                 fi
@@ -1793,7 +1815,8 @@ rate_image() {
                 error="Rating has to be in [0-5]"
             fi
         done
-        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "ratings" ]] && update_fileinfo
+        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "ratings" ]] && \
+            update_fileinfo
     fi
     clear_sequence
     update_status
@@ -1824,7 +1847,8 @@ execute() {
         fi
     elif [[ "$1" == "same" ]]
     then
-        # shift in order to take the rest of the arguments as the command to be executed
+        # shift in order to take the rest of the arguments as the command
+        # to be executed
         shift
         execute_cmd="$*"
         if get_image_index
@@ -1949,7 +1973,8 @@ rename() {
         else
             success="Success"
         fi
-        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "names" ]] && update_fileinfo
+        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "names" ]] && \
+            update_fileinfo
     fi
     clear_sequence
     update_status
@@ -1983,7 +2008,8 @@ delete_image() {
         local deleted=0
         for (( del_i = 0; del_i < index_count; del_i++))
         do
-            (( updated = del_i - deleted )) # adjust index because we trim the arrays after deleting
+            # adjust index because we trim the arrays after deleting
+            (( updated = del_i - deleted ))
             local ind=${image_index[$updated]}
             local cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
             local cmd_prompt="Delete: ${image_names[$ind]}"
@@ -2023,8 +2049,9 @@ tag_image() {
             then
                 for (( i = 0; i < index_count; i++))
                 do
-                    [[ -z ${tags[${image_index[$i]}]} ]] && tags[${image_index[$i]}]=1 \
-                        && is_index_local "${image_index[$i]}" && update=1
+                    [[ -z ${tags[${image_index[$i]}]} ]] && \
+                        tags[${image_index[$i]}]=1 && \
+                        is_index_local "${image_index[$i]}" && update=1
                 done
             fi
             ;;
@@ -2033,8 +2060,9 @@ tag_image() {
             then
                 for (( i = 0; i < index_count; i++))
                 do
-                    [[ -n ${tags[${image_index[$i]}]} ]] && unset tags["${image_index[$i]}"] \
-                        && is_index_local "${image_index[$i]}" && update=1
+                    [[ -n ${tags[${image_index[$i]}]} ]] && \
+                        unset tags["${image_index[$i]}"] && \
+                        is_index_local "${image_index[$i]}" && update=1
                 done
             fi
             ;;
@@ -2073,7 +2101,8 @@ edit_history() {
                 fi
                 ((undone += 1))
                 ((edits[ind] -= 1))
-                ((edits[ind] == 0)) && unset edits["$ind"] #unset if at start of history
+                #unset if at start of history
+                ((edits[ind] == 0)) && unset edits["$ind"]
                 images[$ind]="$tmpfile"
                 redraw
             done
@@ -2090,7 +2119,7 @@ edit_history() {
     elif [[ "$1" == "--redo" ]]
     then
         local redo_i
-        if get_image_index 
+        if get_image_index
         then
             local redone=0
             for (( redo_i = 0; redo_i < index_count; redo_i++))
@@ -2179,7 +2208,7 @@ _set() {
     message=
     for setting in $settings
     do
-        case $setting in 
+        case $setting in
             *"+="*)
                 split args "$setting" "+="
                 option="${args[0]}"
@@ -2188,7 +2217,8 @@ _set() {
                 if [[ -n "${prefix_args[$prefix_count]}" ]]
                 then
                     value="${prefix_args[$prefix_count]}"
-                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && \
+                        ((prefix_count += 1))
                 fi
                 ;;
             *"-="*)
@@ -2199,7 +2229,8 @@ _set() {
                 if [[ -n "${prefix_args[$prefix_count]}" ]]
                 then
                     value="${prefix_args[$prefix_count]}"
-                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && \
+                        ((prefix_count += 1))
                 fi
                 ;;
             *"^="*)
@@ -2210,7 +2241,8 @@ _set() {
                 if [[ -n "${prefix_args[$prefix_count]}" ]]
                 then
                     value="${prefix_args[$prefix_count]}"
-                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && \
+                        ((prefix_count += 1))
                 fi
                 ;;
             *"="*)
@@ -2221,7 +2253,8 @@ _set() {
                 if [[ -n "${prefix_args[$prefix_count]}" ]]
                 then
                     value="${prefix_args[$prefix_count]}"
-                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && \
+                        ((prefix_count += 1))
                 fi
                 ;;
             *":"*)
@@ -2232,7 +2265,8 @@ _set() {
                 if [[ -n "${prefix_args[$prefix_count]}" ]]
                 then
                     value="${prefix_args[$prefix_count]}"
-                    ((prefix_count < ${#prefix_args[@]} - 1)) && ((prefix_count += 1))
+                    ((prefix_count < ${#prefix_args[@]} - 1)) && \
+                        ((prefix_count += 1))
                 fi
                 ;;
             *"?")
@@ -2271,11 +2305,12 @@ _set() {
             "+=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value" 
+                        if is_natural "$value"
                         then
                             ((optcurrent[$option] += value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                            message+="\e[41m\e[30mNumber required after =: "
+                            message+="$setting\e[m "
                         fi
                         ;;
                     "string")
@@ -2292,11 +2327,12 @@ _set() {
             "-=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value" 
+                        if is_natural "$value"
                         then
                             ((optcurrent[$option] -= value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                            message+="\e[41m\e[30mNumber required after =: "
+                            message+="$setting\e[m "
                         fi
                         ;;
                     "string")
@@ -2313,11 +2349,12 @@ _set() {
             "^=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value" 
+                        if is_natural "$value"
                         then
                             ((optcurrent[$option] *= value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                            message+="\e[41m\e[30mNumber required after =: "
+                            message+="$setting\e[m "
                         fi
                         ;;
                     "string")
@@ -2334,11 +2371,12 @@ _set() {
             "=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value" 
+                        if is_natural "$value"
                         then
                             ((optcurrent[$option] = value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: $setting\e[m "
+                            message+="\e[41m\e[30mNumber required after =: "
+                            message+="$setting\e[m "
                         fi
                         ;;
                     "string")
@@ -2445,7 +2483,8 @@ set_current() {
     IFS=" " read -r -a prefix_args <<< "$prefix"
     case "$1" in
         left)
-            ((limit = (current / optcurrent[gridcolumns]) * optcurrent[gridcolumns])) 
+            ((limit = (current / optcurrent[gridcolumns])))
+            ((limit *= optcurrent[gridcolumns]))
             ((current -= prefix_args[0]))
             if [[ "$2" == "--nowrap" ]]
             then
@@ -2469,7 +2508,8 @@ set_current() {
             done
             ;;
         right)
-            ((limit = (current / optcurrent[gridcolumns]) * optcurrent[gridcolumns] + optcurrent[gridcolumns] - 1)) 
+            ((limit = (current / optcurrent[gridcolumns]) * optcurrent[gridcolumns]))
+            ((limit += optcurrent[gridcolumns] - 1))
             ((current += prefix_args[0]))
             if [[ "$2" == "--nowrap" ]]
             then
@@ -2518,7 +2558,8 @@ load_files() {
         read -r read_iter < "${tmp_dir}/read_iter"
         if ((read_iter < argc))
         then
-            read_target="${optcurrent[maxload]}" && read_images & # read the max possible
+            # read the max possible
+            read_target="${optcurrent[maxload]}" && read_images &
         else
             warning="All files are loaded"
         fi
@@ -2576,7 +2617,7 @@ clear_sequence() {
 }
 
 ######################################################################
-# Populate the image_names, images and filehash arrays by reading the 
+# Populate the image_names, images and filehash arrays by reading the
 # files written by the background process
 ######################################################################
 populate_arrays() {
@@ -2687,9 +2728,10 @@ read_key() {
         esac
         [[ "$mapping" == "." ]] && mapping="$last_cmd_mapping"
         [[ -n "$mapping" ]] && eval "${map_cmd[$mapping]}"
-        # This is coded in order to not follow mappings that do not lead to any action
-        # It also prevents the program from hanging in case of pressing a not printable
-        # character (e.g Home, End) that does not map to any command
+        # This is coded in order to not follow mappings that do not lead to
+        # any action. It also prevents the program from hanging in case of
+        # pressing a not printable character (e.g Home, End) that does not
+        # map to any command
         good=0
         for m in "${!map_cmd[@]}"
         do
@@ -2754,7 +2796,8 @@ do
     read -r read_iter < "${tmp_dir}/read_iter"
     read_target="${optcurrent[maxload]}" && read_images & # read the max possible
     background_pid="$!"
-    [[ "$total" -eq 0 ]] && printf "No images to show\n" && stty echo && exit_clear=0 && break
+    [[ "$total" -eq 0 ]] && printf "No images to show\n" && stty echo && \
+        exit_clear=0 && break
     start=0
     declare -A assoc
     mode=
