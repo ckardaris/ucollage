@@ -916,18 +916,19 @@ create_suggestions() {
     local files=0
     local split_left=()
     local autocomplete_level=()
+    local merge=0
     autocomplete_level[0]="$input_autocomplete"
     if [[ "$input_autocomplete" == "ucollage" ]]
     then
+            # this trick also determines the way i handle the prefix in
+            # command mode i add a space after the parenthesis so that
+            # the command is its own word
         input_left=${input_left/)*( )/) }
     fi
     IFS=" " read -r -a split_left <<< "$input_left"
-    #this trick also determines the way i handle the prefix in command mode
-    #i add a space after the parenthesis so that the command is its own word
-    [[ "${#split_left[@]}" -gt 0 ]] && last_word=${split_left[-1]}
-    local merge=0
-    #we do that so that a space confirms a suggestion
+    # we do that so that a space confirms a suggestion
     [[ "${input_left: -1}" == " " ]] && split_left+=("")
+    [[ "${#split_left[@]}" -gt 0 ]] && last_word=${split_left[-1]}
     # The below 'for' loop creates the autocomplete level hierarchy
     # If the previous word cannot produce autocomplete we move one
     # back.
