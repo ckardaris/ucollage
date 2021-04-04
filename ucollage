@@ -62,19 +62,14 @@ CONFIG_DEFAULT="/etc/ucollage/mappings"
 
 trim_spaces() {
     local -n str="$1"
-    if [[ "$2" == "--force" ]]
-    then
-        str="${str//*([[:space:]])}"
-    else
-        str="${str##+([[:space:]])}"
-        str="${str%%*([[:space:]])}"
-        str="${str//+([[:space:]])/ }"
-        local char
-        for delim in $2
-        do
-            str="${str//*([[:space:]])${delim}*([[:space:]])/${delim}}"
-        done
-    fi
+    str="${str##*([[:space:]])}"
+    str="${str%%*([[:space:]])}"
+    str="${str//+([[:space:]])/ }"
+    local char
+    for delim in $2
+    do
+        str="${str//*([[:space:]])${delim}*([[:space:]])/${delim}}"
+    done
 }
 
 translate_map() {
@@ -188,20 +183,20 @@ set_scripts(){
             info=${info%]}
 
             local type=${file_data[$((i + 1))]##type}
-            trim_spaces type --force
+            trim_spaces type
 
             local map=${file_data[$((i + 2))]##map}
             trim_spaces map
             translate_map map
 
-            local script=${file_data[$((i + 3))]##script*([[:space:]])}
-            trim_spaces script "---"
+            local script=${file_data[$((i + 3))]##script}
+            trim_spaces script
 
             local command=${file_data[$((i + 4))]##command}
-            command="${command//*([[:space:]])}"
-            trim_spaces command --force
+            trim_spaces command
 
             local mi
+            local ci
             if [[ "$type" == "edit" ]]
             then
                 if [[ ! "$script" =~ %in% ]]
@@ -228,8 +223,10 @@ set_scripts(){
                         mi=${mi//<Space>/ }
                         map_cmd[$mi]="run_edit_script \"${script}\""
                     done
-                    [[ "$command" != "<NONE>" ]] && \
-                        colon_cmd[$command]="run_edit_script \"${script}\""
+                    for ci in $command
+                    do
+                        colon_cmd[$ci]="run_edit_script \"${script}\""
+                    done
                 fi
             elif [[ "$type" == "use" ]]
             then
@@ -240,8 +237,10 @@ set_scripts(){
                     mi=${mi//<Space>/ }
                     map_cmd[$mi]="run_use_script \"${script}\" \"${info}\""
                 done
-                [[ "$command" != "<NONE>" ]] && \
-                    colon_cmd[$command]="run_use_script \"${script}\" \"${info}\""
+                for ci in $command
+                do
+                    colon_cmd[$ci]="run_use_script \"${script}\" \"${info}\""
+                done
             elif [[ "$type" == "builtin" ]]
             then
                 # Usage of the --- delimiter makes possible that some commands
@@ -257,7 +256,10 @@ set_scripts(){
                     mi=${mi//<Space>/ }
                     map_cmd[$mi]="${script/---/ }"
                 done
-                [[ "$command" != "<NONE>" ]] && colon_cmd[$command]="${script%%---*}"
+                for ci in $command
+                do
+                    colon_cmd[$ci]="${script}"
+                done
             fi
             ((i += 4))
         fi

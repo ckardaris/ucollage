@@ -23,36 +23,36 @@ command undo
 type    builtin
 map     h <Left>
 script  set_current left --nowrap
-command <NONE>
+command
 
 []
 type    builtin
 map     <Backspace>
 script  set_current left
-command <NONE>
+command
 []
 type    builtin
 map     j <Down>
 script  set_current down
-command <NONE>
+command
 
 []
 type    builtin
 map     k <Up>
 script  set_current up
-command <NONE>
+command
 
 []
 type    builtin
 map     l <Right>
 script  set_current right --nowrap
-command <NONE>
+command
 
 []
 type    builtin
 map     <Space>
 script  set_current right
-command <NONE>
+command
 
 []
 type    builtin
@@ -94,145 +94,169 @@ command rename
 type    builtin
 map     ss
 script  command_mode "set sort"
-command set
+command
 
 []
 type    builtin
 map     su
 script  command_mode "set scaler"
-command set
+command
 
 []
 type    builtin
 map     sf
 script  command_mode "set fileinfo"
-command set
+command
 
 []
 type    builtin
 map     tf
-script  _set --- showfileinfo!
-command set
+script  _set showfileinfo!
+command
 
 []
 type    builtin
 map     tr
-script  _set --- reverse!
-command set
+script  _set reverse!
+command
 
 []
 type    builtin
 map     tp
-script  _set --- execprompt!
-command set
+script  _set execprompt!
+command
 
 []
 type    builtin
 map     sg
-script  _set --- gridlines= gridcolumns=
-command set
+script  _set gridlines= gridcolumns=
+command
 
 []
 type    builtin
 map     ++
-script  _set --- gridlines+=1 gridcolumns+=1
-command set
+script  _set gridlines+=1 gridcolumns+=1
+command
 
 []
 type    builtin
 map     --
-script  _set --- gridlines-=1 gridcolumns-=1
-command set
+script  _set gridlines-=1 gridcolumns-=1
+command
 
 []
 type    builtin
 map     +|
-script  _set --- gridcolumns+=1
-command set
+script  _set gridcolumns+=1
+command
 
 []
 type    builtin
 map     -|
-script  _set --- gridcolumns-=1
-command set
+script  _set gridcolumns-=1
+command
 
 []
 type    builtin
 map     +_
-script  _set --- gridlines+=1
-command set
+script  _set gridlines+=1
+command
 
 []
 type    builtin
 map     -_
-script  _set --- gridlines-=1
+script  _set gridlines-=1
+command
+
+[]
+type    builtin
+map
+script  _set
 command set
 
 []
 type    builtin
 map     n <Ctrl-Right>
-script  compute_batch --- next
-command batch
+script  compute_batch next
+command
 
 []
 type    builtin
 map     N <Ctrl-Shift-Right>
-script  compute_batch --- last
-command batch
+script  compute_batch last
+command
 
 []
 type    builtin
 map     p <Ctrl-Left>
-script  compute_batch --- previous
-command batch
+script  compute_batch previous
+command
 
 []
 type    builtin
 map     P <Ctrl-Shift-Left>
-script  compute_batch --- first
+script  compute_batch first
+command
+
+[]
+type    builtin
+map     
+script  compute_batch
 command batch
 
 []
 type    builtin
 map     <Shift-Left>
-script  _set --- scalingx-=1
-command set
+script  _set scalingx-=1
+command
 
 []
 type    builtin
 map     <Shift-Right>
-script  _set --- scalingx+=1
-command set
+script  _set scalingx+=1
+command
 
 []
 type    builtin
 map     <Shift-Down>
-script  _set --- scalingy+=1
-command set
+script  _set scalingy+=1
+command
 
 []
 type    builtin
 map     <Shift-Up>
-script  _set --- scalingy-=1
-command set
+script  _set scalingy-=1
+command
 
 []
 type    builtin
 map     rl
-script  rotate_image --degrees --- 90
+script  rotate_image --degrees 90
+command
+
+[]
+type    builtin
+map
+script  rotate_image --degrees
 command rotateright
 
 []
 type    builtin
-map     rh
-script  rotate_image --counter --degrees --- 90
+map
+script  rotate_image --counter --degrees
 command rotateleft
+
+[]
+type    builtin
+map     rh
+script  rotate_image --counter --degrees 90
+command
 
 []
 type    builtin
 map     xi
 script  execute image
-command <NONE>
+command
 
 []
 type    builtin
@@ -250,7 +274,7 @@ command !%
 type    builtin
 map     si
 script  set_current
-command <NONE>
+command
 
 []
 type    builtin
