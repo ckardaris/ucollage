@@ -1767,9 +1767,7 @@ rate_image() {
             then
                 input="${rating_arr[$mi]}"
             else
-                local input_prompt="Rating"
-                [[ "$index_count" -gt 1 ]] && input_prompt+=" for [$((ind + 1))]"
-                input_prompt+=": "
+                local input_prompt="Rating for [$((ind + 1))]: "
                 local input_autocomplete="rating"
                 ! get_input && continue
                 trim_spaces input --force
@@ -1819,9 +1817,7 @@ execute() {
             do
                 local ind=${image_index[$ex_i]}
                 clear_status --cmdline
-                local input_prompt="Command"
-                [[ "$index_count" -gt 1 ]] && input_prompt+=" for [$((ind + 1))]"
-                input_prompt+=": "
+                local input_prompt="Command for [$((ind + 1))]: "
                 local input_autocomplete="!"
                 ! get_input && continue
                 local cmd=${input//%s/\"${image_names[$ind]}\"}
@@ -1916,11 +1912,9 @@ rename() {
             local ind=${image_index[$mv_i]}
             clear_status --cmdline
             local input=
-            local input_prompt="New name"
-            [[ "$index_count" -gt 1 ]] && input_prompt+=" for [$((ind + 1))]"
-            [[ "$index_count" -eq 1 ]] && local input="$1"
-            input_prompt+=": "
+            local input_prompt="New name for [$((ind + 1))]: "
             local input_left="${image_names[$ind]}"
+            [[ "$index_count" -eq 1 ]] && local input="$1"
             if [[ -z "$input" ]]
             then
                 ! get_input && continue
@@ -1939,7 +1933,7 @@ rename() {
                 continue
             fi
             local cmd="mv \"${image_names[$ind]}\" \"$input\""
-            local cmd_prompt="Rename to: ${input}"
+            local cmd_prompt="Rename [$((ind + 1))] to: ${input}"
             if eval_cmd
             then
                 ((renamed += 1))

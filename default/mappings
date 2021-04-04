@@ -218,13 +218,13 @@ command set
 
 []
 type    builtin
-map     rc
+map     rl
 script  rotate_image --degrees --- 90
 command rotateright
 
 []
 type    builtin
-map     rC
+map     rh
 script  rotate_image --counter --degrees --- 90
 command rotateleft
 
