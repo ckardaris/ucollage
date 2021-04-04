@@ -16,6 +16,12 @@ declare -A optiontype=(\
     [scalingy]="number"
 )
 
+declare -A enumoptvalue=(\
+    [scaler]="crop distort fit_contain contain forced_cover cover"
+    [sort]="name time size extension"
+    [fileinfo]="names ratings"
+)
+
 declare -A spacelist=(\
     [batch]="previous next first last"
     [rate]="0 1 2 3 4 5"
@@ -28,32 +34,14 @@ declare -A sticklist=(\
     [no]="showfileinfo execprompt reverse"
     [inv]="showfileinfo execprompt reverse"
 )
-
-declare -A enumoptvalue=(\
-    [scaler]="crop distort fit_contain contain forced_cover cover"
-    [sort]="name time size extension"
-    [fileinfo]="names ratings"
-)
 for key in ${!enumoptvalue[*]}
 do
     sticklist[$key=]="${enumoptvalue[$key]}"
     sticklist[$key:]="${enumoptvalue[$key]}"
 done
 
-declare -A optdefault=(\
-    [execprompt]="execprompt"
-    [showfileinfo]="showfileinfo"
-    [reverse]="noreverse"
-    [scaler]="contain"
-    [sort]="time"
-    [fileinfo]="names"
-    [gridcolumns]=3
-    [gridlines]=3
-    [maxload]=1000
-    [scalingx]=50
-    [scalingy]=50
-)
-
+declare -A optdefault
+declare -A optcurrent
 declare -A optupdate=(\
     [execprompt]="message+=\${optcurrent[execprompt]}"
     [showfileinfo]="redraw"
@@ -67,14 +55,6 @@ declare -A optupdate=(\
     [scalingx]="set_scaling; show_batch"
     [scalingy]="set_scaling; show_batch"
 )
-declare -A optcurrent
-### copy default to current
-for key in "${!optdefault[@]}"
-do
-    optcurrent[$key]="${optdefault[$key]}"
-done
-unset key
-###
 
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
 CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
@@ -376,27 +356,27 @@ parse_config() {
     [[ "$errors" -eq 1 ]] && read -rsN1 -p "Using default variables..." && echo
 }
 
-set_defaults() {
-    optcurrent[gridlines]=${UCOLLAGE_LINES:-${optdefault[gridlines]}}
-    optcurrent[gridcolumns]=${UCOLLAGE_COLUMNS:-${optdefault[gridcolumns]}}
-    wide_vertical="${optcurrent[gridlines]}"
-    wide_horizontal="${optcurrent[gridcolumns]}"
+set_default() {
+    optdefault[gridlines]=${UCOLLAGE_LINES:-3}
+    optdefault[gridcolumns]=${UCOLLAGE_COLUMNS:-3}
+    optdefault[execprompt]=${UCOLLAGE_EXEC_PROMPT:-execprompt}
+    optdefault[showfileinfo]=${UCOLLAGE_SHOW_FILEINFO:-showfileinfo}
+    optdefault[fileinfo]=${UCOLLAGE_FILEINFO:-names}
+    optdefault[sort]=${UCOLLAGE_SORT:-time}
+    optdefault[reverse]=${UCOLLAGE_SORT_REVERSE:-noreverse}
+    optdefault[scaler]=${UCOLLAGE_SCALER:-contain}
+    optdefault[scalingx]=${UCOLLAGE_SCALINGX:-50}
+    optdefault[scalingy]=${UCOLLAGE_SCALINGY:-50}
+    optdefault[maxload]=${UCOLLAGE_MAX_LOAD:-1000}
+    wide_vertical="${optdefault[gridlines]}"
+    wide_horizontal="${optdefault[gridcolumns]}"
     tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
     cache_dir=${UCOLLAGE_CACHE_DIR:-~/.local/share/ucollage}
     trash_dir=${UCOLLAGE_TRASH_DIR:-~/.local/share/Trash/ucollage}
-    optcurrent[execprompt]=${UCOLLAGE_EXEC_PROMPT:-${optdefault[execprompt]}}
-    optcurrent[showfileinfo]=${UCOLLAGE_SHOW_FILEINFO:-${optdefault[showfileinfo]}}
-    optcurrent[fileinfo]=${UCOLLAGE_FILEINFO:-${optdefault[fileinfo]}}
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-ask}
-    optcurrent[sort]=${UCOLLAGE_SORT:-${optdefault[sort]}}
-    optcurrent[reverse]=${UCOLLAGE_SORT_REVERSE:-${optdefault[reverse]}}
-    optcurrent[scaler]=${UCOLLAGE_SCALER:-${optdefault[scaler]}}
-    optcurrent[scalingx]=${UCOLLAGE_SCALINGX:-${optdefault[scalingx]}}
-    optcurrent[scalingy]=${UCOLLAGE_SCALINGY:-${optdefault[scalingy]}}
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
-    optcurrent[maxload]=${UCOLLAGE_MAX_LOAD:-${optdefault[maxload]}}
     leader=${UCOLLAGE_LEADER:-\\}
     error=""
     warning=""
@@ -405,6 +385,13 @@ set_defaults() {
     prefix=""
     exit_clear=1
     previous_batch=0
+}
+
+set_optcurrent() {
+    for key in "${!optdefault[@]}"
+    do
+        optcurrent[$key]="${optdefault[$key]}"
+    done
     set_scaling
 }
 
@@ -2776,7 +2763,8 @@ init() {
 
 check_dependencies
 [[ -f "$CONFIG_VARIABLES_FILE" ]] && source "$CONFIG_VARIABLES_FILE"
-set_defaults
+set_default
+set_optcurrent
 parse_config
 set_scripts
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
