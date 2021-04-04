@@ -129,7 +129,7 @@ command set
 []
 type    builtin
 map     sg
-script  command_mode "set gridlines=" " gridcolumns="
+script  _set --- gridlines= gridcolumns=
 command set
 
 []

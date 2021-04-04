@@ -2306,6 +2306,7 @@ _set() {
         local oldvalue="${optcurrent[$option]}"
         case "$type" in
             "+=")
+                [[ -z "$value" ]] && continue
                 case ${optiontype[$option]} in
                     "number")
                         if is_natural "$value" || [[ "$value" -eq 0 ]]
@@ -2328,6 +2329,7 @@ _set() {
                 esac
                 ;;
             "-=")
+                [[ -z "$value" ]] && continue
                 case ${optiontype[$option]} in
                     "number")
                         if is_natural "$value" || [[ "$value" -eq 0 ]]
@@ -2350,6 +2352,7 @@ _set() {
                 esac
                 ;;
             "^=")
+                [[ -z "$value" ]] && continue
                 case ${optiontype[$option]} in
                     "number")
                         if is_natural "$value" || [[ "$value" -eq 0 ]]
@@ -2372,6 +2375,7 @@ _set() {
                 esac
                 ;;
             "=")
+                [[ -z "$value" ]] && continue
                 case ${optiontype[$option]} in
                     "number")
                         if is_natural "$value" || [[ "$value" -eq 0 ]]
@@ -2575,7 +2579,9 @@ command_mode() {
         mode="command"
         update_status
         local input_prompt=":"
+        local input
         local input_left
+        local input_right
         [[ -n "$prefix" ]] && input_left="($prefix) "
         input_autocomplete="ucollage"
         local cleanup=1
