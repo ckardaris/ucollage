@@ -12,12 +12,19 @@ declare -A optiontype=(\
     [gridcolumns]="number"
     [gridlines]="number"
     [maxload]="number"
+    [scalingx]="number"
+    [scalingy]="number"
 )
 
-declare -A wdlist=(\
+declare -A spacelist=(\
     [batch]="previous next first last"
     [rate]="0 1 2 3 4 5"
     [set]="${!optiontype[*]}"
+    [!]="$(compgen -c | tr '\n' ' ')"
+    [!%]="$(compgen -c | tr '\n' ' ')"
+)
+
+declare -A sticklist=(\
     [no]="showfileinfo execprompt reverse"
     [inv]="showfileinfo execprompt reverse"
 )
@@ -29,7 +36,8 @@ declare -A enumoptvalue=(\
 )
 for key in ${!enumoptvalue[*]}
 do
-    wdlist[$key=]="${enumoptvalue[$key]}"
+    sticklist[$key=]="${enumoptvalue[$key]}"
+    sticklist[$key:]="${enumoptvalue[$key]}"
 done
 
 declare -A optdefault=(\
@@ -42,6 +50,8 @@ declare -A optdefault=(\
     [gridcolumns]=3
     [gridlines]=3
     [maxload]=1000
+    [scalingx]=50
+    [scalingy]=50
 )
 
 declare -A optupdate=(\
@@ -54,6 +64,8 @@ declare -A optupdate=(\
     [gridcolumns]="redraw"
     [gridlines]="redraw"
     [maxload]=""
+    [scalingx]="set_scaling; show_batch"
+    [scalingy]="set_scaling; show_batch"
 )
 declare -A optcurrent
 ### copy default to current
@@ -271,6 +283,7 @@ set_scripts(){
         fi
     done
     [[ "$errors" -eq 1 ]] && read -rsN1
+    spacelist[ucollage]="${!colon_cmd[*]}"
 }
 
 check_config_variable() {
@@ -378,6 +391,8 @@ set_defaults() {
     optcurrent[sort]=${UCOLLAGE_SORT:-${optdefault[sort]}}
     optcurrent[reverse]=${UCOLLAGE_SORT_REVERSE:-${optdefault[reverse]}}
     optcurrent[scaler]=${UCOLLAGE_SCALER:-${optdefault[scaler]}}
+    optcurrent[scalingx]=${UCOLLAGE_SCALINGX:-${optdefault[scalingx]}}
+    optcurrent[scalingy]=${UCOLLAGE_SCALINGY:-${optdefault[scalingy]}}
     video_thumbnails=${UCOLLAGE_VIDEO_THUMBNAILS:-1}
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
@@ -390,6 +405,7 @@ set_defaults() {
     prefix=""
     exit_clear=1
     previous_batch=0
+    set_scaling
 }
 
 help(){
@@ -772,6 +788,8 @@ show_batch() {
                    [height]="$draw_lines"
                    [x]="$posx"
                    [y]="$posy"
+                   [scaling_position_x]="$realscalingx"
+                   [scaling_position_y]="$realscalingy"
                    [scaler]="${optcurrent[scaler]}")
             declare -p assoc > "$fifo"
         done
@@ -907,8 +925,11 @@ escape_name() {
 # Creates the automplete array based on the autocomplete type we want
 ######################################################################
 create_suggestions() {
+    local last_word=
     local files=0
     local split_left=()
+    local autocomplete_level=()
+    autocomplete_level[0]="$input_autocomplete"
     if [[ "$input_autocomplete" == "ucollage" ]]
     then
         input_left=${input_left/)*( )/) }
@@ -916,57 +937,43 @@ create_suggestions() {
     IFS=" " read -r -a split_left <<< "$input_left"
     #this trick also determines the way i handle the prefix in command mode
     #i add a space after the parenthesis so that the command is its own word
-    local last_word=${split_left[-1]}
+    [[ "${#split_left[@]}" -gt 0 ]] && last_word=${split_left[-1]}
     local merge=0
     #we do that so that a space confirms a suggestion
     [[ "${input_left: -1}" == " " ]] && split_left+=("")
-    if [[ -n "${wdlist[$last_word]}" ]] && [[ ${last_word: -1} == "=" ]]
-    then
-        split_left+=("")
-        merge=1
-    elif [[ ${split_left[$((len-1))]} =~ ^(no|inv)$ ]]
-    then
-        split_left+=("")
-        merge=1
-    fi
-    if [[ "$last_word" =~ =.+ ]]
-    then
-        local possible="${last_word%%=*}="
-        if [[ -n "${wdlist[$possible]}" ]]
-        then
-            split_left[-1]="$possible"
-            split_left+=("${last_word#*=}")
-            merge=1
-        fi
-    elif [[ "$last_word" =~ ^no.+ ]]
-    then
-        possible="${last_word%%o*}o"
-        if [[ -n "${wdlist[$possible]}" ]]
-        then
-            split_left[-1]="$possible"
-            split_left+=("${last_word#no}")
-            merge=1
-        fi
-    elif [[ "$last_word" =~ ^inv.+ ]]
-    then
-        possible="${last_word%%v*}v"
-        if [[ -n "${wdlist[$possible]}" ]]
-        then
-            split_left[-1]="$possible"
-            split_left+=("${last_word#inv}")
-            merge=1
-        fi
-    fi
-    if [[ "${#split_left[@]}" -eq 0 ]]
-    then
-        local word=
-    else
-        local word="${split_left[-1]}"
-    fi
-    local subinput_autocomplete="$input_autocomplete"
+    # The below 'for' loop creates the autocomplete level hierarchy
+    # If the previous word cannot produce autocomplete we move one
+    # back.
+    for compword in ${split_left[*]}
+    do
+        [[ -z "${spacelist[$compword]}" ]] && \
+            [[ -z "${sticklist[$compword]}" ]] && \
+            continue
+        local current_complete="${autocomplete_level[-1]}"
+        # a system command ends the level hierarchy with only the
+        # addition of the 'file' autcomplete in the next 'for' loop
+        [[ "$current_complete" =~ "!" ]] && break
+        [[ "${spacelist[$current_complete]}" =~ $compword ]] || \
+            [[ "${sticklist[$current_complete]}" =~ $compword ]] && \
+            autocomplete_level+=("$compword")
+    done
 
-    if [[ "$input_autocomplete" == "ucollage" ]] || \
-        [[ "$input_autocomplete" =~ ^(!|!%)$ ]]
+    for stick in "${!sticklist[@]}"
+    do
+        #The stick autocompletes are only for the ':set' command
+        if [[ "$last_word" =~ ^$stick ]] && \
+            [[ "${autocomplete_level[-1]}" == "set" ]]
+        then
+            split_left[-1]="$stick"
+            split_left+=("${last_word#$stick}")
+            autocomplete_level+=("$stick")
+            last_word="${split_left[-1]}"
+            merge=1
+        fi
+    done
+    local subinput_autocomplete="${autocomplete_level[-1]}"
+
+    if [[ "$subinput_autocomplete" =~ ^(!|!%)$ ]]
     then
         local passed=0 # this checks that I have already written a command
         local i
@@ -978,35 +985,17 @@ create_suggestions() {
         [[ "$passed" -eq 1 ]] && subinput_autocomplete="file"
     fi
 
-    # It is important that this overrides the above loop check because it
-    # is possible that a keyword exists as a system command (e.g sort)
-    if [[ "$input_autocomplete" == "ucollage" ]] && [[ "${#split_left[@]}" -gt 1 ]]
-    then
-        [[ -n ${wdlist[${split_left[-2]}]} ]] && \
-            subinput_autocomplete="${split_left[-2]}"
-    fi
-
     local wordlist
     case "$subinput_autocomplete" in
-        !|!%)
-            # writing the command autocomplete this way is a hack that permits as
-            # writing the previous loop which automatically sets the autocomplete
-            # in the ucollage command mode
-            mapfile -t autocomplete < <(compgen -c "$word" | sort)
-            ;;
         "file")
-            mapfile -t autocomplete < <(compgen -f "$word" | sort)
+            mapfile -t autocomplete < <(compgen -f "$last_word" | sort)
             files=1
             ;;
-        "ucollage")
-            wordlist=${!colon_cmd[*]}
-            mapfile -t autocomplete < \
-                <(IFS=" " compgen -W "$wordlist" "$word" | sort)
-            ;;
         *)
-            wordlist=${wdlist[$subinput_autocomplete]}
+            wordlist="${spacelist[$subinput_autocomplete]}"
+            wordlist+="${sticklist[$subinput_autocomplete]}"
             mapfile -t autocomplete < \
-                <(IFS=" " compgen -W "$wordlist" "$word" | sort)
+                <(IFS=" " compgen -W "$wordlist" "$last_word" | sort)
             ;;
     esac
 
@@ -1178,7 +1167,15 @@ get_input() {
                 input_left+="$key"
                 ;;
             $'')
+                clear_suggestions
+                clear_history
                 input_left=
+                ;;
+            $'')
+                clear_suggestions
+                clear_history
+                stop=${input_left%%?(*([[:alnum:]])*([[:space:]])|*([^[:alnum:]]))}
+                input_left="${stop}"
                 ;;
             $'\t')
                 [[ -z "$input_autocomplete" ]] && continue
@@ -2186,6 +2183,25 @@ reverse_images(){
     done
 }
 
+set_scaling() {
+    if [[ "${optcurrent[scalingx]}" -lt 0 ]]
+    then
+        optcurrent[scalingx]=0
+    elif [[ "${optcurrent[scalingx]}" -gt 100 ]]
+    then
+        optcurrent[scalingx]=100
+    fi
+    if [[ "${optcurrent[scalingy]}" -lt 0 ]]
+    then
+        optcurrent[scalingy]=0
+    elif [[ "${optcurrent[scalingy]}" -gt 100 ]]
+    then
+        optcurrent[scalingy]=100
+    fi
+    read -r realscalingx < <(bc -l <<< "scale=2; ${optcurrent[scalingx]} / 100")
+    read -r realscalingy < <(bc -l <<< "scale=2; ${optcurrent[scalingy]} / 100")
+}
+
 _set() {
     split() {
         local -n arr="$1"
@@ -2305,7 +2321,7 @@ _set() {
             "+=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value"
+                        if is_natural "$value" || [[ "$value" -eq 0 ]]
                         then
                             ((optcurrent[$option] += value))
                         else
@@ -2327,7 +2343,7 @@ _set() {
             "-=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value"
+                        if is_natural "$value" || [[ "$value" -eq 0 ]]
                         then
                             ((optcurrent[$option] -= value))
                         else
@@ -2349,7 +2365,7 @@ _set() {
             "^=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value"
+                        if is_natural "$value" || [[ "$value" -eq 0 ]]
                         then
                             ((optcurrent[$option] *= value))
                         else
@@ -2371,7 +2387,7 @@ _set() {
             "=")
                 case ${optiontype[$option]} in
                     "number")
-                        if is_natural "$value"
+                        if is_natural "$value" || [[ "$value" -eq 0 ]]
                         then
                             ((optcurrent[$option] = value))
                         else
@@ -2577,6 +2593,7 @@ command_mode() {
         input_autocomplete="ucollage"
         local cleanup=1
         input_left+="$1"
+        input_right+="$2"
         if get_input
         then
             save_input=

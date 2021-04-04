@@ -93,19 +93,19 @@ command rename
 []
 type    builtin
 map     ss
-script  command_mode "set sort="
+script  command_mode "set sort"
 command set
 
 []
 type    builtin
 map     su
-script  command_mode "1et scaler="
+script  command_mode "set scaler"
 command set
 
 []
 type    builtin
 map     sf
-script  command_mode "set fileinfo="
+script  command_mode "set fileinfo"
 command set
 
 []
@@ -129,7 +129,7 @@ command set
 []
 type    builtin
 map     sg
-script  command_mode "set gridlines= gridcolumns="
+script  command_mode "set gridlines=" " gridcolumns="
 command set
 
 []
@@ -191,6 +191,30 @@ type    builtin
 map     P <Ctrl-Shift-Left>
 script  compute_batch --- first
 command batch
+
+[]
+type    builtin
+map     <Shift-Left>
+script  _set --- scalingx-=1
+command set
+
+[]
+type    builtin
+map     <Shift-Right>
+script  _set --- scalingx+=1
+command set
+
+[]
+type    builtin
+map     <Shift-Down>
+script  _set --- scalingy+=1
+command set
+
+[]
+type    builtin
+map     <Shift-Up>
+script  _set --- scalingy-=1
+command set
 
 []
 type    builtin
