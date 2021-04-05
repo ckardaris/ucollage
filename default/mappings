@@ -4,13 +4,13 @@
 []
 type    builtin
 map     di
-script  delete_image
+script  _delete
 command delete
 
 []
 type    builtin
 map     ti
-script  tag_image tag
+script  _tag tag
 command tag
 
 []
@@ -22,36 +22,36 @@ command undo
 []
 type    builtin
 map     h <Left>
-script  set_current left --nowrap
+script  _select left --nowrap
 command
 
 []
 type    builtin
 map     <Backspace>
-script  set_current left
+script  _select left
 command
 []
 type    builtin
 map     j <Down>
-script  set_current down
+script  _select down
 command
 
 []
 type    builtin
 map     k <Up>
-script  set_current up
+script  _select up
 command
 
 []
 type    builtin
 map     l <Right>
-script  set_current right --nowrap
+script  _select right --nowrap
 command
 
 []
 type    builtin
 map     <Space>
-script  set_current right
+script  _select right
 command
 
 []
@@ -63,13 +63,13 @@ command quit
 []
 type    builtin
 map     dt
-script  tag_image untag
+script  _tag untag
 command untag
 
 []
 type    builtin
 map     <Return>
-script  goto_image
+script  _goto
 command goto
 
 []
@@ -81,31 +81,31 @@ command redo
 []
 type    builtin
 map     wi
-script  save_edits
+script  _write
 command write
 
 []
 type    builtin
 map     ci
-script  rename
+script  _rename
 command rename
 
 []
 type    builtin
 map     ss
-script  command_mode "set sort"
+script  command_mode --left "set sort"
 command
 
 []
 type    builtin
 map     su
-script  command_mode "set scaler"
+script  command_mode --left "set scaler"
 command
 
 []
 type    builtin
 map     sf
-script  command_mode "set fileinfo"
+script  command_mode --left "set fileinfo"
 command
 
 []
@@ -231,49 +231,49 @@ command
 []
 type    builtin
 map     rl
-script  rotate_image --degrees 90
+script  _rotate --degrees 90
 command
 
 []
 type    builtin
 map
-script  rotate_image --degrees
+script  _rotate --degrees
 command rotateright
 
 []
 type    builtin
 map
-script  rotate_image --counter --degrees
+script  _rotate --counter --degrees
 command rotateleft
 
 []
 type    builtin
 map     rh
-script  rotate_image --counter --degrees 90
+script  _rotate --counter --degrees 90
 command
 
 []
 type    builtin
 map     xi
-script  execute image
+script  _execute image
 command
 
 []
 type    builtin
 map     xs
-script  execute same
+script  _execute same
 command !
 
 []
 type    builtin
 map     xg
-script  execute group
+script  _execute group
 command !%
 
 []
 type    builtin
 map     si
-script  set_current
+script  _select
 command
 
 []
@@ -285,7 +285,7 @@ command loadfiles
 []
 type    builtin
 map     ri
-script  rate_image
+script  _rate
 command rate
 
 # vim: ft=config

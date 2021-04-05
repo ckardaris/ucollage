@@ -62,10 +62,10 @@ CONFIG_DEFAULT="/etc/ucollage/mappings"
 
 trim_spaces() {
     local -n str="$1"
+    local char
     str="${str##*([[:space:]])}"
     str="${str%%*([[:space:]])}"
     str="${str//+([[:space:]])/ }"
-    local char
     for delim in $2
     do
         str="${str//*([[:space:]])${delim}*([[:space:]])/${delim}}"
@@ -108,6 +108,7 @@ translate_map() {
     str=${str//<Ctrl-Z>/$'\x1A'}
     str=${str//<Insert>/$'\x1B'$'\x5B'$'\x32'$'\x7e'}
     str=${str//<Ctrl-Insert>/$'\x1B'$'\x5B'$'\x32'$'\x3B'$'\x35'$'\x7e'}
+    str=${str//<Shift-Insert>/$'\x1B'$'\x5B'$'\x32'$'\x3B'$'\x32'$'\x7e'}
     str=${str//<Delete>/$'\x1B'$'\x5B'$'\x33'$'\x7e'}
     str=${str//<Ctrl-Delete>/$'\x1B'$'\x5B'$'\x33'$'\x3B'$'\x35'$'\x7e'}
     str=${str//<Shift-Delete>/$'\x1B'$'\x5B'$'\x33'$'\x3B'$'\x32'$'\x7e'}
@@ -155,11 +156,12 @@ translate_map() {
 }
 
 set_scripts(){
+    local -a file_data
+    local ci command errors=0 i info line map mi script type
     # First we map the builtin commands and then the user defined. The order is
     # that way so that the user can override the defaults.
     if [[ -f "$CONFIG_DEFAULT" ]] && [[ -f "$CONFIG_SCRIPTS_FILE" ]]
     then
-        local file_data=()
         mapfile -t file_data < <(cat "$CONFIG_DEFAULT" "$CONFIG_SCRIPTS_FILE")
     elif [[ ! -f "$CONFIG_DEFAULT" ]]
     then
@@ -171,32 +173,28 @@ set_scripts(){
     else
         mapfile -t file_data < "$CONFIG_DEFAULT"
     fi
-    local errors=0
-    local i
     for ((i = 0; i < ${#file_data[@]}; i++))
     do
-        local line=${file_data[$i]}
+        line=${file_data[$i]}
         trim_spaces line "[ ]"
         if [[ "$line" =~ ^\[.*\]$ ]]
         then
-            local info=${line#[}
+            info=${line#[}
             info=${info%]}
 
-            local type=${file_data[$((i + 1))]##type}
+            type=${file_data[$((i + 1))]##type}
             trim_spaces type
 
-            local map=${file_data[$((i + 2))]##map}
+            map=${file_data[$((i + 2))]##map}
             trim_spaces map
             translate_map map
 
-            local script=${file_data[$((i + 3))]##script}
+            script=${file_data[$((i + 3))]##script}
             trim_spaces script
 
-            local command=${file_data[$((i + 4))]##command}
+            command=${file_data[$((i + 4))]##command}
             trim_spaces command
 
-            local mi
-            local ci
             if [[ "$type" == "edit" ]]
             then
                 if [[ ! "$script" =~ %in% ]]
@@ -285,10 +283,7 @@ check_config_variable() {
 }
 
 parse_config() {
-    local errors=0
-    local variable_name
-    local accept_regexp
-    local valid_values
+    local accept_regexp errors=0 valid_values variable_name
 
     variable_name="UCOLLAGE_LINES"
     accept_regexp="^([1-9][0-9]*|0+[1-9][0-9]*)$" # is natural
@@ -448,11 +443,12 @@ help(){
 }
 
 check_dependencies() {
-    local dependency
+    local dependency errors=0
     local -A dep
     dep[ueberzug]="ueberzug"
     dep[file]="file"
     dep[xxh128sum]="xxhash"
+    dep[bc]="bc"
     for dependency in "${!dep[@]}"
     do
         if ! command -v "$dependency" &>/dev/null
@@ -461,9 +457,9 @@ check_dependencies() {
         fi
     done
     dep=()
-    local errors=0
     dep[convert]="imagemagick"
     dep[ffmpeg]="ffmpeg"
+    dep[xclip]="xclip"
     for dependency in "${!dep[@]}"
     do
         if ! command -v "$dependency" &>/dev/null
@@ -479,7 +475,7 @@ check_dependencies() {
 # Create filelist
 ######################################################################
 read_filenames() {
-    local ls_args="-d"
+    local char item ls_args="-d"
     [[ "${optcurrent[reverse]}" == "reverse" ]] && ls_args+=" -r"
     case "${optcurrent[sort]}" in
         "time")
@@ -498,7 +494,6 @@ read_filenames() {
     else
         mapfile -t filelist < <(ls $ls_args -- *)
     fi
-    local item
     if [[ "$expand_dirs" -eq 1 ]]
     then
         for item in "${filelist[@]}"
@@ -509,7 +504,6 @@ read_filenames() {
     then
         for item in "${filelist[@]}"
         do
-            local char
             [[ -d "$item" ]] \
                 && read -p "Expand $item? (n, Esc: no, N: no to all)" -rsN1 char \
                 && echo
@@ -539,8 +533,7 @@ find_thumbnail() {
 # Create thumbnail for file
 ######################################################################
 create_thumbnail() {
-    local time_point
-    local format_duration
+    local format_duration time_point
     thumbnail_file="${tmp_dir}/${hash}.jpg"
     eval "$(ffprobe -i "$file" -show_entries format=duration \
         -v quiet -of flat="s=_")"
@@ -576,19 +569,18 @@ is_video() {
 ######################################################################
 read_images() {
     echo 1 > "${tmp_dir}/read_lock"
-    local readc=0
-    local loadc=0
-    local thumbnail_file
+    local file loadc=0 readc=0 thumbnail_file
     while (( readc < read_target )) && (( read_iter < argc )) && \
         ((loadc < optcurrent[maxload]))
     do
-        local file=${filelist[$read_iter]}
+        file=${filelist[$read_iter]}
         read -rd ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
         if is_image "$file"
         then
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$file" >> "${tmp_dir}/images.txt"
             echo "$hash" >> "${tmp_dir}/hash.txt"
+            echo 1 > "${tmp_dir}/dirty"
             (( readc += 1 ))
         elif is_video "$file" \
             && [[ "$video_thumbnails" -eq 1 ]] \
@@ -598,6 +590,7 @@ read_images() {
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$thumbnail_file" >> "${tmp_dir}/images.txt"
             echo "$hash" >> "${tmp_dir}/hash.txt"
+            echo 1 > "${tmp_dir}/dirty"
             if [[ "$cache_thumbnails" -eq 1 ]] && \
                 [[ ! "$thumbnail_file" == "$cache_name" ]]
             then
@@ -611,12 +604,6 @@ read_images() {
         (( loadc += 1 ))
         echo "$read_iter" > "${tmp_dir}/read_iter"
     done
-    if ((read_iter < argc))
-    then
-        echo 0 > "${tmp_dir}/done_reading"
-    else
-        echo 1 > "${tmp_dir}/done_reading"
-    fi
     echo 0 > "${tmp_dir}/read_lock"
 }
 
@@ -636,17 +623,9 @@ clear_screen() {
 # 2K                Clear entire line
 # 1J                Clear screen from cursor up
 ######################################################################
-clear_status() {
-    if [[ "$1" == "--cmdline" ]] #clear 2nd and 3rd line
-    then
-        printf "\e[?25l\e[H\e[2B\e[2K\e[1A\e[2K\e[2;1H"
-        cmd_status=
-        return
-    fi
-    # clear only first three lines of screen
-    printf "\e[?25l\e[H\e[2B\e[2K\e[1J\e[H"
-    status=""
-    cmd_status=""
+clearline() {
+    printf "\e[?25l\e[H\e[B\e[2K\e[2;1H"
+    status=
 }
 
 ######################################################################
@@ -656,7 +635,7 @@ clear_status() {
 # 2K                Clear entire line
 # 0J                Clear screen from cursor down
 ######################################################################
-clear_names() {
+clear_fileinfo() {
     # clear from 4th line and down
     printf "\e[?25l\e[H\e[3B\e[2K\e[0J\e[H"
 }
@@ -689,8 +668,7 @@ stop_daemon() {
 # Calculates the parameters for the current view
 ######################################################################
 calculate_dimensions() {
-    local lines
-    local columns
+    local columns lines
     read -r lines columns < <(stty size)
     (( batch = optcurrent[gridcolumns] * optcurrent[gridlines] ))
     if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$batch" -gt 1 ]]
@@ -710,9 +688,7 @@ calculate_dimensions() {
 # Pads strings with fileinfo to fit into the given column width
 ######################################################################
 pad_sides() {
-    local leftpad
-    local rightpad
-    local p
+    local leftpad p rightpad
     (( leftpad = $1 / 2 ))
     (( rightpad = $1 - leftpad ))
     for (( p = 0; p < leftpad; p++))
@@ -729,13 +705,7 @@ pad_sides() {
 # Draws the current batch of images on the screen
 ######################################################################
 show_batch() {
-    local counter
-    local draw_lines
-    local i
-    local j
-    local index
-    local posx
-    local posy
+    local counter draw_lines i index j posx posy
     [[ "$show" -lt 1 ]] && return
     if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$show" -gt 1 ]]
     then
@@ -790,15 +760,13 @@ show_batch() {
 # Modifies the parameters needed to show another batch
 ######################################################################
 compute_batch() {
-    local input="$1"
+    local input="$1" read_iter
     if [[ -z "$input" ]]
     then
         input_autocomplete="batch"
         input_prompt="Batch # "
-        clear_status --cmdline
         get_input
     fi
-    local read_iter
     read -r read_iter < "${tmp_dir}/read_iter"
     case $input in
         next)
@@ -854,7 +822,6 @@ compute_batch() {
     esac
     [[ -z "$warning" ]] && [[ -z "$error" ]] && redraw
     clear_sequence
-    update_status
 }
 
 ######################################################################
@@ -914,11 +881,9 @@ escape_name() {
 # Creates the automplete array based on the autocomplete type we want
 ######################################################################
 create_suggestions() {
-    local last_word=
-    local files=0
-    local split_left=()
-    local autocomplete_level=()
-    local merge=0
+    local current_complete files=0 i last_word="" len merge=0 passed
+    local subinput_autocomplete wordlist
+    local -a autocomplete_level=() split_left=()
     autocomplete_level[0]="$input_autocomplete"
     if [[ "$input_autocomplete" == "ucollage" ]]
     then
@@ -939,7 +904,7 @@ create_suggestions() {
         [[ -z "${spacelist[$compword]}" ]] && \
             [[ -z "${sticklist[$compword]}" ]] && \
             continue
-        local current_complete="${autocomplete_level[-1]}"
+        current_complete="${autocomplete_level[-1]}"
         # a system command ends the level hierarchy with only the
         # addition of the 'file' autcomplete in the next 'for' loop
         [[ "$current_complete" =~ "!" ]] && break
@@ -961,12 +926,11 @@ create_suggestions() {
             merge=1
         fi
     done
-    local subinput_autocomplete="${autocomplete_level[-1]}"
+    subinput_autocomplete="${autocomplete_level[-1]}"
 
     if [[ "$subinput_autocomplete" =~ ^(!|!%)$ ]]
     then
-        local passed=0 # this checks that I have already written a command
-        local i
+        passed=0 # this checks that I have already written a command
         for ((i = 0; i < ${#split_left[@]} - 1; i++))
         do
             command -v ${split_left[$i]} &>/dev/null && \
@@ -975,7 +939,6 @@ create_suggestions() {
         [[ "$passed" -eq 1 ]] && subinput_autocomplete="file"
     fi
 
-    local wordlist
     case "$subinput_autocomplete" in
         "file")
             mapfile -t autocomplete < <(compgen -f "$last_word" | sort)
@@ -991,7 +954,7 @@ create_suggestions() {
 
     autocomplete=("$input_left" "${autocomplete[@]}")
     [[ "${#split_left[@]}" -gt 0 ]] && unset "split_left[-1]"
-    local i=1
+    i=1
     while [[ "$i" -lt ${#autocomplete[@]} ]]
     do
         if [[ "$files" -eq 1 ]] #only escape filenames
@@ -999,7 +962,7 @@ create_suggestions() {
             escape_name autocomplete[$i]
         fi
 
-        local len="${#split_left[@]}"
+        len="${#split_left[@]}"
         if [[ "$len" -gt 0 ]]
         then
             if [[ "$merge" -eq 1 ]]
@@ -1020,16 +983,14 @@ create_suggestions() {
 # Gets input from the user
 ######################################################################
 get_input() {
-    local move=""
-    local suggestion
-    local suggestion_index
-    local suggestion_count
-    local cmd_history=()
-    local cmd_history_index
-    local input_history
-    local stop
-    clear_status --cmdline
+    local available char cmd_history_index columns input_history key lines
+    local move="" stop string suggestion suggestion_count suggestion_index
+    local -a cmd_history=()
+    read -r lines columns < <(stty size)
+    available="$columns"
+    clearline
     printf "\e[?25h%s\e7" "$input_prompt"
+    ((available -= ${#input_prompt} + 1))
     while [[ "$exit_flag" -eq 0 ]]
     do
         printf "\e8\e[K"
@@ -1037,15 +998,21 @@ get_input() {
         [[ -n "$input_right" ]] && move="\e[${#input_right}D" || move=
         if [[ -n "$suggestion" ]]
         then
-            printf "%s%s$move" "$suggestion" "$input_right"
+            string="$suggestion$input_right"
+            [[ "${#string}" -gt "$available" ]] && string=${string: -${available}}
+            printf "%s$move" "$string"
         elif [[ -n "$input_history" ]]
         then
+            [[ "${#input_history}" -gt "$available" ]] && \
+                input_history=${input_history: -${available}}
             printf "%s" "$input_history"
         else
-            printf "%s%s$move" "$input_left" "$input_right"
+            string="$input_left$input_right"
+            [[ "${#string}" -gt "$available" ]] && string=${string: -${available}}
+            printf "%s$move" "$string"
         fi
-        local key=
-        local char
+        key=
+        char=
         while read -rsN1 -t 0.01 char &>/dev/null
         do
             key+="$char"
@@ -1134,6 +1101,16 @@ get_input() {
                 clear_history --force
                 [[ -n "$input_right" ]] && input_right="${input_right:1}"
                 ;;
+            $'\e[2~')
+                clear_suggestions
+                clear_history --force
+                input_left+="$(xclip -selection primary -o)"
+                ;;
+            $'')
+                clear_suggestions
+                clear_history --force
+                input_left+="$(xclip -selection clipboard -o)"
+                ;;
             $'\e')
                 clear_suggestions
                 clear_history --force
@@ -1185,6 +1162,7 @@ get_input() {
     input_right=
     input_autocomplete=
     trim_spaces input
+    clearline
     [[ -z "$input" ]] && return 1 || return 0
 }
 
@@ -1196,9 +1174,7 @@ is_natural() {
 # Draws filenames under the images on the screen
 ######################################################################
 print_names() {
-    local lines
-    local columns
-    local i
+    local columns i lines
     read -r lines columns < <(stty size)
     for ((i = 4; i <= lines; i++))
     do
@@ -1210,10 +1186,8 @@ print_names() {
 
 set_stars() {
     local -n str="$1"
+    local hash="${filehash[$index]}" index="$2" k rating=""
     str=
-    local index="$2"
-    local hash="${filehash[$index]}"
-    local rating=
     if is_image
     then
         eval "$(cat "${cache_dir}/hash/images/$hash")"
@@ -1223,7 +1197,6 @@ set_stars() {
     fi
     if [[ -n "$rating" ]]
     then
-        local k
         for ((k = 0; k < rating; k++))
         do
             str+="★"
@@ -1238,15 +1211,13 @@ set_stars() {
 ######################################################################
 # Update the fileinfo to account for batch changes, file renaming or rating
 ######################################################################
-modify_fileinfo() {
+update_fileinfo() {
     [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] || \
-        [[ "$batch" -eq 1 ]] && return 1
-    local lines
-    local columns
-    line_names=()
-    local i
-    local j
-    local total_lines
+        [[ "$batch" -eq 1 ]] && \
+        clear_fileinfo && return
+    local cnt columns current_in_line current_name i j linelength lines
+    local namelength row stars total_lines
+    local -a line_names=()
     read -r lines columns < <(stty size)
 
     (( total_lines = (show - 1) / optcurrent[gridcolumns] + 1))
@@ -1260,10 +1231,10 @@ modify_fileinfo() {
     line_names[0]+="┐"
     line_names[$((total_lines * photo_lines))]+="┘"
 
-    local cnt=0
+    cnt=0
     for ((i = 1; i < total_lines * photo_lines; i++))
     do
-        local current_in_line=0
+        current_in_line=0
         if ((i % photo_lines == 0))
         then
             line_names[$i]="├"
@@ -1275,17 +1246,15 @@ modify_fileinfo() {
         elif ((i % photo_lines ==  photo_lines - 1))
         then
             line_names[$i]="│"
-            local row
             ((row = (i - 1) / photo_lines))
             for ((j = 0; j < optcurrent[gridcolumns]; j++, cnt++))
             do
                 (( index = start + row * optcurrent[gridcolumns] + j))
                 if [[ "$cnt" -lt "$show" ]]
                 then
-                    local current_name="$((index + 1 - start)): "
+                    current_name="$((index + 1 - start)): "
                     case "${optcurrent[fileinfo]}" in
                         "ratings")
-                            local stars
                             set_stars stars "$index"
                             current_name+="$stars"
                             ;;
@@ -1299,7 +1268,7 @@ modify_fileinfo() {
                     esac
                     (( max_length = photo_columns - 2 ))
                     current_name=${current_name:0:$max_length}
-                    local namelength="${#current_name}"
+                    namelength="${#current_name}"
                     if (( index - start == current))
                     then
                         current_name="\e[7m$current_name\e[m"
@@ -1309,7 +1278,7 @@ modify_fileinfo() {
                     line_names[$i]+="$current_name"
                 fi
             done
-            local linelength=${#line_names[$i]}
+            linelength=${#line_names[$i]}
             # substract the inversion escape chars
             [[ "$current_in_line" -eq 1 ]] && ((linelength -= 9))
             for ((j = linelength; j < columns - 1; j++))
@@ -1336,12 +1305,7 @@ modify_fileinfo() {
             line_names[$i]+=" "
         done
     done
-    return 0
-}
-
-update_fileinfo() {
-    local line_names
-    modify_fileinfo && print_names || clear_names
+    print_names
 }
 
 redraw() {
@@ -1354,9 +1318,8 @@ redraw() {
 # Set information relating to the current view
 ######################################################################
 set_info() {
-    local begin
-    local lines
-    local columns
+    local begin lines columns photo_name stars finish tlen elen sel_info=
+    local length padding
     read -r lines columns < <(stty size)
     read -r read_iter < "${tmp_dir}/read_iter"
     ((begin = start + 1))
@@ -1365,29 +1328,24 @@ set_info() {
     ((read_iter < argc)) && info_total+=" ($((argc - read_iter)) unloaded)"
     if in_monocle
     then
-        local photo_name
         photo_name=$(basename "${image_names[$start]}")
         [[ -n ${edits[$start]} ]] && photo_name="~ ${photo_name}"
         [[ -n ${tags[$start]} ]] && photo_name="* ${photo_name}"
         info+=" │ $begin/$info_total │ ${photo_name}"
-        local stars
         set_stars stars "$start"
         [[ -n "$stars" ]] && info+=" | $stars"
     else
-        local finish
         ((finish = begin + show - 1))
         info+=" │ [$begin-$finish]/$info_total"
     fi
-    local tlen=${#tags[@]}
-    local elen=${#edits[@]}
+    tlen=${#tags[@]}
+    elen=${#edits[@]}
     [[ "$tlen" -gt 0 ]] && info+=" │ * ${tlen}"
     [[ "$elen" -gt 0 ]] && info+=" │ ~ ${elen}"
-    local sel_info=
     [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] && ! in_monocle && \
         sel_info=" | ∙ $((current + 1)) "
-    local length=${#info}
+    length=${#info}
     ((length += ${#sel_info}))
-    local padding
     (( padding = columns - length))
     for ((i = 0; i < padding; i++))
     do
@@ -1407,16 +1365,19 @@ in_monocle() {
 # Evaluate a command
 ######################################################################
 eval_cmd() {
-    local error
+    local ans="" columns lines
+    read -r lines columns < <(stty size)
     if [[ "${optcurrent[execprompt]}" == "execprompt" ]]
     then
-        clear_status --cmdline
-        printf "%s? (Press y/Y/Enter to confirm)" "$cmd_prompt"
-        local ans=
+        clearline
+        cmd_prompt+="? (Press y/Y/Enter to confirm)"
+        cmd_prompt=${cmd_prompt:0:$columns}
+        printf "%s" "$cmd_prompt"
         while [[ -z "$ans" ]] && [[ "$exit_flag" -eq 0 ]]
         do
             read -rsN1 -t 0.01 ans &>/dev/null
         done
+        clearline
         [[ ! "$ans" =~ ^(y|Y|$'\n')$ ]] && return 1
     fi
     error=$(eval "$cmd" 2>&1 >/dev/null)
@@ -1467,9 +1428,8 @@ all_indices() {
 ######################################################################
 get_image_index() {
     unset image_index
-    local i
-    local star=0
-    [[ "$prefix" == "#" ]] && prefix="$old_prefix"
+    local i star=0
+    [[ "$prefix" == "#" ]] && prefix="$repeat_prefix"
     if [[ "$prefix" == ";" ]]
     then
         for (( i = 1; i <= total; i++ ))
@@ -1540,21 +1500,36 @@ parallel_update() {
 # Update the status line
 ######################################################################
 update_status() {
-    local lines
-    local columns
-    local new_status
-    local prefix_status
-    local new_cmd_status
+    local columns length lines new_status prefix_status
+    local -a line=()
     printf "\e[?25l"
     read -r lines columns < <(stty size)
     set_info
-    new_status="\e[107;30m${info}\e[m"
-    if [[ ! "$new_status" == "$status" ]] || [[ "$1" == "--force" ]]
+    info=${info:0:$columns}
+    line[0]="\e[H\e[107;30m${info}\e[m\n"
+
+    if [[ -n "$success" ]]
     then
-        clear_status
-        status="$new_status"
-        printf "$status"
+        length="${#success}"
+        line[1]="\e[32m${success:0:$((columns - 25))}\e[m"
+    elif [[ -n "$error" ]]
+    then
+        line[1]="\e[31m${error:0:$((columns - 25))}\e[m"
+        length="${#error}"
+    elif [[ -n "$warning" ]]
+    then
+        line[1]="\e[33m${warning:0:$((columns - 25))}\e[m"
+        length="${#warning}"
+    elif [[ -n "$message" ]]
+    then
+        line[1]="${message:0:$((columns - 25))}"
+        length="${#message}"
     fi
+    for ((i = length; i < columns-20; i++))
+    do
+        line[1]+=" "
+    done
+
     if [[ -n "$prefix" ]] && [[ -n "$mapping" ]]
     then
         prefix_status="($prefix)$mapping"
@@ -1567,50 +1542,34 @@ update_status() {
     else
         prefix_status=
     fi
-    new_cmd_status="\e[H\e[B\e[2K"
-    if [[ -n "$success" ]]
+    [[ ${#prefix_status} -gt 15 ]] && prefix_status=${prefix_status: -15}
+
+    for ((i = ${#prefix_status}; i < 20; i++))
+    do
+        prefix_status+=" "
+    done
+    line[1]+="\e[2;1H\e[$((columns - 20))C${prefix_status}"
+    
+    new_status="${line[0]}${line[1]}"
+    if [[ "$new_status" != "$status" ]]
     then
-        new_cmd_status+="\e[32m${success}\e[m"
-    elif [[ -n "$error" ]]
-    then
-        ((space = 2 * columns))
-        [[ "${#error}" -gt "$space" ]] && error="${error:0:$space}"
-        new_cmd_status="\e[31m${error}\e[m"
-    elif [[ -n "$warning" ]]
-    then
-        new_cmd_status+="\e[33m${warning}\e[m"
-    elif [[ -n "$message" ]]
-    then
-        new_cmd_status+="${message}"
+        printf "\e[H$new_status"
+        success=
+        error=
+        warning=
+        message=
     fi
-    [[ ${#prefix_status} -gt 30 ]] && prefix_status=${prefix_status: -30}
-    [[ ! "$mapping" =~ ^(;)$ ]] && \
-        new_cmd_status+="\e[$((columns - 20))C${prefix_status}"
-    if [[ ! "$new_cmd_status" == "$cmd_status" ]]
-    then
-        clear_status --cmdline
-        cmd_status+="$new_cmd_status"
-        printf "$new_cmd_status"
-    fi
-    success=
-    error=
-    warning=
-    message=
 }
 
 run_use_script() {
-    clear_status --cmdline
-    local script="$1"
-    local cmd_prompt_base="$2"
-    local sc_i
-    local executed=0
+    local script="$1" cmd_prompt_base="$2"
+    local cmd cmd_prompt executed=0 ind sc_i
     if get_image_index
     then
         for (( sc_i = 0; sc_i < index_count; sc_i++))
         do
-            local ind=${image_index[$sc_i]}
-            local cmd="${script//%in%/\"${image_names[$ind]}\"}"
-            local cmd_prompt
+            ind=${image_index[$sc_i]}
+            cmd="${script//%in%/\"${image_names[$ind]}\"}"
             cmd_prompt="${cmd_prompt_base}: "
             cmd_prompt+="\"$(basename -a "${image_names[$ind]}" | \
                 tr '\n' ' ' | head -c-1)\""
@@ -1626,33 +1585,29 @@ run_use_script() {
             success="Success"
         fi
     fi
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
 run_edit_script() {
-    clear_status --cmdline
     local script="$1"
-    local old_exec_prompt="${optcurrent[execprompt]}"
+    local cmd edited=0 file hash ind level non_image=0
+    local old_exec_prompt="${optcurrent[execprompt]}" sc_i tmpfile
     optcurrent[execprompt]="noexecprompt"
-    local edited=0
-    local non_image=0
-    local sc_i
     if get_image_index
     then
         for (( sc_i = 0; sc_i < index_count; sc_i++))
         do
-            local ind=${image_index[$sc_i]}
-            local level=${edits[$ind]}
-            local file="${image_names[$ind]}"
+            ind=${image_index[$sc_i]}
+            level=${edits[$ind]}
+            file="${image_names[$ind]}"
             case $file in
                 (*.*) extension=${file##*.};;
                 (*)   extension="";;
             esac
-            local hash="${filehash[$ind]}"
+            hash="${filehash[$ind]}"
             ! is_image && ((non_image += 1)) && continue
-            local tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
-            local cmd=${script//%in%/\"${images[$ind]}\"}
+            tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
+            cmd=${script//%in%/\"${images[$ind]}\"}
             cmd=${cmd//%out%/\"${tmpfile}\"}
             if eval_cmd
             then
@@ -1685,31 +1640,27 @@ run_edit_script() {
         fi
     fi
     optcurrent[execprompt]="$old_exec_prompt"
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
-save_edits() {
-    clear_status --cmdline
-    local se_i
-    local saved=0
-    local no_pending=0
+_write() {
+    local cmd cmd_prompt hash ind local_changes=0 no_pending=0 saved=0
+    local se_i tmpfile
     if get_image_index
     then
-        local local_changes=0
         for (( se_i = 0; se_i < index_count; se_i++))
         do
-            local ind=${image_index[$se_i]}
-            local tmpfile=${images[$ind]}
+            ind=${image_index[$se_i]}
+            tmpfile=${images[$ind]}
             case $tmpfile in
                 (*.*) extension=${tmpfile##*.};;
                 (*)   extension="";;
             esac
-            local hash=${tmpfile%.*([[:digit:]]).${extension}}
+            hash=${tmpfile%.*([[:digit:]]).${extension}}
             hash=${hash#${tmp_dir}/}
             [[ -z ${edits[$ind]} ]] && ((no_pending += 1)) && continue
-            local cmd="cp -f \"${tmpfile}\" \"${image_names[$ind]}\""
-            local cmd_prompt="Save edits for ${image_names[$ind]}"
+            cmd="cp -f \"${tmpfile}\" \"${image_names[$ind]}\""
+            cmd_prompt="Save edits for ${image_names[$ind]}"
             if eval_cmd
             then
                 ((saved += 1))
@@ -1740,45 +1691,40 @@ save_edits() {
             fi
         fi
     fi
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
-rate_image() {
-    clear_status --cmdline
-    local mi
-    local update=0
-    rated=0
+_rate() {
+    local file hash ind input_autocomplete input_prompt mi rating
+    local rating_arr update=0
     if get_image_index
     then
         if [[ -n "$*" ]]
         then
-            local rating_arr
             IFS=" " read -r -a rating_arr <<< "$*"
+            for ((i = ${#rating_arr[@]}; i < index_count; i++))
+            do
+                rating_arr[$i]=${rating_arr[-1]}
+            done
         fi
-        for ((i = ${#rating[@]}; i < index_count; i++))
-        do
-            rating_arr[$i]=${rating_arr[-1]}
-        done
 
         for (( mi = 0; mi < index_count; mi++))
         do
-            local ind=${image_index[$mi]}
-            clear_status --cmdline
+            ind=${image_index[$mi]}
             if [[ -n "${rating_arr[$mi]}" ]]
             then
                 input="${rating_arr[$mi]}"
             else
-                local input_prompt="Rating for [$((ind + 1))]: "
-                local input_autocomplete="rating"
+                input_prompt="Rating for [$((ind % batch + 1))]: "
+                input_autocomplete="rating"
                 ! get_input && continue
                 trim_spaces input --force
             fi
             if [[ "$input" =~ ^(0|1|2|3|4|5)$ ]]
             then
-                local hash="${filehash[$ind]}"
-                local rating=
-                local file=
+                hash="${filehash[$ind]}"
+                rating=
+                file=
                 if is_image
                 then
                     file="${cache_dir}/hash/images/$hash"
@@ -1794,7 +1740,6 @@ rate_image() {
                 else
                     echo "rating=$input" >> "${cache_dir}/hash/images/$hash"
                 fi
-                ((rated += 1))
                 is_index_local "$ind" && update=1
             else
                 error="Rating has to be in [0-5]"
@@ -1803,28 +1748,28 @@ rate_image() {
         [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "ratings" ]] && \
             update_fileinfo
     fi
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
-execute() {
-    clear_status --cmdline
-    local ex_i
-    local executed=0
+_execute() {
+    local args="" base cmd cmd_prompt edit_args="" ex_i executed=0 input
+    local input_autocomplete input_prompt nice ind nicer_args=""
     if [[ "$1" == "image" ]] # each image on its own
     then
         if get_image_index
         then
             for (( ex_i = 0; ex_i < index_count; ex_i++))
             do
-                local ind=${image_index[$ex_i]}
-                clear_status --cmdline
-                local input_prompt="Command for [$((ind + 1))]: "
-                local input_autocomplete="!"
+                ind=${image_index[$ex_i]}
+                input_prompt="Command for [$((ind % batch + 1))]: "
+                input_autocomplete="!"
                 ! get_input && continue
-                local cmd=${input//%s/\"${image_names[$ind]}\"}
+                cmd=${input//%s/\"${image_names[$ind]}\"}
+                base=$(basename "${image_names[$ind]}")
+                nice=${input//%s/\"$base\"}
                 cmd=${cmd//%e/\"${images[$ind]}\"}
-                local cmd_prompt="$ ${cmd}"
+                nice=${nice//%e/<edited_file>}
+                cmd_prompt="$ ${nice}"
                 eval_cmd && ((executed += 1))
             done
         fi
@@ -1838,21 +1783,23 @@ execute() {
         then
             if [[ -n "$execute_cmd" ]]
             then
-                local input="$execute_cmd"
+                input="$execute_cmd"
             else
-                clear_status --cmdline
-                local input_prompt="Command: "
-                local input_autocomplete="!"
+                input_prompt="Command: "
+                input_autocomplete="!"
                 get_input
             fi
             if [[ -n "$input" ]]
             then
                 for (( ex_i = 0; ex_i < index_count; ex_i++))
                 do
-                    local ind=${image_index[$ex_i]}
-                    local cmd=${input//%s/\"${image_names[$ind]}\"}
+                    ind=${image_index[$ex_i]}
+                    cmd=${input//%s/\"${image_names[$ind]}\"}
+                    base=$(basename "${image_names[$ind]}")
+                    nice=${input//%s/\"$base\"}
                     cmd=${cmd//%e/\"${images[$ind]}\"}
-                    local cmd_prompt="$ ${cmd}"
+                    nice=${nice//%e/<edited_file>}
+                    cmd_prompt="$ ${nice}"
                     eval_cmd && ((executed += 1))
                 done
             fi
@@ -1860,30 +1807,30 @@ execute() {
     else # bundle images
         if get_image_index
         then
-            local args=""
-            local edit_args=""
             for (( i = 0; i < index_count; i++))
             do
-                local ind=${image_index[$i]}
+                ind=${image_index[$i]}
                 args+="\"${image_names[$ind]}\" "
                 edit_args+="\"${images[$ind]}\" "
+                nicer_args+="\"$(basename "${image_names[$ind]}")\" "
             done
-            clear_status --cmdline
             shift
             execute_cmd="$*"
             if [[ -n "$execute_cmd" ]]
             then
-                local input="$execute_cmd"
+                input="$execute_cmd"
             else
-                local input_prompt="Command: "
-                local input_autocomplete="!"
+                input_prompt="Command: "
+                input_autocomplete="!"
                 get_input
             fi
             if [[ -n "$input" ]]
             then
-                local cmd=${input//%S/${args[@]}}
-                cmd=${cmd//%E/${edit_args[@]}}
-                local cmd_prompt="$ ${cmd}"
+                cmd=${input//%S/$args}
+                nice=${input//%S/$nicer_args}
+                cmd=${cmd//%E/$edit_args}
+                nice=${nice//%E/<edited files>}
+                cmd_prompt="$ ${nice}"
                 eval_cmd && ((executed += index_count))
             fi
         fi
@@ -1897,45 +1844,30 @@ execute() {
     else
         success="Success"
     fi
-    clear_sequence
+    clear_sequence --repeat
     execute_cmd=
-    update_status
 }
 
-rename() {
-    clear_status --cmdline
-    local update=0
-    local mv_i
+_rename() {
+    local update=0 mv_i ind input input_prompt input_autocomplete pathto
+    local cmd cmd_prompt
     if get_image_index
     then
         local renamed=0
         for (( mv_i = 0; mv_i < index_count; mv_i++))
         do
-            local ind=${image_index[$mv_i]}
-            clear_status --cmdline
-            local input=
-            local input_prompt="New name for [$((ind + 1))]: "
-            local input_left="${image_names[$ind]}"
-            [[ "$index_count" -eq 1 ]] && local input="$1"
+            ind=${image_index[$mv_i]}
+            input=
+            input_prompt="New name for [$((ind % batch + 1))]: "
+            input_left="$(basename "${image_names[$ind]}")"
+            pathto="$(dirname "${image_names[$ind]}")"
+            [[ "$index_count" -eq 1 ]] && input="$1"
             if [[ -z "$input" ]]
             then
                 ! get_input && continue
             fi
-            if [[ "${image_names[$ind]}" == "$input" ]]
-            then
-                error="New name has to be different"
-                update_status
-                read -rsN1
-                continue
-            elif [[ -f "$input" ]]
-            then
-                error="Filename exists"
-                update_status
-                read -rsN1
-                continue
-            fi
-            local cmd="mv \"${image_names[$ind]}\" \"$input\""
-            local cmd_prompt="Rename [$((ind + 1))] to: ${input}"
+            cmd="mv \"${image_names[$ind]}\" \"$pathto/$input\""
+            cmd_prompt="Rename [$((ind % batch + 1))] to: ${input}"
             if eval_cmd
             then
                 ((renamed += 1))
@@ -1957,12 +1889,10 @@ rename() {
         [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "names" ]] && \
             update_fileinfo
     fi
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
-goto_image() {
-    clear_status --cmdline
+_goto() {
     [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
     if get_image_index
     then
@@ -1977,23 +1907,19 @@ goto_image() {
         redraw
     fi
     clear_sequence
-    update_status
 }
 
-delete_image() {
-    clear_status --cmdline
-    local update=0
-    local del_i
+_delete() {
+    local cmd cmd_prompt del_i deleted=0 ind update=0
     if get_image_index
     then
-        local deleted=0
         for (( del_i = 0; del_i < index_count; del_i++))
         do
             # adjust index because we trim the arrays after deleting
             (( updated = del_i - deleted ))
-            local ind=${image_index[$updated]}
-            local cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
-            local cmd_prompt="Delete: ${image_names[$ind]}"
+            ind=${image_index[$updated]}
+            cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
+            cmd_prompt="Delete: $(basename "${image_names[$ind]}")"
             if eval_cmd
             then
                 unset image_names["${image_index[$updated]}"]
@@ -2016,14 +1942,11 @@ delete_image() {
         fi
         [[ "$update" -eq 1 ]] && redraw
     fi
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
-tag_image() {
-    clear_status --cmdline
-    local update=0
-    local i
+_tag() {
+    local i update=0
     case $1 in
         tag)
             if get_image_index
@@ -2049,36 +1972,33 @@ tag_image() {
             ;;
     esac
     [[ "$update" -eq 1 ]] && update_fileinfo
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
 edit_history() {
-    clear_status --cmdline
-    old_exec_prompt="${optcurrent[execprompt]}"
+    local file hash ind level old_exec_prompt="${optcurrent[execprompt]}"
+    local redo_i redone=0 tmpfile undo_i undone=0
     optcurrent[execprompt]="noexecprompt"
     if [[ "$1" == "--undo" ]]
     then
-        local undone=0
-        local undo_i
         if get_image_index
         then
             for (( undo_i = 0; undo_i < index_count; undo_i++))
             do
-                local ind=${image_index[$undo_i]}
-                local level=${edits[$ind]:-0}
+                ind=${image_index[$undo_i]}
+                level=${edits[$ind]:-0}
                 [[ "$level" -eq 0 ]] && continue
-                local file="${image_names[$ind]}"
+                file="${image_names[$ind]}"
                 case $file in
                     (*.*) extension=${file##*.};;
                     (*)   extension="";;
                 esac
-                local hash="${filehash[$ind]}"
+                hash="${filehash[$ind]}"
                 if [[ "$level" -eq 1 ]]
                 then
-                    local tmpfile="$file"
+                    tmpfile="$file"
                 else
-                    local tmpfile="${tmp_dir}/${hash}.$((level - 1)).${extension}"
+                    tmpfile="${tmp_dir}/${hash}.$((level - 1)).${extension}"
                 fi
                 ((undone += 1))
                 ((edits[ind] -= 1))
@@ -2099,21 +2019,19 @@ edit_history() {
         fi
     elif [[ "$1" == "--redo" ]]
     then
-        local redo_i
         if get_image_index
         then
-            local redone=0
             for (( redo_i = 0; redo_i < index_count; redo_i++))
             do
-                local ind=${image_index[$redo_i]}
-                local level=${edits[$ind]:-0}
-                local file="${image_names[$ind]}"
+                ind=${image_index[$redo_i]}
+                level=${edits[$ind]:-0}
+                file="${image_names[$ind]}"
                 case $file in
                     (*.*) extension=${file##*.};;
                     (*)   extension="";;
                 esac
-                local hash="${filehash[$ind]}"
-                local tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
+                hash="${filehash[$ind]}"
+                tmpfile="${tmp_dir}/${hash}.$((level + 1)).${extension}"
                 [[ ! -f "$tmpfile" ]] && continue
                 ((redone += 1))
                 ((edits[ind] += 1))
@@ -2132,12 +2050,11 @@ edit_history() {
         fi
     fi
     optcurrent[execprompt]="$old_exec_prompt"
-    clear_sequence
-    update_status
+    clear_sequence --repeat
 }
 
 update_reverse(){
-    if [[ "$done_reading" -eq 1 ]]
+    if [[ "$dirty" -eq 0 ]]
     then
         reverse_images
         start=0
@@ -2148,10 +2065,8 @@ update_reverse(){
 }
 
 reverse_images(){
-    local min=0
-    local max
+    local max min=0 temp
     (( max = ${#images[@]} -1 ))
-    local temp
     while [[ min -lt max ]]
     do
         temp="${image_names[$min]}"
@@ -2191,14 +2106,10 @@ _set() {
         local -n arr="$1"
         IFS=$'\n' read -rd "" -ra arr <<< "${2/$3/$'\n'}"
     }
-    clear_status --cmdline
-    local args
+    local args oldvalue option prefix_args prefix_count=0 settings="$*"
+    local type value
     # Giving prefixes overrides command line numbers
-    local prefix_args
     split prefix_args "$prefix" " "
-    local prefix_count=0
-    local option type value
-    local settings="$*"
     if [[ "$settings" =~ all@ ]]
     then
         settings="${!optdefault[*]}@"
@@ -2300,7 +2211,7 @@ _set() {
                 value=
                 ;;
         esac
-        local oldvalue="${optcurrent[$option]}"
+        oldvalue="${optcurrent[$option]}"
         case "$type" in
             "+=")
                 [[ -z "$value" ]] && continue
@@ -2476,14 +2387,12 @@ _set() {
         fi
     done
     clear_sequence
-    update_status
 }
 
-set_current() {
+_select() {
     [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
     [[ -z "$prefix" ]] && prefix="1"
-    local prefix_args
-    local limit
+    local limit prefix_args
     IFS=" " read -r -a prefix_args <<< "$prefix"
     case "$1" in
         left)
@@ -2527,13 +2436,11 @@ set_current() {
             ;;
     esac
     update_fileinfo
-    clear_sequence --keep-old
-    update_status
+    clear_sequence
 }
 
-rotate_image() {
-    local counter=0
-    local degrees
+_rotate() {
+    local counter=0 degrees
     while [[ -n "$1" ]]
     do
         case "$1" in
@@ -2552,13 +2459,11 @@ rotate_image() {
 }
 
 load_files() {
-    clear_status --cmdline
-    local read_lock
+    local read_iter read_lock
     read -r read_lock < "${tmp_dir}/read_lock"
     # Simple lock mechanism. If read_images is running then quit.
     if [[ "$read_lock" -eq 0 ]]
     then
-        local read_iter
         read -r read_iter < "${tmp_dir}/read_iter"
         if ((read_iter < argc))
         then
@@ -2568,23 +2473,34 @@ load_files() {
             warning="All files are loaded"
         fi
     fi
-    clear_sequence --keep-old
-    update_status
+    clear_sequence
 }
 
 command_mode() {
-        mode="command"
-        update_status
-        local input_prompt=":"
-        local input
-        local input_left
-        local input_right
+        local cleanup=1 enter=0 input input_autocomplete="ucollage" input_left
+        local input_prompt=":" input_right mode="command"
         [[ -n "$prefix" ]] && input_left="($prefix) "
-        input_autocomplete="ucollage"
-        local cleanup=1
+        while [[ -n "$1" ]]
+        do
+            case "$1" in
+                -l|--left)
+                    input_left+="$2"
+                    shift
+                    ;;
+                -r|--right)
+                    input_right+="$2"
+                    shift
+                    ;;
+                -e|--enter)
+                    enter=1
+                    ;;
+            esac
+            shift
+        done
         input_left+="$1"
         input_right+="$2"
-        if get_input
+        [[ "$enter" -eq 1 ]] && input="${input_left}${input_right}"
+        if [[ -n "$input" ]] || get_input
         then
             save_input=
             prefix=${input#*\(}
@@ -2604,6 +2520,10 @@ command_mode() {
                     eval_cmd="${full_cmd//$cmd/${colon_cmd[$cmd]}}"
                     eval "$eval_cmd"
                     cleanup=0 # cleanup is being done by the executed function
+                    # The setting of repeat_command has to happen after the eval
+                    # because we want it to override the repeat_command with the 
+                    # exact parameters that we gave.
+                    repeat_command="command_mode --left \"$full_cmd\""
                 else
                     error="Command not found: $cmd"
                 fi
@@ -2612,13 +2532,17 @@ command_mode() {
         if [[ "$cleanup" -eq 1 ]]
         then
             clear_sequence
-            update_status --force
         fi
         mode=
 }
 
 clear_sequence() {
-    [[ "$1" != "--keep-old" ]] && old_prefix="$prefix" && last_cmd_mapping="$mapping"
+    if [[ "$1" = "--repeat" ]]
+    then
+        repeat_prefix="$prefix"
+        [[ -n "$mapping" ]] && repeat_command="${map_cmd[$mapping]}"
+    fi
+    lastvalidmapping=
     prefix=
     mapping=
 }
@@ -2628,6 +2552,7 @@ clear_sequence() {
 # files written by the background process
 ######################################################################
 populate_arrays() {
+    echo 0 > "${tmp_dir}/dirty"
     # This is to read only new files in each iteration. Should scale well
     [[ ! -f "${tmp_dir}/image_names.txt" ]] || [[ ! -f "${tmp_dir}/images.txt" ]] ||\
         [[ ! -f "${tmp_dir}/hash.txt" ]] && return
@@ -2640,70 +2565,60 @@ populate_arrays() {
     image_names+=("${temp_names[@]}")
     images+=("${temp[@]}")
     filehash+=("${temp_hash[@]}")
-    if [[ -f "${tmp_dir}/done_reading" ]]
-    then
-        read -r done_reading < "${tmp_dir}/done_reading"
-    else
-        done_reading=0
-    fi
-    local new_total="${#images[@]}"
-    [[ "$new_total" -ne "$total" ]] && total="$new_total" && update_status
+    total="${#images[@]}"
 }
 
 ######################################################################
 # Loop waiting for user input to execute actions
 ######################################################################
 read_key() {
+    local char key
     while true
     do
         [[ "$break_flag" -eq 1 ]] && break
         [[ "$exit_flag" -eq 1 ]] && break
         [[ "$total" -eq 0 ]] && stop_daemon
-        local key=
-        local char
+        key=
+        char=
         while read -rsN1 -t 0.01 char &>/dev/null
         do
             key+="$char"
         done
-        [[ -z "$key" ]] && [[ "$done_reading" -eq 1 ]] && continue
+        read -r dirty < "${tmp_dir}/dirty"
+        [[ -z "$key" ]] && [[ "$dirty" -eq 0 ]] && continue
+        # This is hack because $'\n' is not mapped correctly in map_cmd
+        [[ "$key" == $'\n' ]] && key=$'\xD'
         case $key in
             $'\e')
-                clear_sequence --keep-old
-                update_status
+                clear_sequence
                 ;;
             [0-9])
-                prefix+="$key"
-                update_status
-                ;;
-            " ")
-                if [[ -n "$prefix" ]]
+                if [[ -z "$mapping" ]] && [[ ! "$prefix" =~ ^(\*+|;|#)$ ]]
                 then
                     prefix+="$key"
                 else
-                    mapping="$key"
+                    mapping+="$key"
                 fi
-                update_status
+                ;;
+            " ")
+                [[ ! "$prefix" =~ ^(\*+|;|#|)$ ]] && prefix+="$key"
                 ;;
             "*")
-                if [[ "$prefix" =~ ^\*+$ ]]
+                if [[ -n "$mapping" ]]
+                then
+                    mapping+="$key"
+                elif [[ "$prefix" =~ ^\*+$ ]]
                 then
                     prefix="**"
                 else
                     prefix="*"
                 fi
-                update_status
                 ;;
-            ";")
-                prefix=";"
-                update_status
-                ;;
-            "#")
-                prefix="#"
-                update_status
+            ";"|"#")
+                [[ -z "$mapping" ]] && prefix="$key" || mapping+="$key"
                 ;;
             ":")
                 command_mode
-                continue
                 ;;
             $'\b'|$'\x7F')
                 if [[ -n "$mapping" ]]
@@ -2724,36 +2639,43 @@ read_key() {
                 then
                     mapping="$key"
                 fi
-                update_status
+                ;;
+            ".")
+                eval "$repeat_command"
                 ;;
             *)
-                last_valid_mapping="$mapping"
-                # This is hack because $'\n' is not mapped correctly in map_cmd
-                [[ "$key" == $'\n' ]] && key=$'\xD'
                 mapping+="$key"
                 ;;
         esac
-        [[ "$mapping" == "." ]] && mapping="$last_cmd_mapping"
-        [[ -n "$mapping" ]] && eval "${map_cmd[$mapping]}"
         # This is coded in order to not follow mappings that do not lead to
         # any action. It also prevents the program from hanging in case of
         # pressing a not printable character (e.g Home, End) that does not
         # map to any command
-        good=0
-        for m in "${!map_cmd[@]}"
-        do
-            if [[ "$mapping" == "${m:0:${#mapping}}" ]]
+        if [[ -n "$mapping" ]]
+        then
+            if [[ -n "${map_cmd[$mapping]}" ]]
             then
-                good=1
-                break
+                eval "${map_cmd[$mapping]}"
+            else
+                good=0
+                for m in "${!map_cmd[@]}"
+                do
+                    if [[ "$mapping" == "${m:0:${#mapping}}" ]]
+                    then
+                        good=1
+                        lastvalidmapping="$mapping"
+                        break
+                    fi
+                done
+                [[ "$good" -eq 0 ]] && mapping="$lastvalidmapping"
             fi
-        done
-        [[ "$good" -eq 0 ]] && mapping="$last_valid_mapping"
-        [[ -n "$mapping" ]] && update_status
-        if [[ ! "$done_reading" -eq 1 ]] && [[ ! "$exit_flag" -eq 1 ]]
+        fi
+        [[ "$exit_flag" -eq 1 ]] && continue
+        if [[ "$dirty" -eq 1 ]]
         then
             populate_arrays
         fi
+        update_status
     done
 }
 
@@ -2780,9 +2702,11 @@ set_scripts
 [[ ! -f "${cache_dir}/cmd_history" ]] && touch "${cache_dir}/cmd_history"
 [[ "$1" =~ ^-h$|^--help$ ]] && help && exit
 trap "exit_flag=1" SIGINT SIGTERM
-trap "redraw; update_status --force" SIGWINCH
+trap "redraw; update_status" SIGWINCH
 start_daemon
 exit_flag=0
+dirty=0
+status=
 while [[ "$exit_flag" -eq 0 ]]
 do
     read_filenames "$@"
