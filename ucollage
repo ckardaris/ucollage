@@ -1514,7 +1514,7 @@ update_status() {
         line[1]="\e[32m${success:0:$((columns - 25))}\e[m"
     elif [[ -n "$error" ]]
     then
-        line[1]="\e[31m${error:0:$((columns - 25))}\e[m"
+        line[1]="\e[1;7m\e[31m${error:0:$((columns - 25))}\e[m"
         length="${#error}"
     elif [[ -n "$warning" ]]
     then
@@ -1577,7 +1577,7 @@ run_use_script() {
         done
         if [[ "$executed" -eq 0 ]]
         then
-            error="No executions"
+            warning="No executions"
         elif [[ "$executed" -lt "$index_count" ]]
         then
             warning="Executed: $executed of $index_count"
@@ -1630,7 +1630,7 @@ run_edit_script() {
         else
             if [[ "$edited" -eq 0 ]]
             then
-                error="No images edited"
+                warning="No images edited"
             elif [[ "$edited" -lt "$index_count" ]]
             then
                 warning="Edited: $edited of $index_count"
@@ -1676,11 +1676,11 @@ _write() {
 
         if [[ "$no_pending" -eq "$index_count" ]]
         then
-            error="Nothing to save"
+            warning="Nothing to save"
         else
             if [[ "$saved" -eq 0 ]]
             then
-                error="No images saved"
+                warning="No images saved"
             elif [[ "$saved" -lt "$index_count" ]]
             then
                 warning="Saved: $saved of $index_count"
@@ -1879,7 +1879,7 @@ _rename() {
         done
         if [[ "$renamed" -eq 0 ]]
         then
-            error="No renames"
+            warning="No renames"
         elif [[ "$renamed" -lt "$index_count" ]]
         then
             warning="Renamed: $renamed of $index_count"
@@ -1933,7 +1933,7 @@ _delete() {
         done
         if [[ "$deleted" -eq 0 ]]
         then
-            error="No deletions"
+            warning="No deletions"
         elif [[ "$deleted" -lt "$index_count" ]]
         then
             warning="Deleted: $deleted of $index_count"
@@ -2009,7 +2009,7 @@ edit_history() {
             done
             if [[ "$undone" -eq 0 ]]
             then
-                error="Already at oldest change"
+                message="Already at oldest change"
             elif [[ "$undone" -lt "$index_count" ]]
             then
                 warning="Undone: $undone of $index_count"
@@ -2040,7 +2040,7 @@ edit_history() {
             done
             if [[ "$redone" -eq 0 ]]
             then
-                error="Already at newest change"
+                message="Already at newest change"
             elif [[ "$redone" -lt "$index_count" ]]
             then
                 warning="Redone: $redone of $index_count"
@@ -2221,18 +2221,17 @@ _set() {
                         then
                             ((optcurrent[$option] += value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: "
-                            message+="$setting\e[m "
+                            error="Number required after =: $setting"
                         fi
                         ;;
                     "string")
                         optcurrent[$option]+="$value"
                         ;;
                     "enum"|"boolean")
-                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        error="Invalid argument: $setting"
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
@@ -2244,18 +2243,17 @@ _set() {
                         then
                             ((optcurrent[$option] -= value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: "
-                            message+="$setting\e[m "
+                            error="Number required after =: $setting"
                         fi
                         ;;
                     "string")
                         optcurrent[$option]=${optcurrent[$option]//"$value"}
                         ;;
                     "enum"|"boolean")
-                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
@@ -2267,18 +2265,17 @@ _set() {
                         then
                             ((optcurrent[$option] *= value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: "
-                            message+="$setting\e[m "
+                            error="Number required after =: $setting"
                         fi
                         ;;
                     "string")
                         optcurrent[$option]="${value}${optcurrent[$option]}"
                         ;;
                     "enum"|"boolean")
-                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        error="Invalid argument: $setting"
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
@@ -2290,8 +2287,7 @@ _set() {
                         then
                             ((optcurrent[$option] = value))
                         else
-                            message+="\e[41m\e[30mNumber required after =: "
-                            message+="$setting\e[m "
+                            error="Number required after =: $setting"
                         fi
                         ;;
                     "string")
@@ -2302,14 +2298,14 @@ _set() {
                         then
                             optcurrent[$option]="${value}"
                         else
-                            message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                            error="Invalid argument: $setting"
                         fi
                         ;;
                     "boolean")
-                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        error="Invalid argument: $setting"
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
@@ -2325,26 +2321,26 @@ _set() {
                             ;;
                     esac
                 else
-                    message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                    error="Unknown option: $setting"
                 fi
                 ;;
             "off")
                 case ${optiontype[$option]} in
                     "number"|"string"|"enum")
-                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        error="Invalid argument: $setting"
                         ;;
                     "boolean")
                         optcurrent[$option]="$setting"
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
             "inv")
                 case ${optiontype[$option]} in
                     "number"|"string"|"enum")
-                        message+="\e[41m\e[30mInvalid argument: $setting\e[m "
+                        error="Invalid argument: $setting"
                         ;;
                     "boolean")
                         if [[ "${optcurrent[$option]}" == "no$option" ]]
@@ -2355,7 +2351,7 @@ _set() {
                         fi
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
@@ -2364,7 +2360,7 @@ _set() {
                 then
                     optcurrent[$option]="${optdefault[$option]}"
                 else
-                    message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                    error="Unknown option: $setting"
                 fi
                 ;;
             "on")
@@ -2376,11 +2372,12 @@ _set() {
                         optcurrent[$option]="$setting"
                         ;;
                     *)
-                        message+="\e[41m\e[30mUnknown option: $setting\e[m "
+                        error="Unknown option: $setting"
                         ;;
                 esac
                 ;;
         esac
+        [[ -n "$error" ]] && break
         if [[ "${optcurrent[$option]}" != "$oldvalue" ]]
         then
             eval "${optupdate[$option]}"
