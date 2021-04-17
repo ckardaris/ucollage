@@ -1,11 +1,10 @@
 _write() {
     local cmd cmd_prompt hash ind local_changes=0 no_pending=0 saved=0
-    local se_i tmpfile
+    local tmpfile
     if get_image_index
     then
-        for (( se_i = 0; se_i < index_count; se_i++))
+        for ind in "${image_index[@]}"
         do
-            ind=${image_index[$se_i]}
             tmpfile=${images[$ind]}
             case $tmpfile in
                 (*.*) extension=${tmpfile##*.};;
@@ -29,16 +28,16 @@ _write() {
             fi
         done
 
-        if [[ "$no_pending" -eq "$index_count" ]]
+        if [[ "$no_pending" -eq "${#image_index[@]}" ]]
         then
             warning="Nothing to save"
         else
             if [[ "$saved" -eq 0 ]]
             then
                 warning="No images saved"
-            elif [[ "$saved" -lt "$index_count" ]]
+            elif [[ "$saved" -lt "${#image_index[@]}" ]]
             then
-                warning="Saved: $saved of $index_count"
+                warning="Saved: $saved of ${#image_index[@]}"
                 [[ "$local_changes" -eq 1 ]] && update_fileinfo
             else
                 success="Done"
@@ -57,9 +56,8 @@ edit_history() {
     then
         if get_image_index
         then
-            for (( undo_i = 0; undo_i < index_count; undo_i++))
+            for ind in "${image_index[@]}"
             do
-                ind=${image_index[$undo_i]}
                 level=${edits[$ind]:-0}
                 [[ "$level" -eq 0 ]] && continue
                 file="${image_names[$ind]}"
@@ -84,9 +82,9 @@ edit_history() {
             if [[ "$undone" -eq 0 ]]
             then
                 message="Already at oldest change"
-            elif [[ "$undone" -lt "$index_count" ]]
+            elif [[ "$undone" -lt "${#image_index[@]}" ]]
             then
-                warning="Undone: $undone of $index_count"
+                warning="Undone: $undone of ${#image_index[@]}"
             else
                 success="Success"
             fi
@@ -95,9 +93,8 @@ edit_history() {
     then
         if get_image_index
         then
-            for (( redo_i = 0; redo_i < index_count; redo_i++))
+            for ind in "${image_index[@]}"
             do
-                ind=${image_index[$redo_i]}
                 level=${edits[$ind]:-0}
                 file="${image_names[$ind]}"
                 case $file in
@@ -115,9 +112,9 @@ edit_history() {
             if [[ "$redone" -eq 0 ]]
             then
                 message="Already at newest change"
-            elif [[ "$redone" -lt "$index_count" ]]
+            elif [[ "$redone" -lt "${#image_index[@]}" ]]
             then
-                warning="Redone: $redone of $index_count"
+                warning="Redone: $redone of ${#image_index[@]}"
             else
                 success="Success"
             fi

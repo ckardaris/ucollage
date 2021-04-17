@@ -133,7 +133,6 @@ populate_arrays() {
     image_names+=("${temp_names[@]}")
     images+=("${temp[@]}")
     filehash+=("${temp_hash[@]}")
-    total="${#images[@]}"
 }
 
 load_files() {

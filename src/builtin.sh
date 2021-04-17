@@ -8,22 +8,21 @@ is_index_local() {
 }
 
 _rate() {
-    local file hash ind input_autocomplete input_prompt mi rating
+    local file hash ind input_autocomplete input_prompt rating
     local rating_arr update=0
     if get_image_index
     then
         if [[ -n "$*" ]]
         then
             IFS=" " read -r -a rating_arr <<< "$*"
-            for ((i = ${#rating_arr[@]}; i < index_count; i++))
+            for ((i = ${#rating_arr[@]}; i < ${#image_index[@]}; i++))
             do
                 rating_arr[$i]=${rating_arr[-1]}
             done
         fi
 
-        for (( mi = 0; mi < index_count; mi++))
+        for ind in "${image_index[@]}"
         do
-            ind=${image_index[$mi]}
             if [[ -n "${rating_arr[$mi]}" ]]
             then
                 input="${rating_arr[$mi]}"
@@ -65,15 +64,14 @@ _rate() {
 }
 
 _execute() {
-    local args="" base cmd cmd_prompt edit_args="" ex_i executed=0 input
+    local args="" base cmd cmd_prompt edit_args="" executed=0 input
     local input_autocomplete input_prompt nice ind nicer_args=""
     if [[ "$1" == "image" ]] # each image on its own
     then
         if get_image_index
         then
-            for (( ex_i = 0; ex_i < index_count; ex_i++))
+            for ind in "${image_index[@]}"
             do
-                ind=${image_index[$ex_i]}
                 input_prompt="Command for [$((ind % batch + 1))]: "
                 input_autocomplete="!"
                 ! get_input && continue
@@ -104,9 +102,8 @@ _execute() {
             fi
             if [[ -n "$input" ]]
             then
-                for (( ex_i = 0; ex_i < index_count; ex_i++))
+                for ind in "${image_index[@]}"
                 do
-                    ind=${image_index[$ex_i]}
                     cmd=${input//%s/\"${image_names[$ind]}\"}
                     base=$(basename "${image_names[$ind]}")
                     nice=${input//%s/\"$base\"}
@@ -120,9 +117,8 @@ _execute() {
     else # bundle images
         if get_image_index
         then
-            for (( i = 0; i < index_count; i++))
+            for ind in "${image_index[@]}"
             do
-                ind=${image_index[$i]}
                 args+="\"${image_names[$ind]}\" "
                 edit_args+="\"${images[$ind]}\" "
                 nicer_args+="\"$(basename "${image_names[$ind]}")\" "
@@ -144,16 +140,16 @@ _execute() {
                 cmd=${cmd//%E/$edit_args}
                 nice=${nice//%E/<edited files>}
                 cmd_prompt="$ ${nice}"
-                eval_cmd && ((executed += index_count))
+                eval_cmd && ((executed += ${#image_index[@]}))
             fi
         fi
     fi
     if [[ "$executed" -eq 0 ]]
     then
         error="No executions"
-    elif [[ "$executed" -lt "$index_count" ]]
+    elif [[ "$executed" -lt "${#image_index[@]}" ]]
     then
-        warning="Executed: $executed of $index_count"
+        warning="Executed: $executed of ${#image_index[@]}"
     else
         success="Success"
     fi
@@ -176,14 +172,13 @@ _rename() {
     if get_image_index
     then
         local renamed=0
-        for (( mv_i = 0; mv_i < index_count; mv_i++))
+        for ind in "${image_index[@]}"
         do
-            ind=${image_index[$mv_i]}
             input=
             input_prompt="New name for [$((ind % batch + 1))]: "
             input_left="$(basename "${image_names[$ind]}")"
             pathto="$(dirname "${image_names[$ind]}")"
-            [[ "$index_count" -eq 1 ]] && input="$1"
+            [[ "${#image_index[@]}" -eq 1 ]] && input="$1"
             if [[ -z "$input" ]]
             then
                 ! get_input && continue
@@ -202,9 +197,9 @@ _rename() {
         if [[ "$renamed" -eq 0 ]]
         then
             warning="No renames"
-        elif [[ "$renamed" -lt "$index_count" ]]
+        elif [[ "$renamed" -lt "${#image_index[@]}" ]]
         then
-            warning="Renamed: $renamed of $index_count"
+            warning="Renamed: $renamed of ${#image_index[@]}"
         else
             success="Success"
         fi
@@ -235,20 +230,15 @@ _delete() {
     local cmd cmd_prompt del_i deleted=0 ind update=0
     if get_image_index
     then
-        for (( del_i = 0; del_i < index_count; del_i++))
+        for ind in "${image_index[@]}"
         do
-            # adjust index because we trim the arrays after deleting
-            (( updated = del_i - deleted ))
-            ind=${image_index[$updated]}
+            ((ind -= deleted))
             cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
             cmd_prompt="Delete: $(basename "${image_names[$ind]}")"
             if eval_cmd
             then
                 unset image_names["${image_index[$updated]}"]
                 unset images["${image_index[$updated]}"]
-                image_names=("${image_names[@]}")
-                images=("${images[@]}")
-                total=${#images[@]}
                 is_index_local "$ind" && update=1
                 (( deleted += 1 ))
             fi
@@ -256,11 +246,15 @@ _delete() {
         if [[ "$deleted" -eq 0 ]]
         then
             warning="No deletions"
-        elif [[ "$deleted" -lt "$index_count" ]]
+        elif [[ "$deleted" -lt "${#image_index[@]}" ]]
         then
-            warning="Deleted: $deleted of $index_count"
+            warning="Deleted: $deleted of ${#image_index[@]}"
+            image_names=("${image_names[@]}")
+            images=("${images[@]}")
         else
             success="Success"
+            image_names=("${image_names[@]}")
+            images=("${images[@]}")
         fi
         [[ "$update" -eq 1 ]] && redraw
     fi
@@ -273,22 +267,22 @@ _tag() {
         tag)
             if get_image_index
             then
-                for (( i = 0; i < index_count; i++))
+                for ind in "${image_index[@]}"
                 do
-                    [[ -z ${tags[${image_index[$i]}]} ]] && \
-                        tags[${image_index[$i]}]=1 && \
-                        is_index_local "${image_index[$i]}" && update=1
+                    [[ -z "${tags[$ind]}" ]] && \
+                        tags[$ind]=1 && \
+                        is_index_local "$ind" && update=1
                 done
             fi
             ;;
         untag)
             if get_image_index
             then
-                for (( i = 0; i < index_count; i++))
+                for ind in "${image_index[@]}"
                 do
-                    [[ -n ${tags[${image_index[$i]}]} ]] && \
-                        unset tags["${image_index[$i]}"] && \
-                        is_index_local "${image_index[$i]}" && update=1
+                    [[ -n "${tags[$ind]}" ]] && \
+                        unset tags[$ind] && \
+                        is_index_local "$ind" && update=1
                 done
             fi
             ;;

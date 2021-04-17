@@ -55,7 +55,7 @@ calculate_dimensions() {
         (( photo_columns = columns / optcurrent[gridcolumns] ))
         (( photo_lines = (lines - 3) / optcurrent[gridlines] ))
     fi
-    (( show = total - start ))
+    (( show = ${#images} - start ))
     [[ "$show" -gt "$batch" ]] && show="$batch"
     [[ "$current" -ge "$show" ]] && ((current = show - 1))
 }
@@ -151,10 +151,10 @@ compute_batch() {
             # This can happen when we are loading the images in the background
             # and the user has changes the batch size with the 's' option
             # right after starting up.
-            if ((show < batch)) && ((start + show < total))
+            if ((show < batch)) && ((start + show < ${#images}))
             then
                 : # start stays the same and we just load the rest of the images
-            elif (( start + show < total ))
+            elif (( start + show < ${#images} ))
             then
                 (( start += show ))
             else
@@ -163,7 +163,7 @@ compute_batch() {
             fi
             ;;
         last)
-            (( new_start = total - ((total - 1) % batch + 1) ))
+            (( new_start = ${#images} - ((${#images} - 1) % batch + 1) ))
             if [[ "$new_start" -le "$start" ]]
             then
                 warning="End of files"
@@ -309,8 +309,8 @@ read_key() {
     while true
     do
         [[ "$break_flag" -eq 1 ]] && break
+        [[ "${#images}" -eq 0 ]] && exit_flag=1
         [[ "$exit_flag" -eq 1 ]] && break
-        [[ "$total" -eq 0 ]] && stop_daemon
         key=
         char=
         while read -rsN1 -t 0.01 char &>/dev/null
@@ -451,7 +451,7 @@ do
     read_iter=0
     read_target="$first_batch" && read_images
     populate_arrays
-    if [[ "$total" -eq 1 ]]
+    if [[ "${#images}" -eq 1 ]]
     then
         optcurrent[gridlines]=1
         optcurrent[gridcolumns]=1
@@ -461,7 +461,7 @@ do
     read -r read_iter < "${tmp_dir}/read_iter"
     read_target="${optcurrent[maxload]}" && read_images & # read the max possible
     background_pid="$!"
-    [[ "$total" -eq 0 ]] && printf "No images to show\n" && stty echo && \
+    [[ "${#images}" -eq 0 ]] && printf "No images to show\n" && stty echo && \
         exit_clear=0 && break
     start=0
     declare -A assoc

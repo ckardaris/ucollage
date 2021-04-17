@@ -1,11 +1,10 @@
 run_use_script() {
     local script="$1" cmd_prompt_base="$2"
-    local cmd cmd_prompt executed=0 ind sc_i
+    local cmd cmd_prompt executed=0 ind
     if get_image_index
     then
-        for (( sc_i = 0; sc_i < index_count; sc_i++))
+        for ind in "${image_index[@]}"
         do
-            ind=${image_index[$sc_i]}
             cmd="${script//%in%/\"${image_names[$ind]}\"}"
             cmd_prompt="${cmd_prompt_base}: "
             cmd_prompt+="\"$(basename -a "${image_names[$ind]}" | \
@@ -15,9 +14,9 @@ run_use_script() {
         if [[ "$executed" -eq 0 ]]
         then
             warning="No executions"
-        elif [[ "$executed" -lt "$index_count" ]]
+        elif [[ "$executed" -lt "${#image_index[@]}" ]]
         then
-            warning="Executed: $executed of $index_count"
+            warning="Executed: $executed of ${#image_index[@]}"
         else
             success="Success"
         fi
@@ -28,13 +27,12 @@ run_use_script() {
 run_edit_script() {
     local script="$1"
     local cmd edited=0 file hash ind level non_image=0
-    local old_exec_prompt="${optcurrent[execprompt]}" sc_i tmpfile
+    local old_exec_prompt="${optcurrent[execprompt]}" tmpfile
     optcurrent[execprompt]="noexecprompt"
     if get_image_index
     then
-        for (( sc_i = 0; sc_i < index_count; sc_i++))
+        for ind in "${image_index[@]}"
         do
-            ind=${image_index[$sc_i]}
             level=${edits[$ind]}
             file="${image_names[$ind]}"
             case $file in
@@ -61,16 +59,16 @@ run_edit_script() {
                 redraw
             fi
         done
-        if [[ "$non_image" -eq "$index_count" ]]
+        if [[ "$non_image" -eq "${#image_index[@]}" ]]
         then
             error="Editing supported only for images"
         else
             if [[ "$edited" -eq 0 ]]
             then
                 warning="No images edited"
-            elif [[ "$edited" -lt "$index_count" ]]
+            elif [[ "$edited" -lt "${#image_index[@]}" ]]
             then
-                warning="Edited: $edited of $index_count"
+                warning="Edited: $edited of ${#image_index[@]}"
             else
                 success="Success"
             fi
