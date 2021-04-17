@@ -65,54 +65,30 @@ _rate() {
 
 _execute() {
     local args="" base cmd cmd_prompt edit_args="" executed=0 input
-    local input_autocomplete input_prompt nice ind nicer_args=""
-    if [[ "$1" == "image" ]] # each image on its own
+    local input_autocomplete input_prompt nice ind
+    if [[ -n "$*" ]]
     then
+        input="$*"
+    else
+        input_prompt="Command: "
+        input_autocomplete="!"
+        get_input
+    fi
+    if [[ "$input" =~ %(s|e) ]]
+    then
+        execute_cmd="$input"
         if get_image_index
         then
             for ind in "${image_index[@]}"
             do
-                input_prompt="Command for [$((ind % batch + 1))]: "
-                input_autocomplete="!"
-                ! get_input && continue
                 cmd=${input//%s/\"${image_names[$ind]}\"}
                 base=$(basename "${image_names[$ind]}")
-                nice=${input//%s/\"$base\"}
+                nice=${input//%s/[$((ind - start + 1))]}
                 cmd=${cmd//%e/\"${images[$ind]}\"}
-                nice=${nice//%e/<edited_file>}
+                nice=${nice//%e/[$((ind - start + 1)) - edited]}
                 cmd_prompt="$ ${nice}"
                 eval_cmd && ((executed += 1))
             done
-        fi
-    elif [[ "$1" == "same" ]]
-    then
-        # shift in order to take the rest of the arguments as the command
-        # to be executed
-        shift
-        execute_cmd="$*"
-        if get_image_index
-        then
-            if [[ -n "$execute_cmd" ]]
-            then
-                input="$execute_cmd"
-            else
-                input_prompt="Command: "
-                input_autocomplete="!"
-                get_input
-            fi
-            if [[ -n "$input" ]]
-            then
-                for ind in "${image_index[@]}"
-                do
-                    cmd=${input//%s/\"${image_names[$ind]}\"}
-                    base=$(basename "${image_names[$ind]}")
-                    nice=${input//%s/\"$base\"}
-                    cmd=${cmd//%e/\"${images[$ind]}\"}
-                    nice=${nice//%e/<edited_file>}
-                    cmd_prompt="$ ${nice}"
-                    eval_cmd && ((executed += 1))
-                done
-            fi
         fi
     else # bundle images
         if get_image_index
@@ -121,32 +97,20 @@ _execute() {
             do
                 args+="\"${image_names[$ind]}\" "
                 edit_args+="\"${images[$ind]}\" "
-                nicer_args+="\"$(basename "${image_names[$ind]}")\" "
             done
-            shift
-            execute_cmd="$*"
-            if [[ -n "$execute_cmd" ]]
-            then
-                input="$execute_cmd"
-            else
-                input_prompt="Command: "
-                input_autocomplete="!"
-                get_input
-            fi
-            if [[ -n "$input" ]]
-            then
-                cmd=${input//%S/$args}
-                nice=${input//%S/$nicer_args}
-                cmd=${cmd//%E/$edit_args}
-                nice=${nice//%E/<edited files>}
-                cmd_prompt="$ ${nice}"
-                eval_cmd && ((executed += ${#image_index[@]}))
-            fi
+            select="${select%%*( )}"
+            execute_cmd="$input"
+            cmd=${input//%S/$args}
+            nice=${input//%S/[$prefix]}
+            cmd=${cmd//%E/$edit_args}
+            nice=${nice//%E/[$prefix - edited]}
+            cmd_prompt="$ ${nice}"
+            eval_cmd && ((executed += ${#image_index[@]}))
         fi
     fi
     if [[ "$executed" -eq 0 ]]
     then
-        error="No executions"
+        error=${error:-"No executions"}
     elif [[ "$executed" -lt "${#image_index[@]}" ]]
     then
         warning="Executed: $executed of ${#image_index[@]}"

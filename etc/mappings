@@ -255,20 +255,8 @@ command
 []
 type    builtin
 map     xi
-script  _execute image
-command
-
-[]
-type    builtin
-map     xs
-script  _execute same
+script  _execute
 command !
-
-[]
-type    builtin
-map     xg
-script  _execute group
-command !%
 
 []
 type    builtin
