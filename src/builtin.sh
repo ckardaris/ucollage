@@ -101,9 +101,9 @@ _execute() {
             select="${select%%*( )}"
             execute_cmd="$input"
             cmd=${input//%S/$args}
-            nice=${input//%S/[$prefix]}
+            nice=${input//%S/[${prefix:-$((current + 1))}]}
             cmd=${cmd//%E/$edit_args}
-            nice=${nice//%E/[$prefix - edited]}
+            nice=${nice//%E/[${prefix:-$((current + 1))} - edited]}
             cmd_prompt="$ ${nice}"
             eval_cmd && ((executed += ${#image_index[@]}))
         fi
@@ -304,23 +304,3 @@ _select() {
     update_fileinfo
     clear_sequence
 }
-
-_rotate() {
-    local counter=0 degrees
-    while [[ -n "$1" ]]
-    do
-        case "$1" in
-            "--degrees")
-                degrees="$2"
-                shift
-                ;;
-            "--counter")
-                counter=1
-        esac
-        shift
-    done
-    [[ -z "$degrees" ]] && degrees=90
-    [[ "$counter" -eq 1 ]] && ((degrees = -degrees))
-    run_edit_script "convert -rotate $degrees %in% %out%"
-}
-

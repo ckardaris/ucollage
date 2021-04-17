@@ -40,20 +40,20 @@ set_scripts(){
 
             if [[ "$type" == "edit" ]]
             then
-                if [[ ! "$script" =~ %in% ]]
+                if [[ ! "$script" =~ %s ]]
                 then
                     echo "Error: configuration"
                     echo "--------------------"
                     echo "Value: $script"
-                    echo "Valid: %in% placeholder missing"
+                    echo "Valid: %s placeholder missing"
                     echo "--------------------"
                     errors=1
-                elif [[ ! "$script" =~ %out% ]]
+                elif [[ ! "$script" =~ %d ]]
                 then
                     echo "Error: configuration"
                     echo "--------------------"
                     echo "Value: $script"
-                    echo "Valid: %out% placeholder missing"
+                    echo "Valid: %d placeholder missing"
                     echo "--------------------"
                     errors=1
                 else
@@ -62,11 +62,11 @@ set_scripts(){
                         # <Space> has to be substituted here or else it is split
                         # by the 'for' expansion
                         mi=${mi//<Space>/ }
-                        map_cmd[$mi]="run_edit_script \"${script}\""
+                        map_cmd[$mi]="_edit ${script}"
                     done
                     for ci in $command
                     do
-                        colon_cmd[$ci]="run_edit_script \"${script}\""
+                        colon_cmd[$ci]="_edit ${script}"
                     done
                 fi
             elif [[ "$type" == "use" ]]
@@ -76,26 +76,20 @@ set_scripts(){
                     # <Space> has to be substituted here or else it is split
                     # by the 'for' expansion
                     mi=${mi//<Space>/ }
-                    map_cmd[$mi]="run_use_script \"${script}\" \"${info}\""
+                    map_cmd[$mi]="_execute ${script}"
                 done
                 for ci in $command
                 do
-                    colon_cmd[$ci]="run_use_script \"${script}\" \"${info}\""
+                    colon_cmd[$ci]="_execute ${script}"
                 done
             elif [[ "$type" == "builtin" ]]
             then
-                # Usage of the --- delimiter makes possible that some commands
-                # have a default value in map normal mode, but permit input
-                # in command mode
-                # e.g tp
-                #     toggle prompt (normal mode)
-                #     toggle (command mode - shared also by tf and tr)
                 for mi in $map
                 do
                     # <Space> has to be substituted here or else it is split
-                    # by the for expansion
+                    # by the 'for' expansion
                     mi=${mi//<Space>/ }
-                    map_cmd[$mi]="${script/---/ }"
+                    map_cmd[$mi]="${script}"
                 done
                 for ci in $command
                 do

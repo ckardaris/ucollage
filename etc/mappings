@@ -16,7 +16,7 @@ command tag
 []
 type    builtin
 map     u
-script  edit_history --undo
+script  _history --undo
 command undo
 
 []
@@ -75,7 +75,7 @@ command goto
 []
 type    builtin
 map     <Ctrl-R>
-script  edit_history --redo
+script  _history --redo
 command redo
 
 []
@@ -229,27 +229,27 @@ script  _set scalingy-=1
 command
 
 []
-type    builtin
+type    edit
 map     rl
-script  _rotate --degrees 90
+script  convert -rotate 90 %s %d
 command
 
 []
-type    builtin
+type    edit
 map
-script  _rotate --degrees
+script  convert -rotate 90 %s %d
 command rotateright
 
 []
-type    builtin
+type    edit
 map
-script  _rotate --counter --degrees
+script  convert -rotate -90 %s %d
 command rotateleft
 
 []
-type    builtin
+type    edit
 map     rh
-script  _rotate --counter --degrees 90
+script  convert -rotate -90 %s %d
 command
 
 []
