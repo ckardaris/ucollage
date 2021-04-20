@@ -13,7 +13,7 @@ calculate_dimensions() {
         (( photo_columns = columns / optcurrent[gridcolumns] ))
         (( photo_lines = (lines - 3) / optcurrent[gridlines] ))
     fi
-    (( show = ${#images} - start ))
+    (( show = ${#images[@]} - start ))
     [[ "$show" -gt "$batch" ]] && show="$batch"
     [[ "$current" -ge "$show" ]] && ((current = show - 1))
 }
@@ -37,10 +37,10 @@ _batch() {
             # This can happen when we are loading the images in the background
             # and the user has changes the batch size with the 's' option
             # right after starting up.
-            if ((show < batch)) && ((start + show < ${#images}))
+            if ((show < batch)) && ((start + show < ${#images[@]}))
             then
                 : # start stays the same and we just load the rest of the images
-            elif (( start + show < ${#images} ))
+            elif (( start + show < ${#images[@]} ))
             then
                 (( start += show ))
             else
@@ -49,7 +49,7 @@ _batch() {
             fi
             ;;
         last)
-            (( new_start = ${#images} - ((${#images} - 1) % batch + 1) ))
+            (( new_start = ${#images[@]} - ((${#images[@]} - 1) % batch + 1) ))
             if [[ "$new_start" -le "$start" ]]
             then
                 warning="End of files"

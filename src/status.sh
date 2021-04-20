@@ -8,7 +8,7 @@ set_info() {
     read -r read_iter < "${tmp_dir}/read_iter"
     ((begin = start + 1))
     info=" ${optcurrent[gridlines]} x ${optcurrent[gridcolumns]}"
-    info_total="${#images}"
+    info_total="${#images[@]}"
     ((read_iter < argc)) && info_total+=" ($((argc - read_iter)) unloaded)"
     if [[ "$batch" -eq 1 ]]
     then

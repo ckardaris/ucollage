@@ -6,7 +6,7 @@ loop() {
     while true
     do
         [[ "$break_flag" -eq 1 ]] && break
-        [[ "${#images}" -eq 0 ]] && exit_flag=1
+        [[ "${#images[@]}" -eq 0 ]] && exit_flag=1
         [[ "$exit_flag" -eq 1 ]] && break
         key=
         char=
