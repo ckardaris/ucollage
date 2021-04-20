@@ -74,48 +74,51 @@ _execute() {
         input_autocomplete="!"
         get_input
     fi
-    if [[ "$input" =~ %(s|e) ]]
+    if [[ -n "$input" ]]
     then
-        execute_cmd="$input"
-        if get_image_index
+        if [[ "$input" =~ %(s|e) ]]
         then
-            for ind in "${image_index[@]}"
-            do
-                cmd=${input//%s/\"${image_names[$ind]}\"}
-                base=$(basename "${image_names[$ind]}")
-                nice=${input//%s/[$((ind - start + 1))]}
-                cmd=${cmd//%e/\"${images[$ind]}\"}
-                nice=${nice//%e/[$((ind - start + 1)) - edited]}
-                cmd_prompt="$ ${nice}"
-                eval_cmd && ((executed += 1))
-            done
-        fi
-    else # bundle images
-        if get_image_index
-        then
-            for ind in "${image_index[@]}"
-            do
-                args+="\"${image_names[$ind]}\" "
-                edit_args+="\"${images[$ind]}\" "
-            done
-            select="${select%%*( )}"
             execute_cmd="$input"
-            cmd=${input//%S/$args}
-            nice=${input//%S/[${prefix:-$((current + 1))}]}
-            cmd=${cmd//%E/$edit_args}
-            nice=${nice//%E/[${prefix:-$((current + 1))} - edited]}
-            cmd_prompt="$ ${nice}"
-            eval_cmd && ((executed += ${#image_index[@]}))
+            if get_image_index
+            then
+                for ind in "${image_index[@]}"
+                do
+                    cmd=${input//%s/\"${image_names[$ind]}\"}
+                    base=$(basename "${image_names[$ind]}")
+                    nice=${input//%s/[$((ind - start + 1))]}
+                    cmd=${cmd//%e/\"${images[$ind]}\"}
+                    nice=${nice//%e/[$((ind - start + 1)) - edited]}
+                    cmd_prompt="$ ${nice}"
+                    eval_cmd && ((executed += 1))
+                done
+            fi
+        else # bundle images
+            if get_image_index
+            then
+                for ind in "${image_index[@]}"
+                do
+                    args+="\"${image_names[$ind]}\" "
+                    edit_args+="\"${images[$ind]}\" "
+                done
+                select="${select%%*( )}"
+                execute_cmd="$input"
+                cmd=${input//%S/$args}
+                nice=${input//%S/[${prefix:-$((current + 1))}]}
+                cmd=${cmd//%E/$edit_args}
+                nice=${nice//%E/[${prefix:-$((current + 1))} - edited]}
+                cmd_prompt="$ ${nice}"
+                eval_cmd && ((executed += ${#image_index[@]}))
+            fi
         fi
-    fi
-    if [[ "$executed" -eq 0 ]]
-    then
-        error=${error:-"No executions"}
-    elif [[ "$executed" -lt "${#image_index[@]}" ]]
-    then
-        warning="Executed: $executed of ${#image_index[@]}"
-    else
-        success="Success"
+        if [[ "$executed" -eq 0 ]]
+        then
+            error=${error:-"No executions"}
+        elif [[ "$executed" -lt "${#image_index[@]}" ]]
+        then
+            warning="Executed: $executed of ${#image_index[@]}"
+        else
+            success="Success"
+        fi
     fi
     clear_sequence --repeat
     execute_cmd=
