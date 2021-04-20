@@ -7,10 +7,10 @@ shopt -s extglob
 ######################################################################
 # Source Files
 ######################################################################
-CONFIG_DEFAULT="/etc/ucollage/mappings"
+CONFIG_DEFAULT="{{UCOLLAGE_PREFIX_DIR}}/etc/ucollage/mappings"
 CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
-SOURCE_DIR="/usr/share/ucollage/src"
+SOURCE_DIR="{{UCOLLAGE_PREFIX_DIR}}/usr/share/ucollage/src"
 for srcfile in ${SOURCE_DIR}/*
 do
     source "$srcfile"
