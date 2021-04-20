@@ -22,7 +22,7 @@ _write() {
                 rm "${tmp_dir}/$hash".* # delete all history
                 unset edits["$ind"]
                 read -rd ' ' hash < \
-                    <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | xxh128sum)
+                    <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | "$hashfunc")
                 filehash[$ind]="$hash"
                 is_index_local "$ind" && local_changes=1
             fi

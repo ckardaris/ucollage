@@ -152,6 +152,22 @@ parse_config() {
     valid_values="natural numbers"
     check_config_variable
 
+    variable_name="UCOLLAGE_HASHFUNC"
+    if ! command -v "$UCOLLAGE_HASHFUNC" &>/dev/null
+    then
+        if [[ "$errors" -eq 0 ]]
+        then
+            echo "Error: configuration"
+            echo "--------------------"
+        fi
+        echo "[$variable_name]"
+        echo "Value: ${!variable_name}"
+        echo "Valid: a  valid hash function program (e.g. md5sum)"
+        echo "--------------------"
+        eval "${variable_name}=" #unset the variable
+        errors=1
+    fi
+
     [[ "$errors" -eq 1 ]] && read -rsN1 -p "Using default variables..." && echo
 }
 

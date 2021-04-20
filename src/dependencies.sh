@@ -3,7 +3,7 @@ check_dependencies() {
     local -A dep
     dep[ueberzug]="ueberzug"
     dep[file]="file"
-    dep[xxh128sum]="xxhash"
+    dep[md5sum]="coreutils"
     dep[bc]="bc"
     for dependency in "${!dep[@]}"
     do

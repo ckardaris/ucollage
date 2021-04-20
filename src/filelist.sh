@@ -100,7 +100,7 @@ read_images() {
         ((loadc < optcurrent[maxload]))
     do
         file=${filelist[$read_iter]}
-        read -rd ' ' hash < <(head -c 100000 "$file" 2>/dev/null | xxh128sum)
+        read -rd ' ' hash < <(head -c 100000 "$file" 2>/dev/null | "$hashfunc")
         if is_image "$file"
         then
             echo "$file" >> "${tmp_dir}/image_names.txt"

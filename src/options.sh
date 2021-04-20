@@ -76,6 +76,7 @@ set_default() {
     cache_thumbnails=${UCOLLAGE_CACHE_THUMBNAILS:-1}
     thumbnail_width=${UCOLLAGE_THUMBNAIL_WIDTH:-500}
     leader=${UCOLLAGE_LEADER:-\\}
+    hashfunc=${UCOLLAGE_HASHFUNC:-md5sum}
     error=""
     warning=""
     success=""
