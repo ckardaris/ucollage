@@ -106,7 +106,6 @@ do
 
     [[ "${#images}" -eq 0 ]] && printf "No images to show\n" && stty echo && \
         exit_clear=0 && break
-    
 
     ######################################################################
     # Init state

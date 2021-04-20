@@ -1,279 +1,92 @@
 # This file should not be modified
 # If you want to change any mappings add the relevant info
 # in the script config file
-[]
-type    builtin
-map     di
-script  _delete
-command delete
+map="di" command="delete" script="_delete"
 
-[]
-type    builtin
-map     ti
-script  _tag tag
-command tag
+map="ti" command="tag" script="_tag tag"
 
-[]
-type    builtin
-map     u
-script  _history --undo
-command undo
+map="u" command="undo" script="_history --undo"
 
-[]
-type    builtin
-map     h <Left>
-script  _select left --nowrap
-command
+map="h <Left>" script="_select left --nowrap"
 
-[]
-type    builtin
-map     <Backspace>
-script  _select left
-command
-[]
-type    builtin
-map     j <Down>
-script  _select down
-command
+map="<Backspace>" script="_select left"
 
-[]
-type    builtin
-map     k <Up>
-script  _select up
-command
+map="j <Down>" script="_select down"
 
-[]
-type    builtin
-map     l <Right>
-script  _select right --nowrap
-command
+map="k <Up>" script="_select up"
 
-[]
-type    builtin
-map     <Space>
-script  _select right
-command
+map="l <Right>" script="_select right --nowrap"
 
-[]
-type    builtin
-map     q
-script  exit_flag=1
-command quit
+map="<Space>" script="_select right"
 
-[]
-type    builtin
-map     dt
-script  _tag untag
-command untag
+map="q" command="quit" script="exit_flag=1"
 
-[]
-type    builtin
-map     <Return>
-script  _goto
-command goto
+map="dt" command="untag" script="_tag untag"
 
-[]
-type    builtin
-map     <Ctrl-R>
-script  _history --redo
-command redo
+map="<Return>" command="goto" script="_goto"
 
-[]
-type    builtin
-map     wi
-script  _write
-command write
+map="<Ctrl-R>" command="redo" script="_history --redo"
 
-[]
-type    builtin
-map     ci
-script  _rename
-command rename
+map="wi" command="write" script="_write"
 
-[]
-type    builtin
-map     ss
-script  command_mode --left "set sort"
-command
+map="ci" command="rename" script="_rename"
 
-[]
-type    builtin
-map     su
-script  command_mode --left "set scaler"
-command
+map="ss" script="command_mode --left set sort"
 
-[]
-type    builtin
-map     sf
-script  command_mode --left "set fileinfo"
-command
+map="su" script="command_mode --left set scaler"
 
-[]
-type    builtin
-map     tf
-script  _set showfileinfo!
-command
+map="sf" script="command_mode --left set fileinfo"
 
-[]
-type    builtin
-map     tr
-script  _set reverse!
-command
+map="tf" script="_set showfileinfo!"
 
-[]
-type    builtin
-map     tp
-script  _set execprompt!
-command
+map="tr" script="_set reverse!"
 
-[]
-type    builtin
-map     sg
-script  _set gridlines= gridcolumns=
-command
+map="tp" script="_set execprompt!"
 
-[]
-type    builtin
-map     ++
-script  _set gridlines+=1 gridcolumns+=1
-command
+map="sg" script="_set gridlines= gridcolumns="
 
-[]
-type    builtin
-map     --
-script  _set gridlines-=1 gridcolumns-=1
-command
+map="++" script="_set gridlines+=1 gridcolumns+=1"
 
-[]
-type    builtin
-map     +|
-script  _set gridcolumns+=1
-command
+map="--" script="_set gridlines-=1 gridcolumns-=1"
 
-[]
-type    builtin
-map     -|
-script  _set gridcolumns-=1
-command
+map="+|" script="_set gridcolumns+=1"
 
-[]
-type    builtin
-map     +_
-script  _set gridlines+=1
-command
+map="-|" script="_set gridcolumns-=1"
 
-[]
-type    builtin
-map     -_
-script  _set gridlines-=1
-command
+map="+_" script="_set gridlines+=1"
 
-[]
-type    builtin
-map
-script  _set
-command set
+map="-_" script="_set gridlines-=1"
 
-[]
-type    builtin
-map     n <Ctrl-Right>
-script  _batch next
-command
+ command="set" script="_set"
 
-[]
-type    builtin
-map     N <Ctrl-Shift-Right>
-script  _batch last
-command
+map="n <Ctrl-Right>" script="_batch next"
 
-[]
-type    builtin
-map     p <Ctrl-Left>
-script  _batch previous
-command
+map="N <Ctrl-Shift-Right>" script="_batch last"
 
-[]
-type    builtin
-map     P <Ctrl-Shift-Left>
-script  _batch first
-command
+map="p <Ctrl-Left>" script="_batch previous"
 
-[]
-type    builtin
-map     
-script  _batch
-command batch
+map="P <Ctrl-Shift-Left>" script="_batch first"
 
-[]
-type    builtin
-map     <Shift-Left>
-script  _set scalingx-=1
-command
+ command="batch" script="_batch"
 
-[]
-type    builtin
-map     <Shift-Right>
-script  _set scalingx+=1
-command
+map="<Shift-Left>" script="_set scalingx-=1"
 
-[]
-type    builtin
-map     <Shift-Down>
-script  _set scalingy+=1
-command
+map="<Shift-Right>" script="_set scalingx+=1"
 
-[]
-type    builtin
-map     <Shift-Up>
-script  _set scalingy-=1
-command
+map="<Shift-Down>" script="_set scalingy+=1"
 
-[]
-type    edit
-map     rl
-script  convert -rotate 90 %s %d
-command
+map="<Shift-Up>" script="_set scalingy-=1"
 
-[]
-type    edit
-map
-script  convert -rotate 90 %s %d
-command rotateright
+map="rl" command="rorateright" script="_edit convert -rotate 90 %s %d"
 
-[]
-type    edit
-map
-script  convert -rotate -90 %s %d
-command rotateleft
+map="rh" command="rotateleft" script="_edit convert -rotate -90 %s %d"
 
-[]
-type    edit
-map     rh
-script  convert -rotate -90 %s %d
-command
+map="xi" command="!" script="_execute"
 
-[]
-type    builtin
-map     xi
-script  _execute
-command !
+map="si" script="_select"
 
-[]
-type    builtin
-map     si
-script  _select
-command
+map="<Ctrl-L>" command="loadfiles" script="load_files"
 
-[]
-type    builtin
-map     <Ctrl-L>
-script  load_files
-command loadfiles
+map="ri" command="rate" script="_rate"
 
-[]
-type    builtin
-map     ri
-script  _rate
-command rate
-
-# vim: ft=config
+# vim: ft=bash

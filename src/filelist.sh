@@ -35,7 +35,7 @@ read_filenames() {
     esac
     if [[ "$#" -gt 0 ]]
     then
-        mapfile -t filelist < <(ls $ls_args "$@")
+        mapfile -t filelist < <(ls $ls_args "$@" &>/dev/null)
     else
         mapfile -t filelist < <(ls $ls_args -- *)
     fi

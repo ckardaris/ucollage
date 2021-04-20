@@ -6,12 +6,20 @@ command_mode(){
         do
             case "$1" in
                 -l|--left)
-                    input_left+="$2"
-                    shift
+                    while [[ ! "$2" =~ ^(-r|--right|-e|--enter)$ ]] && [[ -n "$2" ]]
+                    do
+                        input_left+="$2 "
+                        shift
+                    done
+                    input_left=${input_left%% }
                     ;;
                 -r|--right)
-                    input_right+="$2"
-                    shift
+                    while [[ ! "$2" =~ ^(-l|--left|-e|--enter)$ ]] && [[ -n "$2" ]]
+                    do
+                        input_right+="$2 "
+                        shift
+                    done
+                    input_right=${input_right%% }
                     ;;
                 -e|--enter)
                     enter=1
@@ -19,8 +27,6 @@ command_mode(){
             esac
             shift
         done
-        input_left+="$1"
-        input_right+="$2"
         [[ "$enter" -eq 1 ]] && input="${input_left}${input_right}"
         if [[ -n "$input" ]] || get_input
         then

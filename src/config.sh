@@ -16,29 +16,19 @@ set_scripts(){
     else
         mapfile -t file_data < "$CONFIG_DEFAULT"
     fi
-    for ((i = 0; i < ${#file_data[@]}; i++))
+    for line in "${file_data[@]}"
     do
-        line=${file_data[$i]}
-        trim_spaces line "[ ]"
-        if [[ "$line" =~ ^\[.*\]$ ]]
+        if [[ ! "$line" =~ ^# ]]
         then
-            info=${line#[}
-            info=${info%]}
-
-            type=${file_data[$((i + 1))]##type}
+            type="" map="" script="" command=""
+            ! eval "$line" && continue
             trim_spaces type
-
-            map=${file_data[$((i + 2))]##map}
             trim_spaces map
             translate_map map
-
-            script=${file_data[$((i + 3))]##script}
             trim_spaces script
-
-            command=${file_data[$((i + 4))]##command}
             trim_spaces command
 
-            if [[ "$type" == "edit" ]]
+            if [[ "$script" =~ ^_edit ]]
             then
                 if [[ ! "$script" =~ %s ]]
                 then
@@ -56,33 +46,9 @@ set_scripts(){
                     echo "Valid: %d placeholder missing"
                     echo "--------------------"
                     errors=1
-                else
-                    for mi in $map
-                    do
-                        # <Space> has to be substituted here or else it is split
-                        # by the 'for' expansion
-                        mi=${mi//<Space>/ }
-                        map_cmd[$mi]="_edit ${script}"
-                    done
-                    for ci in $command
-                    do
-                        colon_cmd[$ci]="_edit ${script}"
-                    done
                 fi
-            elif [[ "$type" == "use" ]]
-            then
-                for mi in $map
-                do
-                    # <Space> has to be substituted here or else it is split
-                    # by the 'for' expansion
-                    mi=${mi//<Space>/ }
-                    map_cmd[$mi]="_execute ${script}"
-                done
-                for ci in $command
-                do
-                    colon_cmd[$ci]="_execute ${script}"
-                done
-            elif [[ "$type" == "builtin" ]]
+            fi
+            if [[ "$errors" -eq 0 ]]
             then
                 for mi in $map
                 do
@@ -96,7 +62,6 @@ set_scripts(){
                     colon_cmd[$ci]="${script}"
                 done
             fi
-            ((i += 4))
         fi
     done
     [[ "$errors" -eq 1 ]] && read -rsN1
