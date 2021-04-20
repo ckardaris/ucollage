@@ -10,6 +10,7 @@ shopt -s extglob
 CONFIG_DEFAULT="{{UCOLLAGE_PREFIX_DIR}}/etc/ucollage/mappings"
 CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
+[[ -f "$CONFIG_VARIABLES_FILE" ]] && source "$CONFIG_VARIABLES_FILE"
 SOURCE_DIR="{{UCOLLAGE_PREFIX_DIR}}/usr/share/ucollage/src"
 for srcfile in ${SOURCE_DIR}/*
 do
@@ -17,10 +18,16 @@ do
 done
 
 ######################################################################
+# Help check
+######################################################################
+[[ "$1" =~ ^-h$|^--help$ ]] && help && exit
+
+######################################################################
 # Declarations - Initializations
 ######################################################################
 declare -A map_cmd
 declare -A colon_cmd
+declare -A assoc
 
 declare -A spacelist=(\
     [batch]="previous next first last"
@@ -41,390 +48,21 @@ do
 done
 
 ######################################################################
-# Calculates the parameters for the current view
+# Signal handling
 ######################################################################
-calculate_dimensions() {
-    local columns lines
-    read -r lines columns < <(stty size)
-    (( batch = optcurrent[gridcolumns] * optcurrent[gridlines] ))
-    if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$batch" -gt 1 ]]
-    then
-        (( photo_columns = (columns - 2) / optcurrent[gridcolumns] ))
-        (( photo_lines = (lines - 4) / optcurrent[gridlines] ))
-    else
-        (( photo_columns = columns / optcurrent[gridcolumns] ))
-        (( photo_lines = (lines - 3) / optcurrent[gridlines] ))
-    fi
-    (( show = ${#images} - start ))
-    [[ "$show" -gt "$batch" ]] && show="$batch"
-    [[ "$current" -ge "$show" ]] && ((current = show - 1))
-}
+trap "exit_flag=1" SIGINT SIGTERM
+trap "redraw; update_status" SIGWINCH
 
 ######################################################################
-# Pads strings with fileinfo to fit into the given column width
+# Init actions
 ######################################################################
-pad_sides() {
-    local leftpad p rightpad
-    (( leftpad = $1 / 2 ))
-    (( rightpad = $1 - leftpad ))
-    for (( p = 0; p < leftpad; p++))
-    do
-        current_name=" $current_name"
-    done
-    for (( p = 0; p < rightpad; p++))
-    do
-        current_name+=" "
-    done
-}
-
-######################################################################
-# Draws the current batch of images on the screen
-######################################################################
-show_batch() {
-    local counter draw_lines i index j posx posy
-    [[ "$show" -lt 1 ]] && return
-    if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && [[ "$show" -gt 1 ]]
-    then
-        # Substracting 3 lines is a hack. The names can be printed in
-        # two lines, but ueberzug is not exact in its drawing on the
-        # terminal lines for different window sizes.
-        # So I give it some more room for error.
-        (( draw_lines = photo_lines - 3 ))
-    else
-        draw_lines="$photo_lines"
-    fi
-
-    for ((i = optcurrent[gridlines] * optcurrent[gridcolumns]; \
-        i < previous_batch; i++))
-    do
-        assoc=([action]=remove [identifier]="ucollage$i")
-        declare -p assoc > "$fifo"
-    done
-    for ((i = 0; i < optcurrent[gridlines]; i++ ))
-
-    do
-        for ((j = 0; j < optcurrent[gridcolumns]; j++))
-        do
-            ((counter = i * optcurrent[gridcolumns] + j))
-            ((index = start + counter))
-            if [[ "${optcurrent[showfileinfo]}" == "showfileinfo" ]] && \
-                [[ "$batch" -gt 1 ]]
-            then
-                (( posx = 1 + j * photo_columns))
-                (( posy = 4 + i * photo_lines))
-            else
-                (( posx = j * photo_columns))
-                (( posy = 3 + i * photo_lines))
-            fi
-            assoc=([action]=add
-                   [identifier]="ucollage$counter"
-                   [path]="${images[$index]}"
-                   [width]="$photo_columns"
-                   [height]="$draw_lines"
-                   [x]="$posx"
-                   [y]="$posy"
-                   [scaling_position_x]="$realscalingx"
-                   [scaling_position_y]="$realscalingy"
-                   [scaler]="${optcurrent[scaler]}")
-            declare -p assoc > "$fifo"
-        done
-    done
-    (( previous_batch = optcurrent[gridlines] * optcurrent[gridcolumns]))
-}
-
-######################################################################
-# Modifies the parameters needed to show another batch
-######################################################################
-compute_batch() {
-    local input="$1" read_iter
-    if [[ -z "$input" ]]
-    then
-        input_autocomplete="batch"
-        input_prompt="Batch # "
-        get_input
-    fi
-    read -r read_iter < "${tmp_dir}/read_iter"
-    case $input in
-        next)
-            # There exists an edge case here when $show is less that
-            # $batch, but we are not in the last batch of images
-            # This can happen when we are loading the images in the background
-            # and the user has changes the batch size with the 's' option
-            # right after starting up.
-            if ((show < batch)) && ((start + show < ${#images}))
-            then
-                : # start stays the same and we just load the rest of the images
-            elif (( start + show < ${#images} ))
-            then
-                (( start += show ))
-            else
-                warning="End of files"
-                [[ "$read_iter" -lt "$argc" ]] && warning="End of loaded files"
-            fi
-            ;;
-        last)
-            (( new_start = ${#images} - ((${#images} - 1) % batch + 1) ))
-            if [[ "$new_start" -le "$start" ]]
-            then
-                warning="End of files"
-                [[ "$read_iter" -lt "$argc" ]] && warning="End of loaded files"
-            else
-                start="$new_start"
-            fi
-            ;;
-        previous)
-            if [[ "$start" -eq 0 ]]
-            then
-                warning="Start of files"
-            else
-                (( start -= batch))
-                # The below is useful in case of resizing
-                # If I am in the second of batches of 10 and the
-                # new window fits 20 then I don't want negative numbers
-                [[ "$start" -lt 0 ]] && start=0
-            fi
-            ;;
-        first)
-            if [[ "$start" -eq 0 ]]
-            then
-                warning="Start of files"
-            else
-                start=0
-            fi
-            ;;
-        *)
-            [[ -n "$input" ]] && error="Unknown option: $input"
-            ;;
-    esac
-    [[ -z "$warning" ]] && [[ -z "$error" ]] && redraw
-    clear_sequence
-}
-
-######################################################################
-# Escapes special characters in filenames in order to not have a problem
-# with command execution. Should be used like var=$(escape_name "$var")
-######################################################################
-escape_name() {
-    local -n name="$1"
-    name="${name// /\\ }"
-    name="${name//\(/\\\(}"
-    name="${name//\)/\\\)}"
-    name="${name//\{/\\\{}"
-    name="${name//\}/\\\}}"
-}
-
-redraw() {
-    calculate_dimensions
-    show_batch
-    update_fileinfo
-}
-
-######################################################################
-# Evaluate a command
-######################################################################
-eval_cmd() {
-    local ans="" columns lines
-    read -r lines columns < <(stty size)
-    if [[ "${optcurrent[execprompt]}" == "execprompt" ]]
-    then
-        clearline
-        cmd_prompt+="? (Press y/Y/Enter to confirm)"
-        cmd_prompt=${cmd_prompt:0:$columns}
-        printf "%s" "$cmd_prompt"
-        while [[ -z "$ans" ]] && [[ "$exit_flag" -eq 0 ]]
-        do
-            read -rsN1 -t 0.01 ans &>/dev/null
-        done
-        clearline
-        [[ ! "$ans" =~ ^(y|Y|$'\n')$ ]] && return 1
-    fi
-    error=$(eval "$cmd" 2>&1 >/dev/null)
-    [[ -z "$error" ]] && return 0 || return 1
-}
-
-update_reverse(){
-    if [[ "$dirty" -eq 0 ]]
-    then
-        reverse_images
-        start=0
-        redraw
-    else # we have not read all images so we need to go from the start
-        break_flag=1
-    fi
-}
-
-reverse_images(){
-    local max min=0 temp
-    (( max = ${#images[@]} -1 ))
-    while [[ min -lt max ]]
-    do
-        temp="${image_names[$min]}"
-        image_names[$min]="${image_names[$max]}"
-        image_names[$max]="$temp"
-
-        temp="${images[$min]}"
-        images[$min]="${images[$max]}"
-        images[$max]="$temp"
-
-        (( min += 1 ))
-        (( max -= 1 ))
-    done
-}
-
-set_scaling() {
-    if [[ "${optcurrent[scalingx]}" -lt 0 ]]
-    then
-        optcurrent[scalingx]=0
-    elif [[ "${optcurrent[scalingx]}" -gt 100 ]]
-    then
-        optcurrent[scalingx]=100
-    fi
-    if [[ "${optcurrent[scalingy]}" -lt 0 ]]
-    then
-        optcurrent[scalingy]=0
-    elif [[ "${optcurrent[scalingy]}" -gt 100 ]]
-    then
-        optcurrent[scalingy]=100
-    fi
-    read -r realscalingx < <(bc -l <<< "scale=2; ${optcurrent[scalingx]} / 100")
-    read -r realscalingy < <(bc -l <<< "scale=2; ${optcurrent[scalingy]} / 100")
-}
-
-clear_sequence() {
-    if [[ "$1" = "--repeat" ]]
-    then
-        repeat_prefix="$prefix"
-        [[ -n "$mapping" ]] && repeat_command="${map_cmd[$mapping]}"
-    fi
-    lastvalidmapping=
-    prefix=
-    mapping=
-}
-
-######################################################################
-# Loop waiting for user input to execute actions
-######################################################################
-read_key() {
-    local char key
-    while true
-    do
-        [[ "$break_flag" -eq 1 ]] && break
-        [[ "${#images}" -eq 0 ]] && exit_flag=1
-        [[ "$exit_flag" -eq 1 ]] && break
-        key=
-        char=
-        while read -rsN1 -t 0.01 char &>/dev/null
-        do
-            key+="$char"
-        done
-        read -r dirty < "${tmp_dir}/dirty"
-        [[ -z "$key" ]] && [[ "$dirty" -eq 0 ]] && continue
-        # This is hack because $'\n' is not mapped correctly in map_cmd
-        [[ "$key" == $'\n' ]] && key=$'\xD'
-        case $key in
-            $'\e')
-                clear_sequence
-                ;;
-            [0-9])
-                if [[ -z "$mapping" ]] && [[ ! "$prefix" =~ ^(\*+|;|#)$ ]]
-                then
-                    prefix+="$key"
-                else
-                    mapping+="$key"
-                fi
-                ;;
-            " ")
-                [[ ! "$prefix" =~ ^(\*+|;|#|)$ ]] && prefix+="$key"
-                ;;
-            "*")
-                if [[ -n "$mapping" ]]
-                then
-                    mapping+="$key"
-                elif [[ "$prefix" =~ ^\*+$ ]]
-                then
-                    prefix="**"
-                else
-                    prefix="*"
-                fi
-                ;;
-            ";"|"#")
-                [[ -z "$mapping" ]] && prefix="$key" || mapping+="$key"
-                ;;
-            ":")
-                command_mode
-                ;;
-            $'\b'|$'\x7F')
-                if [[ -n "$mapping" ]]
-                then
-                    mapping=${mapping:0:-1}
-                elif [[ -n "$prefix" ]]
-                then
-                    prefix=${prefix:0:-1}
-                elif [[ "$batch" -eq 1 ]]
-                then
-                    optcurrent[gridlines]="$wide_vertical"
-                    optcurrent[gridcolumns]="$wide_horizontal"
-                    ((current = (start % (wide_horizontal * wide_vertical))))
-                    ((start = start - current))
-                    redraw
-                    clear_sequence
-                elif [[ -z "$prefix" ]]
-                then
-                    mapping="$key"
-                fi
-                ;;
-            ".")
-                eval "$repeat_command"
-                ;;
-            *)
-                mapping+="$key"
-                ;;
-        esac
-        # This is coded in order to not follow mappings that do not lead to
-        # any action. It also prevents the program from hanging in case of
-        # pressing a not printable character (e.g Home, End) that does not
-        # map to any command
-        if [[ -n "$mapping" ]]
-        then
-            if [[ -n "${map_cmd[$mapping]}" ]]
-            then
-                eval "${map_cmd[$mapping]}"
-            else
-                good=0
-                for m in "${!map_cmd[@]}"
-                do
-                    if [[ "$mapping" == "${m:0:${#mapping}}" ]]
-                    then
-                        good=1
-                        lastvalidmapping="$mapping"
-                        break
-                    fi
-                done
-                [[ "$good" -eq 0 ]] && mapping="$lastvalidmapping"
-            fi
-        fi
-        [[ "$exit_flag" -eq 1 ]] && continue
-        if [[ "$dirty" -eq 1 ]]
-        then
-            populate_arrays
-        fi
-        update_status
-    done
-}
-
-init() {
-    clear_screen
-    redraw
-    update_status
-    read_key
-}
-
 check_dependencies
-[[ -f "$CONFIG_VARIABLES_FILE" ]] && source "$CONFIG_VARIABLES_FILE"
-set_default
-set_current
-parse_config
-set_scripts
+set_options
+config
+
+######################################################################
+# File and directory checking
+######################################################################
 [[ ! -d "$tmp_dir" ]] && mkdir -p "$tmp_dir"
 [[ ! -d "$cache_dir" ]] && mkdir -p "$cache_dir"
 [[ ! -d "$trash_dir" ]] && mkdir -p "$trash_dir"
@@ -433,18 +71,22 @@ set_scripts
 [[ ! -d "${cache_dir}/hash/other" ]] && mkdir -p "${cache_dir}/hash/other"
 [[ ! -d "${cache_dir}/thumbnails" ]] && mkdir -p "${cache_dir}/thumbnails"
 [[ ! -f "${cache_dir}/cmd_history" ]] && touch "${cache_dir}/cmd_history"
-[[ "$1" =~ ^-h$|^--help$ ]] && help && exit
-trap "exit_flag=1" SIGINT SIGTERM
-trap "redraw; update_status" SIGWINCH
-start_daemon
+
+######################################################################
+# Set control flags
+######################################################################
 exit_flag=0
-dirty=0
-status=
+dirty_flag=0
+
+start_daemon
 while [[ "$exit_flag" -eq 0 ]]
 do
     read_filenames "$@"
     stty -echo
-    unset start #make sure that start is not set, makes check in read_images
+
+    ######################################################################
+    # Read first batch of images and then read up to maxload images
+    ######################################################################
     ((first_batch = optcurrent[gridlines] * optcurrent[gridcolumns]))
     echo 0 > "${tmp_dir}/read_iter"
     echo 0 > "${tmp_dir}/read_lock"
@@ -461,13 +103,19 @@ do
     read -r read_iter < "${tmp_dir}/read_iter"
     read_target="${optcurrent[maxload]}" && read_images & # read the max possible
     background_pid="$!"
+
     [[ "${#images}" -eq 0 ]] && printf "No images to show\n" && stty echo && \
         exit_clear=0 && break
+    
+
+    ######################################################################
+    # Init state
+    ######################################################################
     start=0
-    declare -A assoc
-    mode=
-    break_flag=0
     current=0
-    init
+    clear_screen
+    redraw
+    update_status
+    loop
 done
 stop_daemon

@@ -177,31 +177,31 @@ command set
 []
 type    builtin
 map     n <Ctrl-Right>
-script  compute_batch next
+script  _batch next
 command
 
 []
 type    builtin
 map     N <Ctrl-Shift-Right>
-script  compute_batch last
+script  _batch last
 command
 
 []
 type    builtin
 map     p <Ctrl-Left>
-script  compute_batch previous
+script  _batch previous
 command
 
 []
 type    builtin
 map     P <Ctrl-Shift-Left>
-script  compute_batch first
+script  _batch first
 command
 
 []
 type    builtin
 map     
-script  compute_batch
+script  _batch
 command batch
 
 []

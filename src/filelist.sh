@@ -1,3 +1,21 @@
+reverse_images(){
+    local max min=0 temp
+    (( max = ${#images[@]} -1 ))
+    while [[ min -lt max ]]
+    do
+        temp="${image_names[$min]}"
+        image_names[$min]="${image_names[$max]}"
+        image_names[$max]="$temp"
+
+        temp="${images[$min]}"
+        images[$min]="${images[$max]}"
+        images[$max]="$temp"
+
+        (( min += 1 ))
+        (( max -= 1 ))
+    done
+}
+
 ######################################################################
 # Create filelist
 ######################################################################

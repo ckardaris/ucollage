@@ -173,23 +173,6 @@ _rename() {
     clear_sequence --repeat
 }
 
-_goto() {
-    [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-    if get_image_index
-    then
-        if [[ "$batch" -gt 1 ]]
-        then
-            wide_vertical=${optcurrent[gridlines]}
-            wide_horizontal=${optcurrent[gridcolumns]}
-        fi
-        start="$image_index"
-        optcurrent[gridlines]=1
-        optcurrent[gridcolumns]=1
-        redraw
-    fi
-    clear_sequence
-}
-
 _delete() {
     local cmd cmd_prompt del_i deleted=0 ind update=0
     if get_image_index
@@ -253,54 +236,4 @@ _tag() {
     esac
     [[ "$update" -eq 1 ]] && update_fileinfo
     clear_sequence --repeat
-}
-
-_select() {
-    [[ "$prefix" =~ ^(;|\*+)$ ]] && prefix=
-    [[ -z "$prefix" ]] && prefix="1"
-    local limit prefix_args
-    IFS=" " read -r -a prefix_args <<< "$prefix"
-    case "$1" in
-        left)
-            ((limit = (current / optcurrent[gridcolumns])))
-            ((limit *= optcurrent[gridcolumns]))
-            ((current -= prefix_args[0]))
-            if [[ "$2" == "--nowrap" ]]
-            then
-                ((current < limit )) && ((current = limit))
-            else
-                ((current < 0)) && current=0
-            fi
-            ;;
-        down)
-            ((current += prefix_args[0] * optcurrent[gridcolumns]))
-            while ((current >= show))
-            do
-                ((current -= optcurrent[gridcolumns]))
-            done
-            ;;
-        up)
-            ((current -= prefix_args[0] * optcurrent[gridcolumns]))
-            while ((current < 0))
-            do
-                ((current += optcurrent[gridcolumns]))
-            done
-            ;;
-        right)
-            ((limit = (current / optcurrent[gridcolumns]) * optcurrent[gridcolumns]))
-            ((limit += optcurrent[gridcolumns] - 1))
-            ((current += prefix_args[0]))
-            if [[ "$2" == "--nowrap" ]]
-            then
-                ((current > limit )) && ((current = limit))
-            else
-                ((current >= show)) && ((current = show - 1))
-            fi
-            ;;
-        "")
-            get_image_index && ((current = image_index[0]))
-            ;;
-    esac
-    update_fileinfo
-    clear_sequence
 }

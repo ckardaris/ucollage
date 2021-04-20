@@ -189,3 +189,8 @@ parse_config() {
 
     [[ "$errors" -eq 1 ]] && read -rsN1 -p "Using default variables..." && echo
 }
+
+config() {
+    parse_config
+    set_scripts
+}

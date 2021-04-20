@@ -1,4 +1,21 @@
 ######################################################################
+# Pads strings with fileinfo to fit into the given column width
+######################################################################
+pad_sides() {
+    local leftpad p rightpad
+    (( leftpad = $1 / 2 ))
+    (( rightpad = $1 - leftpad ))
+    for (( p = 0; p < leftpad; p++))
+    do
+        current_name=" $current_name"
+    done
+    for (( p = 0; p < rightpad; p++))
+    do
+        current_name+=" "
+    done
+}
+
+######################################################################
 # Draws filenames under the images on the screen
 ######################################################################
 print_fileinfo() {

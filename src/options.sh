@@ -1,3 +1,22 @@
+set_scaling() {
+    if [[ "${optcurrent[scalingx]}" -lt 0 ]]
+    then
+        optcurrent[scalingx]=0
+    elif [[ "${optcurrent[scalingx]}" -gt 100 ]]
+    then
+        optcurrent[scalingx]=100
+    fi
+    if [[ "${optcurrent[scalingy]}" -lt 0 ]]
+    then
+        optcurrent[scalingy]=0
+    elif [[ "${optcurrent[scalingy]}" -gt 100 ]]
+    then
+        optcurrent[scalingy]=100
+    fi
+    read -r realscalingx < <(bc -l <<< "scale=2; ${optcurrent[scalingx]} / 100")
+    read -r realscalingy < <(bc -l <<< "scale=2; ${optcurrent[scalingy]} / 100")
+}
+
 declare -A optiontype=(\
     [execprompt]="boolean"
     [showfileinfo]="boolean"
@@ -72,6 +91,11 @@ set_current() {
         optcurrent[$key]="${optdefault[$key]}"
     done
     set_scaling
+}
+
+set_options() {
+    set_default
+    set_current
 }
 
 _set() {
