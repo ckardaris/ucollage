@@ -57,7 +57,7 @@ map="+_" script="_set gridlines+=1"
 
 map="-_" script="_set gridlines-=1"
 
- command="set" script="_set"
+command="set" script="_set"
 
 map="n <Ctrl-Right>" script="_batch next"
 
@@ -67,7 +67,7 @@ map="p <Ctrl-Left>" script="_batch previous"
 
 map="P <Ctrl-Shift-Left>" script="_batch first"
 
- command="batch" script="_batch"
+command="batch" script="_batch"
 
 map="<Shift-Left>" script="_set scalingx-=1"
 
@@ -81,7 +81,9 @@ map="rl" command="rorateright" script="_edit convert -rotate 90 %s %d"
 
 map="rh" command="rotateleft" script="_edit convert -rotate -90 %s %d"
 
-map="xi" command="!" script="_execute"
+command="!" script="_execute"
+
+map="!" script="command_mode --left !"
 
 map="si" script="_select"
 

@@ -5,6 +5,7 @@ check_dependencies() {
     dep[file]="file"
     dep[md5sum]="coreutils"
     dep[bc]="bc"
+    dep[sed]="sed"
     for dependency in "${!dep[@]}"
     do
         if ! command -v "$dependency" &>/dev/null

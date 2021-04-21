@@ -38,7 +38,7 @@ _rate() {
                 rating=
                 file=
                 getfile
-                eval "$(grep -h rating "$file")"
+                eval "$(grep -h rating "$file" 2>/dev/null)"
                 if [[ -n "$rating" ]]
                 then
                     sed -i "s/rating=./rating=${input}/" "$file"
@@ -122,14 +122,7 @@ _categorize() {
 _execute() {
     local args="" base cmd cmd_prompt edit_args="" executed=0 input
     local input_autocomplete input_prompt nice ind
-    if [[ -n "$*" ]]
-    then
-        input="$*"
-    else
-        input_prompt="Command: "
-        input_autocomplete="!"
-        get_input
-    fi
+    input="$*"
     if [[ -n "$input" ]]
     then
         if [[ "$input" =~ %(s|e) ]]
@@ -168,7 +161,7 @@ _execute() {
         fi
         if [[ "$executed" -eq 0 ]]
         then
-            error=${error:-"No executions"}
+            error="No executions"
         elif [[ "$executed" -lt "${#image_index[@]}" ]]
         then
             warning="Executed: $executed of ${#image_index[@]}"
@@ -268,16 +261,99 @@ _delete() {
 }
 
 _tag() {
-    local i update=0
-    case $1 in
+    local i update=0 filter="" strict=0 type ct rating categories hash
+    while [[ -n "$1" ]]
+    do
+        case "$1" in
+            eq)
+                filter+="((rating == $2)) && [[ -n \${rating} ]] "
+                optcurrent[fileinfo]="ratings"
+                shift
+                ;;
+            ne)
+                filter+="((rating != $2)) && [[ -n \${rating} ]] "
+                optcurrent[fileinfo]="ratings"
+                shift
+                ;;
+            gt)
+                filter+="((rating > $2)) && [[ -n \${rating} ]] "
+                optcurrent[fileinfo]="ratings"
+                shift
+                ;;
+            lt)
+                filter+="((rating < $2)) && [[ -n \${rating} ]] "
+                optcurrent[fileinfo]="ratings"
+                shift
+                ;;
+            ge)
+                filter+="((rating >= $2)) && [[ -n \${rating} ]] "
+                optcurrent[fileinfo]="ratings"
+                shift
+                ;;
+            le)
+                filter+="((rating <= $2)) && [[ -n \${rating} ]] "
+                optcurrent[fileinfo]="ratings"
+                shift
+                ;;
+            and)
+                filter+="&& "
+                ;;
+            or)
+                filter+="|| "
+                ;;
+            +*)
+                filter+="[[ -n "\${catarr[${1:1}]}" ]] "
+                optcurrent[fileinfo]="categories"
+                ;;
+            -*)
+                filter+="[[ -z "\${catarr[${1:1}]}" ]] "
+                optcurrent[fileinfo]="categories"
+                ;;
+            tag)
+                type="tag"
+                ;;
+            untag)
+                type="untag"
+                ;;
+            strict)
+                strict=1
+                ;;
+        esac
+        shift
+    done
+    case $type in
         tag)
             if get_image_index
             then
                 for ind in "${image_index[@]}"
                 do
-                    [[ -z "${tags[$ind]}" ]] && \
-                        tags[$ind]=1 && \
+                    if [[ -n "$filter" ]]
+                    then
+                        hash="${filehash[$ind]}"
+                        getfile
+                        rating=
+                        categories=
+                        unset catarr
+                        local -A catarr
+                        eval $(grep -h rating "$file" 2>/dev/null)
+                        eval $(grep -h categories "$file" 2>/dev/null)
+                        categories=${categories//,/ }
+                        for ct in $categories
+                        do
+                            catarr[$ct]="1"
+                        done
+                    fi
+                    if eval "$filter" && [[ -z "${tags[$ind]}" ]]
+                    then
+                        tags[$ind]=1
                         is_index_local "$ind" && update=1
+                    elif [[ "$strict" -eq 1 ]] && \
+                        ! eval "$filter" &>/dev/null && \
+                        [[ -n "${tags[$ind]}" ]]
+                    then
+                        unset tags[$ind]
+                        is_index_local "$ind" && update=1
+                    fi
                 done
             fi
             ;;
@@ -286,6 +362,23 @@ _tag() {
             then
                 for ind in "${image_index[@]}"
                 do
+                    if [[ -n "$filter" ]]
+                    then
+                        hash="${filehash[$ind]}"
+                        getfile
+                        rating=
+                        categories=
+                        unset catarr
+                        local -A catarr
+                        eval $(grep -h rating "$file" 2>/dev/null)
+                        eval $(grep -h categories "$file" 2>/dev/null)
+                        categories=${categories//,/ }
+                        for ct in $categories
+                        do
+                            catarr[$ct]="1"
+                        done
+                    fi
+                    ! eval "$filter" &>/dev/null && continue
                     [[ -n "${tags[$ind]}" ]] && \
                         unset tags[$ind] && \
                         is_index_local "$ind" && update=1

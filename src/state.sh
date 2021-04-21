@@ -23,12 +23,6 @@ calculate_dimensions() {
 ######################################################################
 _batch() {
     local input="$1" read_iter
-    if [[ -z "$input" ]]
-    then
-        input_autocomplete="batch"
-        input_prompt="Batch # "
-        get_input
-    fi
     read -r read_iter < "${tmp_dir}/read_iter"
     case $input in
         next)
@@ -40,9 +34,11 @@ _batch() {
             if ((show < batch)) && ((start + show < ${#images[@]}))
             then
                 : # start stays the same and we just load the rest of the images
+                redraw
             elif (( start + show < ${#images[@]} ))
             then
                 (( start += show ))
+                redraw
             else
                 warning="End of files"
                 [[ "$read_iter" -lt "$argc" ]] && warning="End of loaded files"
@@ -56,6 +52,7 @@ _batch() {
                 [[ "$read_iter" -lt "$argc" ]] && warning="End of loaded files"
             else
                 start="$new_start"
+                redraw
             fi
             ;;
         previous)
@@ -68,6 +65,7 @@ _batch() {
                 # If I am in the second of batches of 10 and the
                 # new window fits 20 then I don't want negative numbers
                 [[ "$start" -lt 0 ]] && start=0
+                redraw
             fi
             ;;
         first)
@@ -76,13 +74,13 @@ _batch() {
                 warning="Start of files"
             else
                 start=0
+                redraw
             fi
             ;;
         *)
             [[ -n "$input" ]] && error="Unknown option: $input"
             ;;
     esac
-    [[ -z "$warning" ]] && [[ -z "$error" ]] && redraw
     clear_sequence
 }
 

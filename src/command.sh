@@ -31,13 +31,14 @@ command_mode(){
         if [[ -n "$input" ]] || get_input
         then
             save_input=
-            prefix=${input#*\(}
-            prefix=${prefix%%)*}
-            trim_spaces prefix
+            prefix=$(sed -e "s/^\s*(\(.*\)).*/\1/" <<< "$input")
             [[ "$prefix" == "$input" ]] && prefix=
+            trim_spaces prefix
             [[ -n "$prefix" ]] && save_input+="($prefix) "
             full_cmd=${input#*)}
+            full_cmd=$(sed -e "s/^\s*(.*)\(.*\)/\1/" <<< "$input")
             trim_spaces full_cmd
+            full_cmd=$(sed -e "s/^\!\([[:graph:]]\)/! \1/" <<< "$full_cmd")
             save_input+="$full_cmd"
             if [[ -n "$full_cmd" ]]
             then
