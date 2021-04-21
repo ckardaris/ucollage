@@ -36,8 +36,8 @@ update_fileinfo() {
     [[ "${optcurrent[showfileinfo]}" == "noshowfileinfo" ]] || \
         [[ "$batch" -eq 1 ]] && \
         clear_fileinfo && return
-    local cnt columns current_in_line current_name i j linelength lines
-    local namelength row stars total_lines
+    local categories cnt columns current_in_line current_name i j linelength
+    local lines namelength row stars total_lines
     local -a line_names=()
     read -r lines columns < <(stty size)
 
@@ -81,12 +81,18 @@ update_fileinfo() {
                             ;;
                         "names")
                             current_name+="$(basename "${image_names[$index]}")"
-                            [[ -n ${edits[$index]} ]] && \
-                                current_name="~ ${current_name}"
-                            [[ -n ${tags[$index]} ]] && \
-                                current_name="* ${current_name}"
+                            ;;
+                        "categories")
+                            set_categories "$index"
+                            categories=${categories//,/ }
+                            trim_spaces categories
+                            current_name+="$categories"
                             ;;
                     esac
+                    [[ -n ${edits[$index]} ]] && \
+                        current_name="~ ${current_name}"
+                    [[ -n ${tags[$index]} ]] && \
+                        current_name="* ${current_name}"
                     (( max_length = photo_columns - 2 ))
                     current_name=${current_name:0:$max_length}
                     namelength="${#current_name}"

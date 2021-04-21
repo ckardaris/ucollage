@@ -29,7 +29,7 @@ map="<Ctrl-R>" command="redo" script="_history --redo"
 
 map="wi" command="write" script="_write"
 
-map="ci" command="rename" script="_rename"
+map="mv" command="rename" script="_rename"
 
 map="ss" script="command_mode --left set sort"
 
@@ -88,5 +88,7 @@ map="si" script="_select"
 map="<Ctrl-L>" command="loadfiles" script="load_files"
 
 map="ri" command="rate" script="_rate"
+
+map="ci" command="category" script="_categorize"
 
 # vim: ft=bash

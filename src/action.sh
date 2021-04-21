@@ -30,34 +30,90 @@ _rate() {
                 input_prompt="Rating for [$((ind % batch + 1))]: "
                 input_autocomplete="rating"
                 ! get_input && continue
-                trim_spaces input --force
+                trim_spaces input
             fi
             if [[ "$input" =~ ^(0|1|2|3|4|5)$ ]]
             then
                 hash="${filehash[$ind]}"
                 rating=
                 file=
-                if is_image
-                then
-                    file="${cache_dir}/hash/images/$hash"
-                elif is_video
-                then
-                    file="${cache_dir}/hash/videos/$hash"
-                fi
-                eval "$(cat "$file")"
+                getfile
+                eval "$(grep -h rating "$file")"
                 if [[ -n "$rating" ]]
                 then
-                    sed -i "s/rating=./rating=${input}/" \
-                        "${cache_dir}/hash/images/$hash"
+                    sed -i "s/rating=./rating=${input}/" "$file"
                 else
-                    echo "rating=$input" >> "${cache_dir}/hash/images/$hash"
+                    echo "rating=$input" >> "$file"
                 fi
                 is_index_local "$ind" && update=1
             else
                 error="Rating has to be in [0-5]"
             fi
         done
-        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "ratings" ]] && \
+        [[ "$update" -eq 1 ]] && optcurrent[fileinfo]="ratings" && \
+            update_fileinfo
+    fi
+    clear_sequence --repeat
+}
+
+_categorize() {
+    declare -A catarr
+    if get_image_index
+    then
+        for ind in "${image_index[@]}"
+        do
+            if [[ -n "$*" ]]
+            then
+                input="$*"
+            else
+                input_prompt="Categories for [$((ind % batch + 1))]: "
+                input_autocomplete="rating"
+                ! get_input && continue
+            fi
+            hash="${filehash[$ind]}"
+            categories=
+            file=
+            getfile
+            eval "$(grep -h categories "$file" 2>/dev/null)"
+            categories=${categories//,/ }
+            trim_spaces categories
+
+            for cat in $categories
+            do
+                catarr[$cat]=""
+            done
+            for cat in $input
+            do
+                case "$cat" in
+                    +*)
+                        new="${cat:1}"
+                        [[ -n "$new" ]] && catarr[$new]=""
+                        is_index_local "$ind" && update=1
+                        ;;
+                    -*)
+                        new="${cat:1}"
+                        [[ -n "$new" ]] && unset catarr[$new]
+                        is_index_local "$ind" && update=1
+                        ;;
+                    =*)
+                        new="${cat:1}"
+                        unset catarr
+                        declare -A catarr
+                        [[ -n "$new" ]] && catarr[$new]=""
+                        is_index_local "$ind" && update=1
+                        ;;
+                esac
+            done
+            new_categories="${!catarr[@]}"
+            new_categories="${new_categories// /,},"
+            if [[ -n "$categories" ]]
+            then
+                sed -i "s/categories.*/categories=${new_categories}/" "$file"
+            else
+                echo "categories=$new_categories" >> "$file"
+            fi
+        done
+        [[ "$update" -eq 1 ]] && optcurrent[fileinfo]="categories" && \
             update_fileinfo
     fi
     clear_sequence --repeat
@@ -170,7 +226,7 @@ _rename() {
         else
             success="Success"
         fi
-        [[ "$update" -eq 1 ]] && [[ "${optcurrent[fileinfo]}" == "names" ]] && \
+        [[ "$update" -eq 1 ]] && optcurrent[fileinfo]="names" && \
             update_fileinfo
     fi
     clear_sequence --repeat

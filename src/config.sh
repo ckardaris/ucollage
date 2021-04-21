@@ -108,8 +108,8 @@ parse_config() {
     check_config_variable
 
     variable_name="UCOLLAGE_FILEINFO"
-    accept_regexp="^(names|ratings)$"
-    valid_values="names, ratings"
+    accept_regexp="^(names|ratings|categories)$"
+    valid_values="names, ratings, categories"
     check_config_variable
 
     variable_name="UCOLLAGE_EXPAND_DIRS"

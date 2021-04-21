@@ -31,6 +31,7 @@ declare -A assoc
 
 declare -A spacelist=(\
     [batch]="previous next first last"
+    [category]="+ - ="
     [rate]="0 1 2 3 4 5"
     [set]="${!optiontype[*]}"
     [!]="$(compgen -c | tr '\n' ' ')"

@@ -136,14 +136,14 @@ is_natural() {
 
 set_stars() {
     local -n str="$1"
-    local hash="${filehash[$index]}" index="$2" k rating=""
+    local hash="${filehash[$2]}" k rating=""
     str=
     if is_image
     then
-        eval "$(cat "${cache_dir}/hash/images/$hash")"
+        eval "$(grep -h rating "${cache_dir}/hash/images/$hash" 2>/dev/null)"
     elif is_video
     then
-        eval "$(cat "${cache_dir}/hash/videos/$hash")"
+        eval "$(grep -h rating "${cache_dir}/hash/videos/$hash" 2>/dev/null)"
     fi
     if [[ -n "$rating" ]]
     then
@@ -155,6 +155,18 @@ set_stars() {
         do
             str+="☆"
         done
+    fi
+}
+
+set_categories() {
+    local hash="${filehash[$1]}"
+    categories=""
+    if is_image
+    then
+        eval "$(grep -h categories "${cache_dir}/hash/images/$hash" 2>/dev/null)"
+    elif is_video
+    then
+        eval "$(grep -h categories "${cache_dir}/hash/videos/$hash" 2>/dev/null)"
     fi
 }
 
@@ -176,4 +188,14 @@ is_video() {
         return 0
     fi
     return 1
+}
+
+getfile() {
+    if is_image
+    then
+        file="${cache_dir}/hash/images/$hash"
+    elif is_video
+    then
+        file="${cache_dir}/hash/videos/$hash"
+    fi
 }

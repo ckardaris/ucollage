@@ -101,14 +101,14 @@ read_images() {
     do
         file=${filelist[$read_iter]}
         read -rd ' ' hash < <(head -c 100000 "$file" 2>/dev/null | "$hashfunc")
-        if is_image "$file"
+        if is_image
         then
             echo "$file" >> "${tmp_dir}/image_names.txt"
             echo "$file" >> "${tmp_dir}/images.txt"
             echo "$hash" >> "${tmp_dir}/hash.txt"
             echo 1 > "${tmp_dir}/dirty"
             (( readc += 1 ))
-        elif is_video "$file" \
+        elif is_video \
             && [[ "$video_thumbnails" -eq 1 ]] \
             && command -v ffmpeg &> /dev/null
         then
