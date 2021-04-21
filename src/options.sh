@@ -69,6 +69,7 @@ set_default() {
     wide_vertical="${optdefault[gridlines]}"
     wide_horizontal="${optdefault[gridcolumns]}"
     tmp_dir=${UCOLLAGE_TMP_DIR:-/tmp/ucollage}
+    tmp_dir+="/$(mktemp --dry-run XXXXXX)"
     cache_dir=${UCOLLAGE_CACHE_DIR:-~/.local/share/ucollage}
     trash_dir=${UCOLLAGE_TRASH_DIR:-~/.local/share/Trash/ucollage}
     expand_dirs=${UCOLLAGE_EXPAND_DIRS:-ask}
