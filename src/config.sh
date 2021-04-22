@@ -1,6 +1,6 @@
 set_scripts(){
     local -a file_data
-    local ci command errors=0 i info line map mi script type
+    local ci command errors=0 i info line map mi umi script type unmap
     # First we map the builtin commands and then the user defined. The order is
     # that way so that the user can override the defaults.
     if [[ -f "$CONFIG_DEFAULT" ]] && [[ -f "$CONFIG_SCRIPTS_FILE" ]]
@@ -20,10 +20,11 @@ set_scripts(){
     do
         if [[ ! "$line" =~ ^# ]]
         then
-            type="" map="" script="" command=""
+            type="" map="" script="" command="" unmap=""
             ! eval "$line" && continue
             trim_spaces type
             trim_spaces map
+            trim_spaces unmap
             translate_map map
             trim_spaces script
             trim_spaces command
@@ -50,6 +51,10 @@ set_scripts(){
             fi
             if [[ "$errors" -eq 0 ]]
             then
+                for umi in $unmap
+                do
+                    unset map_cmd[$umi]
+                done
                 for mi in $map
                 do
                     # <Space> has to be substituted here or else it is split
