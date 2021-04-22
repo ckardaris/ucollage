@@ -14,15 +14,17 @@ check_dependencies() {
         fi
     done
     dep=()
-    dep[convert]="imagemagick"
-    dep[ffmpeg]="ffmpeg"
-    dep[xclip]="xclip"
+    dep[convert]="imagemagick---Rotation of images"
+    dep[ffmpeg]="ffmpeg---Thumbnail creation for videos"
+    dep[xclip]="xclip---Inputting text from primary and clipboard"
     for dependency in "${!dep[@]}"
     do
         if ! command -v "$dependency" &>/dev/null
         then
             errors=1
-            echo "Optional dependency not installed: ${dep[$dependency]}"
+            echo "Optional dependency not installed: ${dep[$dependency]%%---*}"
+            echo "==========> Actions not available: ${dep[$dependency]##*---}"
+            echo
         fi
     done
     [[ "$errors" -eq 1 ]] && read -rsN1

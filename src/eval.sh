@@ -2,7 +2,7 @@
 # Evaluate a command
 ######################################################################
 eval_cmd() {
-    local ans="" columns lines
+    local ans="" columns lines error
     read -r lines columns < <(stty size)
     if [[ "${optcurrent[execprompt]}" == "execprompt" ]]
     then
