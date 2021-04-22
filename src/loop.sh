@@ -99,6 +99,8 @@ loop() {
                 done
                 [[ "$good" -eq 0 ]] && mapping="$lastvalidmapping"
             fi
+        else
+            lastvalidmapping=""
         fi
         [[ "$exit_flag" -eq 1 ]] && continue
         if [[ "$dirty_flag" -eq 1 ]]
