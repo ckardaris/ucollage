@@ -77,9 +77,9 @@ map="<Shift-Down>" script="_set scalingy+=1"
 
 map="<Shift-Up>" script="_set scalingy-=1"
 
-map="rl" command="rorateright" script="_edit convert -rotate 90 %s %d"
+map="rl" command="rorateright" script="convert -rotate 90 %s %d"
 
-map="rh" command="rotateleft" script="_edit convert -rotate -90 %s %d"
+map="rh" command="rotateleft" script="convert -rotate -90 %s %d"
 
 command="!" script="_execute"
 

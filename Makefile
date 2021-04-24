@@ -43,6 +43,8 @@ install:
 	@install -Dm644 man/ucollage.1.gz -t ${MAN_DIR}
 	@rm -f man/ucollage.1.gz
 	@install -Dm644 etc/* -t ${CONFIG_DIR}
+	# clean directory in case filename changes happen between versions
+	@rm -f ${SRC_DIR}/*
 	@install -Dm644 src/* -t ${SRC_DIR}
 	@echo OK
 	@echo Succesful installation

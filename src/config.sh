@@ -29,44 +29,21 @@ set_scripts(){
             trim_spaces script
             trim_spaces command
 
-            if [[ "$script" =~ ^_edit ]]
-            then
-                if [[ ! "$script" =~ %s ]]
-                then
-                    echo "Error: configuration"
-                    echo "--------------------"
-                    echo "Value: $script"
-                    echo "Valid: %s placeholder missing"
-                    echo "--------------------"
-                    errors=1
-                elif [[ ! "$script" =~ %d ]]
-                then
-                    echo "Error: configuration"
-                    echo "--------------------"
-                    echo "Value: $script"
-                    echo "Valid: %d placeholder missing"
-                    echo "--------------------"
-                    errors=1
-                fi
-            fi
-            if [[ "$errors" -eq 0 ]]
-            then
-                for umi in $unmap
-                do
-                    unset map_cmd[$umi]
-                done
-                for mi in $map
-                do
-                    # <Space> has to be substituted here or else it is split
-                    # by the 'for' expansion
-                    mi=${mi//<Space>/ }
-                    map_cmd[$mi]="${script}"
-                done
-                for ci in $command
-                do
-                    colon_cmd[$ci]="${script}"
-                done
-            fi
+            for umi in $unmap
+            do
+                unset map_cmd[$umi]
+            done
+            for mi in $map
+            do
+                # <Space> has to be substituted here or else it is split
+                # by the 'for' expansion
+                mi=${mi//<Space>/ }
+                map_cmd[$mi]="_wrapper ${script}"
+            done
+            for ci in $command
+            do
+                colon_cmd[$ci]="_wrapper ${script}"
+            done
         fi
     done
     [[ "$errors" -eq 1 ]] && read -rsN1
