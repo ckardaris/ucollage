@@ -31,7 +31,13 @@ loop() {
                 fi
                 ;;
             " ")
-                [[ ! "$prefix" =~ ^(\*+|;|#|)$ ]] && prefix+="$key"
+                if [[ -z "$prefix" ]]
+                then
+                    mapping+="$key"
+                elif [[ ! "$prefix" =~ ^(\*+|;|#)$ ]]
+                then
+                    prefix+="$key"
+                fi
                 ;;
             "*")
                 if [[ -n "$mapping" ]]
