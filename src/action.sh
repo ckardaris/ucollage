@@ -309,6 +309,12 @@ _tag() {
                 filter+="[[ -z "\${catarr[${1:1}]}" ]] "
                 optcurrent[fileinfo]="categories"
                 ;;
+            "{")
+                filter+=" { "
+                ;;
+            "}")
+                filter+=" ; } "
+                ;;
             tag)
                 type="tag"
                 ;;
