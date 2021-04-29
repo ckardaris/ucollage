@@ -23,7 +23,7 @@ help:
 
 install:
 	@echo "Checking that make is called from inside the base directory..."
-	@[[ -f Makefile ]]
+	@[ -f Makefile ]
 	@echo OK
 	@echo "Creating necessary directories..."
 	@mkdir -p ${INSTALL_DIR}
@@ -43,7 +43,7 @@ install:
 	@install -Dm644 man/ucollage.1.gz -t ${MAN_DIR}
 	@rm -f man/ucollage.1.gz
 	@install -Dm644 etc/* -t ${CONFIG_DIR}
-	# clean directory in case filename changes happen between versions
+# clean directory in case filename changes happen between versions
 	@rm -f ${SRC_DIR}/*
 	@install -Dm644 src/* -t ${SRC_DIR}
 	@echo OK

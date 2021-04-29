@@ -47,7 +47,7 @@ set_scripts(){
         fi
     done
     [[ "$errors" -eq 1 ]] && read -rsN1
-    spacelist[ucollage]="${!colon_cmd[*]}"
+    spacelist[ucollage]="! ${!colon_cmd[*]}"
 }
 
 check_config_variable() {
@@ -135,7 +135,7 @@ parse_config() {
     check_config_variable
 
     variable_name="UCOLLAGE_HASHFUNC"
-    if ! command -v "$UCOLLAGE_HASHFUNC" &>/dev/null
+    if [[ -n "$UCOLLAGE_HASHFUNC" ]] && ! command -v "$UCOLLAGE_HASHFUNC" &>/dev/null
     then
         if [[ "$errors" -eq 0 ]]
         then
@@ -144,7 +144,7 @@ parse_config() {
         fi
         echo "[$variable_name]"
         echo "Value: ${!variable_name}"
-        echo "Valid: a  valid hash function program (e.g. md5sum)"
+        echo "Valid: a valid hash function program (e.g. md5sum)"
         echo "--------------------"
         eval "${variable_name}=" #unset the variable
         errors=1

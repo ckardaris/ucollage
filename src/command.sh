@@ -12,6 +12,7 @@ command_mode(){
                         shift
                     done
                     input_left=${input_left%% }
+                    input_left=${input_left//%_%/ }
                     ;;
                 -r|--right)
                     while [[ ! "$2" =~ ^(-l|--left|-e|--enter)$ ]] && [[ -n "$2" ]]
@@ -20,6 +21,7 @@ command_mode(){
                         shift
                     done
                     input_right=${input_right%% }
+                    input_right=${input_right//%_%/ }
                     ;;
                 -e|--enter)
                     enter=1
@@ -44,7 +46,11 @@ command_mode(){
             then
                 echo "$save_input" >> "$cache_dir/cmd_history"
                 read -r cmd _ <<< "$full_cmd" # we take only the first word
-                if [[ -n ${colon_cmd[$cmd]} ]]
+                if [[ "$cmd" == "!" ]]
+                then
+                    eval_cmd="${full_cmd##!*( )}"
+                    eval "_cwrapper $eval_cmd"
+                elif [[ -n ${colon_cmd[$cmd]} ]]
                 then
                     eval_cmd="${full_cmd//$cmd/${colon_cmd[$cmd]}}"
                     eval "$eval_cmd"

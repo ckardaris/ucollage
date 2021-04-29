@@ -81,9 +81,7 @@ map="rl" command="rorateright" script="convert -rotate 90 %s %d"
 
 map="rh" command="rotateleft" script="convert -rotate -90 %s %d"
 
-command="!" script="_execute"
-
-map="!" script="command_mode --left !"
+map="!" script="command_mode --left !%_%"
 
 map="si" script="_select"
 
