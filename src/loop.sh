@@ -56,7 +56,7 @@ loop() {
             ":")
                 command_mode
                 ;;
-            $'\b'|$'\x7F')
+            $'\b'|$'\x7F'|$'\x08')
                 if [[ -n "$mapping" ]]
                 then
                     mapping=${mapping:0:-1}
@@ -73,7 +73,7 @@ loop() {
                     clear_sequence
                 elif [[ -z "$prefix" ]]
                 then
-                    mapping="$key"
+                    mapping=$'\x8'
                 fi
                 ;;
             ".")
