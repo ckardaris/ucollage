@@ -51,9 +51,10 @@ or
 
 - Grab the release file (recommended for stability)
   ```bash
-  $ wget https://github.com/ckardaris/ucollage/archive/v1.0.0.tar.gz
-  $ tar –xvzf ucollage-1.0.0.tar.gz
-  $ cd ucollage-1.0.0
+  $ version=$(wget -q -O - https://api.github.com/repos/ckardaris/ucollage/releases/latest | grep tag_name | sed -e "s/.*v\(.*\)\",/\1/")
+  $ wget https://github.com/ckardaris/ucollage/releases/download/v${version}/ucollage-${version}.tar.gz
+  $ tar -xvzf ucollage-${version}.tar.gz
+  $ cd ucollage-${version}
   ```
 
 The source directory contains a `Makefile`.
