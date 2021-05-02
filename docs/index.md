@@ -11,7 +11,7 @@ attached to.
 
 ## Why use `ucollage`?
 
-`ucollage` is designed for keyboard-only interaction provides the necessary
+`ucollage` is designed for keyboard-only interaction and provides the necessary
 customization options to make it behave the way that you want to. The `vim` user
 will feel at home.
 
@@ -28,20 +28,19 @@ that they like.
 
 **Builtin actions**
 - renaming
-- moving to `Trash`
-- executing commands
-- sorting
-- rating
-- categorizing
-- tagging (advanced filtering supported)
-- editing (with edit history)
+- moving to Trash
+- rating and tagging
+- editing images supporting undo and redo actions
+- fully customizable vim keybindings
+- command execution
 
 **User defined actions**
+
 The user can define custom scripts that will use the selected files in order to
 perform different tasks. It is possible to define a script in edit mode, so that
 the edit history will be available.
 
-## Try `ucollage` now!
+## Explore `ucollage` now!
 
 ```{toctree}
 :maxdepth: 1

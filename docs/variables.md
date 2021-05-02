@@ -1,4 +1,4 @@
-## Variables 
+# Variables 
 `ucollage` makes use of some configuration variables that determine its behavior
 and interface. These have sane default values but the user is able to change
 them according to their preferences.
