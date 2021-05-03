@@ -13,6 +13,12 @@ An extensible command line image viewer inspired by vim.
  </a>
 </p>
 <p align="center">
+ <img alt="GitHub watchers" src="https://img.shields.io/github/watchers/ckardaris/ucollage">
+ <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ckardaris/ucollage">
+ <img alt="GitHub issues" src="https://img.shields.io/github/issues/ckardaris/ucollage">
+ <img alt="GitHub pull requests" src="https://img.shields.io/github/issues-pr/ckardaris/ucollage">
+</p>
+<p align="center">
  <a href="https://github.com/ckardaris/ucollage/commits/master">
   <img alt="GitHub last commit (master)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/master?label=last%20commit%20%28master%29">
  </a>

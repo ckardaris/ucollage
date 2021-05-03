@@ -52,4 +52,5 @@ defaultkeys
 configuration
 functions
 examples
+prglogic
 ```
