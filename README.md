@@ -45,7 +45,8 @@ An extensible command line image viewer inspired by vim.
 - view images and video thumbnails
 - renaming
 - moving to Trash
-- rating and tagging
+- rating
+- categories
 - editing images supporting undo and redo actions
 - fully customizable vim keybindings
 - command execution

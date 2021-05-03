@@ -29,7 +29,8 @@ that they like.
 **Builtin actions**
 - renaming
 - moving to Trash
-- rating and tagging
+- rating
+- categories
 - editing images supporting undo and redo actions
 - fully customizable vim keybindings
 - command execution
