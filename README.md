@@ -8,20 +8,27 @@ An extensible command line image viewer inspired by vim.
  <a href="https://github.com/ckardaris/ucollage/releases/latest">
   <img alt="GitHub release" src="https://img.shields.io/github/v/release/ckardaris/ucollage">
  </a>
- <a href="https://github.com/ckardaris/ucollage/commits/master">
-  <img alt="GitHub last commit (master)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/master?label=last%20commit%20%28master%29">
- </a>
- <a href="https://github.com/ckardaris/ucollage/commits/dev">
-  <img alt="GitHub last commit (dev)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/dev?label=last%20commit%20%28dev%29">
- </a>
  <a href="https://github.com/ckardaris/ucollage/blob/master/LICENSE">
   <img alt="License" src="https://img.shields.io/github/license/ckardaris/ucollage">
  </a>
- <a href="https://ucollage.readthedocs.io/en/master">
-  <img alt="Read the Docs (master)" src="https://img.shields.io/readthedocs/ucollage/master?label=docs%20%28master%29">
+</p>
+<p align="center">
+ <a href="https://github.com/ckardaris/ucollage/commits/master">
+  <img alt="GitHub last commit (master)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/master?label=last%20commit%20%28master%29">
  </a>
- <a href="https://ucollage.readthedocs.io/en/dev">
-  <img alt="Read the Docs (master)" src="https://img.shields.io/readthedocs/ucollage/dev?label=docs%20%28dev%29">
+ <a href="https://ucollage.readthedocs.io/en/stable">
+  <img alt="Read the Docs (stable)" src="https://img.shields.io/readthedocs/ucollage/stable?label=docs%20%28stable%29">
+ </a>
+</p>
+<p align="center">
+ <a href="https://github.com/ckardaris/ucollage/commits/dev">
+  <img alt="GitHub last commit (dev)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/dev?label=last%20commit%20%28dev%29">
+ </a>
+ <a href="https://github.com/ckardaris/ucollage/commits/dev">
+  <img alt="GitHub commits since last release" src="https://img.shields.io/github/commits-since/ckardaris/ucollage/latest/dev">
+ </a>
+ <a href="https://ucollage.readthedocs.io/en/latest">
+  <img alt="Read the Docs (latest)" src="https://img.shields.io/readthedocs/ucollage/latest?label=docs%20%28latest%29">
  </a>
 </p>
 
@@ -39,7 +46,7 @@ An extensible command line image viewer inspired by vim.
 
 ## Getting Started
 - Follow the
-  [instructions](https://ucollage.readthedocs.io/en/latest/install.html) to
+  [instructions](https://ucollage.readthedocs.io/en/stable/install.html) to
   install `ucollage`.
 - Type
   ```bash
@@ -52,5 +59,5 @@ An extensible command line image viewer inspired by vim.
 
 ## Documentation
 Viewing the images is half the fun. Read the
-[documentation](https://ucollage.readthedocs.io/en/master) in order to explore the more
+[documentation](https://ucollage.readthedocs.io/en/stable) in order to explore the more
 interesting functionalities that are possible with `ucollage`.
