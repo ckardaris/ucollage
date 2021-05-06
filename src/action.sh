@@ -27,7 +27,8 @@ _rate() {
             then
                 input="${rating_arr[$mi]}"
             else
-                input_prompt="Rating for [$((ind % batch + 1))]: "
+                set_show_index
+                input_prompt="Rating${show_index}: "
                 input_autocomplete="rating"
                 ! get_input && continue
                 trim_spaces input
@@ -66,7 +67,8 @@ _categorize() {
             then
                 input="$*"
             else
-                input_prompt="Categories for [$((ind % batch + 1))]: "
+                set_show_index
+                input_prompt="Categories${show_index}: "
                 input_autocomplete="rating"
                 ! get_input && continue
             fi
@@ -191,7 +193,8 @@ _rename() {
         for ind in "${image_index[@]}"
         do
             input=
-            input_prompt="New name for [$((ind % batch + 1))]: "
+            set_show_index
+            input_prompt="New name${show_index}: "
             input_left="$(basename "${image_names[$ind]}")"
             pathto="$(dirname "${image_names[$ind]}")"
             [[ "${#image_index[@]}" -eq 1 ]] && input="$1"
@@ -200,7 +203,8 @@ _rename() {
                 ! get_input && continue
             fi
             cmd="mv \"${image_names[$ind]}\" \"$pathto/$input\""
-            cmd_prompt="Rename [$((ind % batch + 1))] to: ${input}"
+            set_show_index
+            cmd_prompt="Rename${show_index} to: ${input}"
             if eval_cmd
             then
                 ((renamed += 1))
@@ -233,7 +237,8 @@ _delete() {
         do
             ((ind -= deleted))
             cmd="mv \"${image_names[$ind]}\" \"$trash_dir\""
-            cmd_prompt="Delete: $(basename "${image_names[$ind]}")"
+            set_show_index
+            cmd_prompt="Delete${show_index}"
             if eval_cmd
             then
                 unset image_names["${image_index[$updated]}"]

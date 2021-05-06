@@ -14,7 +14,8 @@ _write() {
             hash=${hash#${tmp_dir}/}
             [[ -z ${edits[$ind]} ]] && ((no_pending += 1)) && continue
             cmd="cp -f \"${tmpfile}\" \"${image_names[$ind]}\""
-            cmd_prompt="Save edits for ${image_names[$ind]}"
+            set_show_index
+            cmd_prompt="Save edits${show_index}"
             if eval_cmd
             then
                 ((saved += 1))

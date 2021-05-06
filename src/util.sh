@@ -199,3 +199,15 @@ getfile() {
         file="${cache_dir}/hash/videos/$hash"
     fi
 }
+
+set_show_index() {
+    if [[ "$prefix" == "**" ]]
+    then
+        show_index=" [$((ind + 1))]"
+    elif [[ "$show" -gt 1 ]]
+    then
+        show_index=" [$((ind % batch + 1))]"
+    else
+        show_index=""
+    fi
+}

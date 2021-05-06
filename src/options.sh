@@ -348,6 +348,7 @@ _set() {
                         else
                             optcurrent[$option]="no$option"
                         fi
+                        message+="${optcurrent[$option]} "
                         ;;
                     *)
                         error="Unknown option: $setting"
