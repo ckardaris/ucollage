@@ -22,9 +22,16 @@ _write() {
                 images[$ind]="${image_names[$ind]}"
                 rm "${tmp_dir}/$hash".* # delete all history
                 unset edits["$ind"]
-                read -rd ' ' hash < \
+                read -rd ' ' new_hash < \
                     <(head -c 100000 "${image_names[$ind]}" 2>/dev/null | "$hashfunc")
-                filehash[$ind]="$hash"
+                filehash[$ind]="$new_hash"
+                if is_image
+                then
+                    mv "${cache_dir}/hash/images/$hash" "${cache_dir}/hash/images/$new_hash"
+                elif is_video
+                then
+                    mv "${cache_dir}/hash/videos/$hash" "${cache_dir}/hash/videos/$new_hash"
+                fi
                 is_index_local "$ind" && local_changes=1
             fi
         done

@@ -2,15 +2,9 @@
 An extensible command line image viewer inspired by vim.
 
 <p align="center">
- <a href="https://github.com/ckardaris/ucollage/graphs/contributors">
   <img alt="GitHub contributors" src="https://img.shields.io/github/contributors/ckardaris/ucollage">
- </a>
- <a href="https://github.com/ckardaris/ucollage/releases/latest">
   <img alt="GitHub release" src="https://img.shields.io/github/v/release/ckardaris/ucollage">
- </a>
- <a href="https://github.com/ckardaris/ucollage/blob/master/LICENSE">
   <img alt="License" src="https://img.shields.io/github/license/ckardaris/ucollage">
- </a>
 </p>
 <p align="center">
  <img alt="GitHub watchers" src="https://img.shields.io/github/watchers/ckardaris/ucollage">
@@ -19,23 +13,13 @@ An extensible command line image viewer inspired by vim.
  <img alt="GitHub pull requests" src="https://img.shields.io/github/issues-pr/ckardaris/ucollage">
 </p>
 <p align="center">
- <a href="https://github.com/ckardaris/ucollage/commits/master">
   <img alt="GitHub last commit (master)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/master?label=last%20commit%20%28master%29">
- </a>
- <a href="https://ucollage.readthedocs.io/en/stable">
   <img alt="Read the Docs (stable)" src="https://img.shields.io/readthedocs/ucollage/stable?label=docs%20%28stable%29">
- </a>
 </p>
 <p align="center">
- <a href="https://github.com/ckardaris/ucollage/commits/dev">
   <img alt="GitHub last commit (dev)" src="https://img.shields.io/github/last-commit/ckardaris/ucollage/dev?label=last%20commit%20%28dev%29">
- </a>
- <a href="https://github.com/ckardaris/ucollage/commits/dev">
   <img alt="GitHub commits since last release" src="https://img.shields.io/github/commits-since/ckardaris/ucollage/latest/dev">
- </a>
- <a href="https://ucollage.readthedocs.io/en/latest">
   <img alt="Read the Docs (latest)" src="https://img.shields.io/readthedocs/ucollage/latest?label=docs%20%28latest%29">
- </a>
 </p>
 
 ![](https://i.imgur.com/zWyhZXB.png)

@@ -39,8 +39,8 @@ declare -A spacelist=(\
 )
 
 declare -A sticklist=(\
-    [no]="showfileinfo execprompt reverse"
-    [inv]="showfileinfo execprompt reverse"
+    [no]="showfileinfo execprompt reverse writenew"
+    [inv]="showfileinfo execprompt reverse writenew"
 )
 for key in ${!enumoptvalue[*]}
 do
