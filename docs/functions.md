@@ -8,7 +8,7 @@ given in the `prefix`. If no prefix is given, the default is to use the
 currently selected image.
 
 ### `_rate`
-**Configuration**
+**Default Configuration**
 ```bash
 map="ri" command="rate" script="_rate"
 ```
@@ -26,7 +26,7 @@ given, the user is asked to input a different rating for each index.
 This will rate all images of the current view with a rating of 4
 
 ### `_categorize`
-**Configuration**
+**Default Configuration**
 ```bash
 map="ci" command="category" script="_categorize"
 ```
@@ -52,7 +52,7 @@ Arguments are evaluated from left to right, so in the last example all images
 will have the sport AND basketball categories.
 
 ### `_rename`
-**Configuration**
+**Default Configuration**
 ```bash
 map="mv" command="rename" script="_rename"
 ```
@@ -69,13 +69,13 @@ will be asked to provide a new name for all images selected.
 ```
 
 ### `_delete`
-**Configuration**
+**Default Configuration**
 ```bash
 map="di" command="delete" script="_delete"
 ```
 
 ### `_tag`
-**Configuration**
+**Default Configuration**
 ```bash
 map="ti" command="tag" script="_tag tag"
 map="dt" command="untag" script="_tag untag"
@@ -118,7 +118,7 @@ leave spaces.
 
 ## state.sh
 ### `_batch`
-**Configuration**
+**Default Configuration**
 ```bash
 map="n <Ctrl-Right>" script="_batch next"
 map="N <Ctrl-Shift-Right>" script="_batch last"
@@ -134,7 +134,7 @@ from the list of [next, last, previous, first], that sets the set of images we
 want to view.
 
 ### `_select`
-**Configuration**
+**Default Configuration**
 ```bash
 map="h <Left>" script="_select left --nowrap"
 map="<Backspace>" script="_select left"
@@ -157,7 +157,7 @@ border element of the current line. It can also understand a `prefix`, which
 will consequentially move the selection to the desired image.
 
 ### `_goto`
-**Configuration**
+**Default Configuration**
 ```bash
 map="<Return>" command="goto" script="_goto"
 ```
@@ -172,7 +172,7 @@ monocle mode.
 ## options.sh
 ### `_set`
 
-**Configuration**
+**Default Configuration**
 ```bash
 map="tf" script="_set showfileinfo!"
 map="tr" script="_set reverse!"
@@ -289,13 +289,13 @@ Variables</a> page.
 
 ## edit.sh
 ### `_write`
-**Configuration**
+**Default Configuration**
 ```bash
 map="wi" command="write" script="_write"
 ```
 
 ### `_history`
-**Configuration**
+**Default Configuration**
 ```bash
 map="u" command="undo" script="_history --undo"
 map="<Ctrl-R>" command="redo" script="_history --redo"
@@ -310,7 +310,7 @@ want to perform.
 
 ## filelist.sh
 ### `load_files`
-**Configuration**
+**Default Configuration**
 ```bash
 map="<Ctrl-L>" command="loadfiles" script="load_files"
 ```
@@ -318,7 +318,7 @@ map="<Ctrl-L>" command="loadfiles" script="load_files"
 
 ## command.sh
 ### `command_mode`
-**Configuration**
+**Default Configuration**
 ```bash
 map="ss" script="command_mode --left set sort"
 map="su" script="command_mode --left set scaler"
