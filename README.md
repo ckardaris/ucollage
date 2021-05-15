@@ -50,5 +50,15 @@ An extensible command line image viewer inspired by vim.
 
 ## Documentation
 Viewing the images is half the fun. Read the
-[documentation](https://ucollage.readthedocs.io/en/stable) in order to explore the more
-interesting functionalities that are possible with `ucollage`.
+[documentation](https://ucollage.readthedocs.io/en/stable) in order to explore
+the more interesting functionalities that are possible with `ucollage`.
+
+## Contributing
+I will gladly accept contributions from any interested parties. I would prefer
+most contributions to be targeted towards improving the language of the
+documentation, in order for it to be more understandable for the new user of the
+software.
+
+> "It's hard to explain the internal quirks of a system, when you are the
+> creator of such a monster."
+> --<cite>Myself</cite>
