@@ -78,3 +78,9 @@ If you want to install `ucollage` in your root directory then run
 $ sudo make install
 
 ```
+
+If you want to install in another directory (e.g. `build`) you can run
+```bash
+$ make PREFIX=build install
+
+```
