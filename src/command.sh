@@ -50,6 +50,7 @@ command_mode(){
                 then
                     eval_cmd="${full_cmd##!*( )}"
                     eval "_cwrapper $eval_cmd"
+                    repeat_command="command_mode --left \"$full_cmd\""
                 elif [[ -n ${colon_cmd[$cmd]} ]]
                 then
                     eval_cmd="${full_cmd//$cmd/${colon_cmd[$cmd]}}"
