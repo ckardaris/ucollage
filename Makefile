@@ -52,7 +52,7 @@ install:
 
 uninstall:
 	@echo "Checking that make is called from inside the base directory..."
-	@[[ -f Makefile ]]
+	@[ -f Makefile ]
 	@echo OK
 	@echo "Removing files and directories..."
 	@rm -rf ${DOC_DIR}
