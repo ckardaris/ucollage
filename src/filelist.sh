@@ -47,13 +47,45 @@ read_filenames() {
         done
     elif [[ "$expand_dirs" == "ask" ]]
     then
+        local yesall=0
+        local first_item=1
         for item in "${filelist[@]}"
         do
-            [[ -d "$item" ]] \
-                && read -p "Expand $item? (n, Esc: no, N: no to all)" -rsN1 char \
-                && echo
-            [[ "$char" == "N" ]] && break
-            [[ ! "$char" =~ ^(n|$'\e')$ ]] && filelist+=("$item"/*)
+            if [[ -d "$item" ]]
+            then
+                if [[ "$yesall" -eq 1 ]]
+                then
+                    filelist+=("$item"/*)
+                else
+                    [[ "$first_item" -eq 1 ]] \
+                        && printf "Expand directory options:\n" \
+                        && printf "  y/Enter\tyes\n" \
+                        && printf "  Y\t\tyes to all\n" \
+                        && printf "  n\t\tno\n" \
+                        && printf "  N\t\tno to all\n" \
+                        && printf "%s\n" "------------------------" \
+                        && first_item=0
+                    read -p "Expand $item? " -rsN1 char
+                    case "$char" in
+                        "N")
+                            echo N
+                            break
+                            ;;
+                        "Y")
+                            echo Y
+                            filelist+=("$item"/*)
+                            yesall=1
+                            ;;
+                        "y"|$'\n')
+                            echo y
+                            filelist+=("$item"/*)
+                            ;;
+                        *)
+                            echo n
+                            ;;
+                    esac
+                fi
+            fi
         done
     fi
     argc="${#filelist[@]}"
