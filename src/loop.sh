@@ -5,7 +5,7 @@ loop() {
     local char key
     while true
     do
-        [[ "$break_flag" -eq 1 ]] && break
+        [[ "$break_flag" -eq 1 ]] && break_flag=0 && break
         [[ "${#images[@]}" -eq 0 ]] && exit_flag=1
         [[ "$exit_flag" -eq 1 ]] && break
         key=
