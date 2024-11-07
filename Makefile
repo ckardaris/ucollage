@@ -1,10 +1,10 @@
 PREFIX?=/
 PREFIX_PATH=$(shell readlink -f ${PREFIX})
-INSTALL_DIR=${PREFIX_PATH}/usr/bin
-DOC_DIR=${PREFIX_PATH}/usr/share/doc/ucollage
-MAN_DIR=${PREFIX_PATH}/usr/share/man/man1
-LICENSE_DIR=${PREFIX_PATH}/usr/share/licenses/ucollage
-SHARE_DIR=${PREFIX_PATH}/usr/share/ucollage
+INSTALL_DIR=${PREFIX_PATH}/bin
+DOC_DIR=${PREFIX_PATH}/share/doc/ucollage
+MAN_DIR=${PREFIX_PATH}/share/man/man1
+LICENSE_DIR=${PREFIX_PATH}/share/licenses/ucollage
+SHARE_DIR=${PREFIX_PATH}/share/ucollage
 SRC_DIR=${SHARE_DIR}/src
 CONFIG_DIR=${PREFIX_PATH}/etc/ucollage
 

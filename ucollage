@@ -11,7 +11,7 @@ CONFIG_DEFAULT="{{UCOLLAGE_PREFIX_DIR}}/etc/ucollage/mappings"
 CONFIG_SCRIPTS_FILE="$HOME/.config/ucollage/scripts"
 CONFIG_VARIABLES_FILE="$HOME/.config/ucollage/variables"
 [[ -f "$CONFIG_VARIABLES_FILE" ]] && source "$CONFIG_VARIABLES_FILE"
-SOURCE_DIR="{{UCOLLAGE_PREFIX_DIR}}/usr/share/ucollage/src"
+SOURCE_DIR="{{UCOLLAGE_PREFIX_DIR}}/share/ucollage/src"
 for srcfile in ${SOURCE_DIR}/*
 do
     source "$srcfile"
