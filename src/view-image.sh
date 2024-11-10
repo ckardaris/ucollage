@@ -18,7 +18,7 @@ show_batch() {
     for ((i = optcurrent[gridlines] * optcurrent[gridcolumns]; \
         i < previous_batch; i++))
     do
-        ueberzugpp cmd -s $SOCKET -a remove -i "ucollage$counter"
+        ueberzugpp cmd -s $SOCKET -a remove -i "ucollage$i"
     done
     for ((i = 0; i < optcurrent[gridlines]; i++ ))
 
