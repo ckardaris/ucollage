@@ -14,7 +14,7 @@ help(){
     echo "  q                       exit"
     echo "  sf                      set fileinfo type"
     echo "  ss                      set sort type"
-    echo "  su                      set ueberzug scaler"
+    echo "  su                      set ueberzugpp scaler"
     echo "  tf                      toggle fileinfo on screen"
     echo "  tp                      toggle exec prompt"
     echo "  tr                      toggle reverse sort"

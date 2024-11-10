@@ -15,7 +15,7 @@ The next steps are:
 - Initialize `spacelist` and `sticklist` associative arrays that permit the <a
   href="autocomplete.html">autocomplete</a> functionality. 
 - Check dependencies, parse the configuration files and set up the option variables. 
-- Start the ueberzug daemon.
+- Start the ueberzugpp daemon.
 - The outer loop is initialized. This loops starts reading the files specified in the command line
   and is repeated **only** if we have a need to re-read the files (i.e. when the sort order is
   changed)

@@ -234,29 +234,23 @@ smaller part that we want to examine.
 
 ---
 
-At last we have the variables that correspond to `ueberzug` and consequently the
+At last we have the variables that correspond to `ueberzugpp` and consequently the
 way images are drawn. We provide support for configuring 3 parameters.
 
 <div id=UCOLLAGE_SCALER><b>UCOLLAGE_SCALER</b></div>
 
 | | |
 ---|---
-Valid   | {crop, distort, fit\_contain, contain, forced_cover, cover}
+Valid   | {fit\_contain, forced_cover}
 Default | `contain`
 Info    | Image scaler
 
 Again here we have to give some more clarification of how each scaler operates.
-Let's start by giving a formal description of each one taken directly from the
-`ueberzug` [README](https://github.com/seebye/ueberzug#add).
 
 Name          | Description                                                                      |
 --------------|----------------------------------------------------------------------------------|
-crop          | Crops out an area of the size of the placement size.                             |
-distort       | Distorts the image to the placement size.                                        |
 fit_contain   | Resizes the image that either the width matches the maximum width or<br>the height matches the maximum height while keeping the image ratio. |
-contain       | Resizes the image to a size <= the placement size while keeping the image ratio. |
 forced_cover  | Resizes the image to cover the entire area which should be filled while <br>keeping the image ratio. If the image is smaller than the desired size<br>it will be stretched to reach the desired size.<br>If the ratio of the area differs from the image ratio the edges will be cut off. |
-cover         | The same as forced_cover but images won't be stretched<br>if they are smaller than the area which should be filled. |
 
 We can summarize the effect of each scaler on a random image in the table below.
 

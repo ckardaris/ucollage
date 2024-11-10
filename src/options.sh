@@ -32,7 +32,7 @@ declare -A optiontype=(\
 )
 
 declare -A enumoptvalue=(\
-    [scaler]="crop distort fit_contain contain forced_cover cover"
+    [scaler]="fit_contain forced_cover"
     [sort]="name time size extension"
     [fileinfo]="names ratings categories"
 )

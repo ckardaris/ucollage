@@ -15,7 +15,7 @@ Key                       | Action
 `q`                       | quit
 `sf`                      | set fileinfo type (names, ratings, categories)
 `ss`                      | set sort type (name, time, size, extension)
-`su`                      | set ueberzug scaler (crop, distort, fit_contain, contain, forced_cover, cover)
+`su`                      | set ueberzugpp scaler (fit_contain, forced_cover)
 `tf`                      | toggle fileinfo on screen
 `tp`                      | toggle exec prompt
 `tr`                      | toggle reverse sort

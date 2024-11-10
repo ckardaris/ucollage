@@ -1,7 +1,7 @@
 check_dependencies() {
     local dependency errors=0
     local -A dep
-    dep[ueberzug]="ueberzug"
+    dep[ueberzugpp]="ueberzugpp"
     dep[file]="file"
     dep[md5sum]="coreutils"
     dep[bc]="bc"

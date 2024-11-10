@@ -3,7 +3,7 @@
 ## What is `ucollage`?
 
 `ucollage` is a command-line image viewer. It is able to show images on top of
-your terminal window by utilizing `ueberzug`. The latter is able to do that by
+your terminal window by utilizing `ueberzugpp`. The latter is able to do that by
 exploiting the properties of the X window your terminal emulator is currently
 attached to.
 

@@ -18,8 +18,7 @@ show_batch() {
     for ((i = optcurrent[gridlines] * optcurrent[gridcolumns]; \
         i < previous_batch; i++))
     do
-        assoc=([action]=remove [identifier]="ucollage$i")
-        declare -p assoc > "$fifo"
+        ueberzugpp cmd -s $SOCKET -a remove -i "ucollage$counter"
     done
     for ((i = 0; i < optcurrent[gridlines]; i++ ))
 
@@ -37,17 +36,7 @@ show_batch() {
                 (( posx = j * photo_columns))
                 (( posy = 3 + i * photo_lines))
             fi
-            assoc=([action]=add
-                   [identifier]="ucollage$counter"
-                   [path]="${images[$index]}"
-                   [width]="$photo_columns"
-                   [height]="$draw_lines"
-                   [x]="$posx"
-                   [y]="$posy"
-                   [scaling_position_x]="$realscalingx"
-                   [scaling_position_y]="$realscalingy"
-                   [scaler]="${optcurrent[scaler]}")
-            declare -p assoc > "$fifo"
+            ueberzugpp cmd -s $SOCKET -a add -i "ucollage$counter" -x "$posx" -y "$posy" -f "${images[$index]}" --max-width "$photo_columns" --max-height "$draw_lines"
         done
     done
     (( previous_batch = optcurrent[gridlines] * optcurrent[gridcolumns]))

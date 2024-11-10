@@ -3,7 +3,7 @@
 ## Dependencies
 
 **Required**
-- `ueberzug` 
+- `ueberzugpp` 
 - `bash >= 4.2`
 - `file`
 - `bc`
@@ -20,13 +20,12 @@
 
 ### Arch Linux
 ```
-sudo pacman --needed -S ueberzug file bc sed imagemagick ffmpeg xclip
+sudo pacman --needed -S ueberzugpp file bc sed imagemagick ffmpeg xclip
 ```
 ### Other OS
-`ueberzug` can be installed via `pip`
-```
-$ pip3 install --user ueberzug
-```
+`ueberzugpp` can be installed from
+[source](https://github.com/jstkdng/ueberzugpp?tab=readme-ov-file#build-from-source)
+
 The rest of the dependencies should be available in the official repositories of your
 distribution.
 
